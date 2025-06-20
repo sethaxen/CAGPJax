@@ -25,6 +25,5 @@ dev = [
     "pytest",
     "pre-commit",
     "ruff",
-    "mypy",
     "pyright",
 ]
