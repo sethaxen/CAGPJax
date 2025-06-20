@@ -3,10 +3,11 @@
 from typing import Optional
 
 import jax.numpy as jnp
+from cola.ops import LinearOperator
 from jaxtyping import Array, Float
 
 
-class BlockDiagonalSparseOperator:
+class BlockDiagonalSparseOperator(LinearOperator):
     """Block-diagonal sparse linear operator.
 
     This operator represents a block-diagonal matrix with contiguous blocks
@@ -32,8 +33,6 @@ class BlockDiagonalSparseOperator:
         blocks: Float[Array, "n_blocks block_rows block_cols"],
         shape: Optional[tuple[int, int]] = None,
     ) -> None:
-        self.blocks = blocks
-
         # Compute the natural shape assuming perfect tiling
         n_blocks, block_rows, block_cols = blocks.shape
         natural_rows = n_blocks * block_rows
@@ -42,41 +41,24 @@ class BlockDiagonalSparseOperator:
         if shape is None:
             shape = (natural_rows, natural_cols)
 
-        self._shape = shape
+        super().__init__(blocks.dtype, shape)
+        self.blocks = blocks
 
         # Validate that the shape makes sense
-        if shape[0] < natural_rows - block_rows:
+        if self.shape[0] < natural_rows - block_rows:
             raise ValueError("Shape too small for blocks in row dimension")
-        if shape[1] < natural_cols - block_cols:
+        if self.shape[1] < natural_cols - block_cols:
             raise ValueError("Shape too small for blocks in column dimension")
 
-    @property
-    def shape(self) -> tuple[int, int]:
-        """Shape of the represented matrix."""
-        return self._shape
-
-    def __matmul__(
-        self, other: Float[Array, "n_cols n_samples"]
+    def _matmat(
+        self, X: Float[Array, "n_cols n_samples"]
     ) -> Float[Array, "n_rows n_samples"]:
-        """Matrix multiplication with the sparse operator.
-
-        Optimized implementation leveraging the contiguous block structure for
-        maximum performance with JAX.
-
-        Args:
-            other: Array to multiply with, shape (n_cols, n_samples).
-
-        Returns:
-            Result of matrix multiplication, shape (n_rows, n_samples).
-        """
+        """Matrix multiplication with the sparse operator."""
         n_rows, n_cols = self.shape
 
-        if other.shape[0] != n_cols:
-            raise ValueError(f"Input dimension mismatch: {other.shape[0]} != {n_cols}")
-
         # Initialize result with appropriate dtype (promotion of blocks and other)
-        result_dtype = jnp.result_type(self.blocks.dtype, other.dtype)
-        result = jnp.zeros((n_rows, other.shape[1]), dtype=result_dtype)
+        result_dtype = jnp.result_type(self.dtype, X.dtype)
+        result = jnp.zeros((n_rows, X.shape[1]), dtype=result_dtype)
 
         # Get block dimensions
         n_blocks, block_rows, block_cols = self.blocks.shape
@@ -86,7 +68,7 @@ class BlockDiagonalSparseOperator:
 
         if n_perfect_blocks > 0:
             # Reshape input for vectorized block multiplication
-            input_blocks = other[: n_perfect_blocks * block_cols].reshape(
+            input_blocks = X[: n_perfect_blocks * block_cols].reshape(
                 n_perfect_blocks, block_cols, -1
             )
 
@@ -112,7 +94,7 @@ class BlockDiagonalSparseOperator:
             if actual_cols > 0:
                 # Extract the relevant block and input slice
                 block_slice = self.blocks[block_idx][:actual_rows, :actual_cols]
-                input_slice = other[col_start : col_start + actual_cols]
+                input_slice = X[col_start : col_start + actual_cols]
 
                 # Compute and place overhang result
                 overhang_result = block_slice @ input_slice
@@ -148,18 +130,3 @@ class BlockDiagonalSparseOperator:
                 dense = dense.at[row_start:row_end, col_start:col_end].set(block_slice)
 
         return dense
-
-    def transpose(self) -> "BlockDiagonalSparseOperator":
-        """Transpose of the sparse operator.
-
-        Returns:
-            Transposed sparse operator with swapped block dimensions and shape.
-        """
-        # Transpose each block
-        transposed_blocks = jnp.transpose(self.blocks, (0, 2, 1))
-
-        # Swap shape dimensions
-        n_rows, n_cols = self.shape
-        transposed_shape = (n_cols, n_rows)
-
-        return BlockDiagonalSparseOperator(transposed_blocks, transposed_shape)

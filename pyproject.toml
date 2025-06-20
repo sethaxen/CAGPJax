@@ -7,7 +7,7 @@ name = "cagpjax"
 version = "0.1.0"
 description = "Computation-Aware Gaussian Processes for GPJax"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "MIT"
 authors = [
     { name = "Seth Axen", email = "seth.axen@gmail.com" },
@@ -18,6 +18,7 @@ dependencies = [
     "gpjax",
     "jaxtyping",
     "beartype",
+    "cola-ml>=0.0.7",
 ]
 
 [project.optional-dependencies]

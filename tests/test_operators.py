@@ -131,27 +131,6 @@ class TestBlockDiagonalSparseOperator:
 
         assert jnp.allclose(dense, expected)
 
-    def test_transpose(self):
-        """Test matrix transpose."""
-        blocks = jnp.array(
-            [
-                [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],  # 2x3 block
-                [[7.0, 8.0, 9.0], [10.0, 11.0, 12.0]],  # 2x3 block
-            ]
-        )
-        op = BlockDiagonalSparseOperator(blocks)  # Natural shape (4, 6)
-
-        op_t = op.transpose()
-
-        assert op_t.shape == (6, 4)  # Transposed dimensions
-        assert op_t.blocks.shape == (2, 3, 2)  # Swapped block dimensions
-
-        # Check that transpose is correct via dense representation
-        dense_original = op.to_dense()
-        dense_transposed = op_t.to_dense()
-
-        assert jnp.allclose(dense_transposed, dense_original.T)
-
     def test_jit_compatibility(self):
         """Test that operations are JIT-compatible."""
         blocks = jnp.ones((2, 2, 2))  # Each block is all ones
@@ -198,8 +177,8 @@ class TestBlockDiagonalSparseOperator:
 
         x = jnp.ones((3, 1))  # Wrong input dimension
 
-        with pytest.raises(ValueError, match="Input dimension mismatch"):
-            op @ x
+        with pytest.raises(Exception, match="dimension mismatch"):
+            op @ x  # type: ignore[unused-expression]
 
     def test_vectorized_performance(self):
         """Test that vectorized operations work correctly for multiple perfect blocks."""
@@ -256,10 +235,6 @@ class TestBlockDiagonalSparseOperator:
         # Test to_dense dtype consistency
         dense = op.to_dense()
         assert dense.dtype == blocks_f32.dtype
-
-        # Test transpose preserves dtype
-        op_t = op.transpose()
-        assert op_t.blocks.dtype == blocks_f32.dtype
 
         # Test with different float dtypes if available
         # Note: JAX may downcast to float32 depending on configuration
