@@ -22,8 +22,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest",
+    "pytest", 
     "pre-commit",
     "ruff",
     "pyright",
 ]
+
+[tool.ruff.lint]
+ignore = ["F722"]  # Ignore syntax errors in forward annotations for jaxtyping
