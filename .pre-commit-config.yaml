@@ -10,3 +10,4 @@ repos:
     rev: v1.1.369
     hooks:
       - id: pyright
+        additional_dependencies: ["jax", "jaxtyping", "pytest"]
