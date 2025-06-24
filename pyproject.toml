@@ -7,14 +7,14 @@ name = "cagpjax"
 version = "0.1.0"
 description = "Computation-Aware Gaussian Processes for GPJax"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10, <3.13"
 license = "MIT"
 authors = [
     { name = "Seth Axen", email = "seth.axen@gmail.com" },
 ]
 
 dependencies = [
-    "jax",
+    "jax>=0.5,<0.6",
     "gpjax",
     "jaxtyping",
     "beartype",
@@ -30,4 +30,9 @@ dev = [
 ]
 
 [tool.ruff.lint]
+select = ["I"]  # Enable isort rules
 ignore = ["F722"]  # Ignore syntax errors in forward annotations for jaxtyping
+
+[tool.ruff.lint.isort]
+force-single-line = false
+known-first-party = ["cagpjax"]
