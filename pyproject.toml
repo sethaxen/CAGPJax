@@ -20,6 +20,7 @@ dependencies = [
     "beartype",
     "cola-ml>=0.0.7",
     "flax>=0.10.0",
+    "typing-extensions",
 ]
 
 [project.optional-dependencies]
