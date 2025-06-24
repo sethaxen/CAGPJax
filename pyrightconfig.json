@@ -1,0 +1,9 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "reportAttributeAccessIssue": "none",
+  "reportMissingTypeStubs": false,
+  "reportUnknownMemberType": "none",
+  "reportMissingTypeArgument": "none",
+  "reportUnknownParameterType": "none"
+}
