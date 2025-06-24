@@ -19,10 +19,11 @@ def _test_batch_policy_actions_consistency(policy, op: LinearOperator):
     assert actions.dtype == op.dtype
 
 
-@pytest.fixture
-def psd_linear_operator(n=10, key=jax.random.key(42)):
+@pytest.fixture(params=[[10, jnp.float32], [20, jnp.float64]])
+def psd_linear_operator(request, key=jax.random.key(42)):
     """Create a sample linear operator for testing."""
-    B = jax.random.normal(key, (n, n))
+    n, dtype = request.param
+    B = jax.random.normal(key, (n, n), dtype=dtype)
     A = B @ B.T
     return cola.PSD(Dense(A))
 
@@ -85,6 +86,7 @@ class TestLanczosPolicy:
         abs_product = jnp.abs(product)
         expected_identity = jnp.eye(n_actions)
 
-        assert jnp.allclose(abs_product, expected_identity, atol=1e-4), (
+        atol = 1e-6 if psd_linear_operator.dtype == jnp.float64 else 1e-3
+        assert jnp.allclose(abs_product, expected_identity, atol=atol), (
             "CG eigenvectors don't match reference eigenvectors (up to sign)"
         )
