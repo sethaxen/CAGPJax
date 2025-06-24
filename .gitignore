@@ -13,6 +13,7 @@ htmlcov/
 # Environments
 .venv/
 venv/
+uv.lock
 
 # IDE
 .vscode/
