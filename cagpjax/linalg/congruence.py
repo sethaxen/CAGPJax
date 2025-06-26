@@ -14,10 +14,7 @@ from ..operators import BlockDiagonalSparse
 
 # fallback to plain multiplication
 @overload
-def congruence_transform(
-    A: LinearOperator | Float[Array, "M N"],
-    B: LinearOperator | Float[Array, "N N"],
-):
+def congruence_transform(A: Any, B: Any) -> Any:
     return (A @ B) @ A.T
 
 
