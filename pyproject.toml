@@ -23,11 +23,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = [
+test = [
     "pytest", 
+    "pytest-cov",
+]
+dev = [
+    "cagpjax[test]",
     "pre-commit",
-    "ruff",
-    "pyright",
 ]
 
 [tool.ruff.lint]
