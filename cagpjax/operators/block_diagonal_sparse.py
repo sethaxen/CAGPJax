@@ -14,7 +14,7 @@ class BlockDiagonalSparse(LinearOperator):
     each contains a row vector, so that exactly one value is non-zero in each column.
 
     Args:
-        nnz_values: Non-zero values to be distributed across diagonal blocks.
+        nz_values: Non-zero values to be distributed across diagonal blocks.
         n_blocks: Number of diagonal blocks in the matrix.
 
     Example:
@@ -31,26 +31,29 @@ class BlockDiagonalSparse(LinearOperator):
         >>> result = op @ x
     """
 
-    def __init__(self, nnz_values: Float[Array, "N"], n_blocks: int):
-        n = nnz_values.shape[0]
-        super().__init__(nnz_values.dtype, (n_blocks, n))
-        block_size: int = math.ceil(n / n_blocks)
-        n_blocks_main = n // block_size
-        self.blocks_main = nnz_values[: n_blocks_main * block_size].reshape(
-            n_blocks_main, block_size
-        )
-        self.block_overhang = nnz_values[n_blocks_main * block_size :]
-        self.n_blocks = n_blocks
+    def __init__(self, nz_values: Float[Array, "N"], n_blocks: int):
+        n = nz_values.shape[0]
+        super().__init__(nz_values.dtype, (n_blocks, n))
+        self.nz_values = nz_values
 
     def _matmat(self, X: Float[Array, "N #M"]) -> Float[Array, "K #M"]:
-        n_main = self.blocks_main.size
-        X_main = X[:n_main, ...].reshape(*self.blocks_main.shape, -1)
-        res = jnp.einsum("ik,ikj->ij", self.blocks_main, X_main)
+        # figure out size of main blocks
+        n_blocks, n = self.shape
+        block_size = math.ceil(n / n_blocks)
+        n_blocks_main = n // block_size
+        n_main = n_blocks_main * block_size
 
-        n_overhang = self.shape[1] - n_main
-        if n_overhang > 0:
+        # block-wise multiplication
+        blocks_main = self.nz_values[:n_main].reshape(n_blocks_main, block_size)
+        X_main = X[:n_main, ...].reshape(n_blocks_main, block_size, -1)
+        res = jnp.einsum("ik,ikj->ij", blocks_main, X_main)
+
+        # handle overhang if any
+        if n > n_main:
+            n_overhang = n - n_main
             X_overhang = X[n_main:, ...].reshape(n_overhang, -1)
-            res_overhang = self.block_overhang[None, :] @ X_overhang
+            block_overhang = self.nz_values[n_blocks_main * block_size :]
+            res_overhang = block_overhang[None, :] @ X_overhang
             res = jnp.concatenate([res, res_overhang], axis=0)
 
         return res.reshape(-1, *X.shape[1:])
