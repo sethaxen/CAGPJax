@@ -17,7 +17,6 @@ dependencies = [
     "jax>=0.5,<0.6",
     "gpjax",
     "jaxtyping",
-    "beartype",
     "cola-ml>=0.0.7",
     "flax>=0.10.0",
     "typing-extensions",
