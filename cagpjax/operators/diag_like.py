@@ -15,7 +15,7 @@ def diag_like(
         values: Scalar for a scalar matrix or array of diagonal values for a diagonal matrix.
 
     Returns:
-        Diagonal or ScalarMul operator with the same shape, dtype, and device as the operator.
+            Diagonal or scalar operator.
     """
     device = operator.device
     dtype = operator.dtype
