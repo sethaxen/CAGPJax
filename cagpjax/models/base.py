@@ -1,3 +1,5 @@
+"""Abstract base classes for models."""
+
 import abc
 
 from gpjax.variational_families import AbstractVariationalFamily
