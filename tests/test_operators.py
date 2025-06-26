@@ -4,9 +4,10 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from cola.ops import LinearOperator
+from cola.ops import Dense, Diagonal, LinearOperator, ScalarMul
 
 from cagpjax.operators import BlockDiagonalSparse
+from cagpjax.operators.diag_like import diag_like
 
 jax.config.update("jax_enable_x64", True)
 
@@ -66,3 +67,29 @@ class TestBlockDiagonalSparse:
         f = lambda x: jnp.prod(jnp.sin(op @ x))
         x = jax.random.normal(key, (n_nz_values,), dtype=dtype)
         jax.test_util.check_grads(f, (x,), order=1)
+
+
+class TestDiagLike:
+    """Test cases for ``diag_like``."""
+
+    @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
+    @pytest.mark.parametrize(
+        "vals_n", [(2.5, 5), (jnp.array(3.3), 6), (jnp.arange(1.0, 6.0) ** 2, None)]
+    )
+    def test_scalar_values(self, vals_n, dtype):
+        """Test ``diag_like``."""
+        vals, n = vals_n
+        if n is None:
+            n = len(vals)
+        ref_op = Dense(jnp.ones((n, n), dtype=dtype))
+        diag_op = diag_like(ref_op, vals)
+        assert diag_op.shape == ref_op.shape
+        assert diag_op.dtype == ref_op.dtype
+        assert diag_op.device == ref_op.device
+        _test_linear_operator_consistency(diag_op)
+        if isinstance(vals, jnp.ndarray) and vals.ndim == 1:
+            assert isinstance(diag_op, Diagonal)
+            np.testing.assert_allclose(diag_op.to_dense(), jnp.diag(vals))
+        else:
+            assert isinstance(diag_op, ScalarMul)
+            np.testing.assert_allclose(diag_op.to_dense(), jnp.diag(jnp.full(n, vals)))
