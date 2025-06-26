@@ -19,5 +19,6 @@ uv.lock
 .vscode/
 .idea/
 
-# All directories beginning with a dot
+# All directories beginning with a dot (except .github/)
 .*/
+!.github/
