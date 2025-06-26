@@ -5,13 +5,26 @@ build-backend = "hatchling.build"
 [project]
 name = "cagpjax"
 version = "0.1.0"
-description = "Computation-Aware Gaussian Processes for GPJax"
+description = "Computation-Aware Gaussian Processes for JAX"
 readme = "README.md"
 requires-python = ">=3.10, <3.13"
-license = "MIT"
+license = {file = "LICENSE"}
 authors = [
-    { name = "Seth Axen", email = "seth.axen@gmail.com" },
+    { name = "Seth Axen", email = "seth@sethaxen.com" },
 ]
+keywords = ["jax", "gaussian-processes", "machine-learning", "bayesian"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+urls = {repository = "https://github.com/sethaxen/CAGPJax" }
 
 dependencies = [
     "jax>=0.5,<0.6",
