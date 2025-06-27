@@ -5,16 +5,14 @@ from dataclasses import dataclass
 import cola
 import cola.linalg
 import jax.numpy as jnp
-from cola.linalg import Cholesky
 from cola.ops import LinearOperator
 from gpjax.distributions import GaussianDistribution
 from gpjax.gps import ConjugatePosterior, Dataset
-from gpjax.lower_cholesky import lower_cholesky
 from gpjax.mean_functions import Constant
 from jaxtyping import Array, Float
 from typing_extensions import override
 
-from ..linalg import congruence_transform
+from ..linalg import congruence_transform, lower_cholesky
 from ..operators import diag_like
 from ..policies import AbstractBatchLinearSolverPolicy
 from ..typing import ScalarFloat
@@ -93,9 +91,7 @@ class ComputationallyAwareGP(AbstractComputationallyAwareGP):
         proj = self.policy.to_actions(cov_prior).T
         obs_cov_proj = congruence_transform(proj, obs_cov)
         cov_prior_proj = congruence_transform(proj, cov_prior)
-        cov_prior_lchol_proj = lower_cholesky(
-            cola.PSD(cov_prior_proj + diag_like(cov_prior_proj, self.jitter))
-        )
+        cov_prior_lchol_proj = lower_cholesky(cov_prior_proj, jitter=self.jitter)
 
         residual_proj = proj @ (y - mean_prior)
         inv_cov_prior_lchol_proj = cola.linalg.inv(cov_prior_lchol_proj)
