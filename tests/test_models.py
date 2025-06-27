@@ -3,18 +3,16 @@
 import gpjax as gpjax
 import jax
 import jax.numpy as jnp
-import jax.random as jr
-import numpy as np
 import pytest
 from gpjax.distributions import GaussianDistribution
 from gpjax.gps import ConjugatePosterior
 from gpjax.kernels import RBF
 from gpjax.likelihoods import Gaussian
 from gpjax.mean_functions import Constant
+from gpjax.objectives import elbo, variational_expectation
 
 import cagpjax
 from cagpjax.models import ComputationallyAwareGP
-from cagpjax.operators import diag_like
 from cagpjax.policies import BlockSparsePolicy, LanczosPolicy
 
 jax.config.update("jax_enable_x64", True)
@@ -191,3 +189,62 @@ class TestComputationallyAwareGP:
         assert jnp.allclose(
             pred.scale.to_dense(), pred_exact.scale.to_dense(), atol=1e-6
         )
+
+    def test_prior_kl_consistency(self, conditioned_cagp, train_data, dtype):
+        """Test that custom ``prior_kl`` matches KL computed from result of ``predict``."""
+        if dtype == jnp.float32:
+            pytest.skip("Skipping float32 test due to numerical precision limitations")
+
+        kl = conditioned_cagp.prior_kl()
+        assert isinstance(kl, jnp.ndarray)
+        assert kl.dtype == dtype
+        assert jnp.isscalar(kl)
+        assert jnp.isfinite(kl)
+        assert kl >= 0.0
+
+        # compare with KL computed explicitly from predictive distributions
+        q = conditioned_cagp.predict()
+        p = conditioned_cagp.posterior.prior.predict(train_data.X)
+        kl_explicit = q.kl_divergence(p)
+
+        assert jnp.allclose(kl, kl_explicit, rtol=1e-4)
+
+    def test_prior_kl_gradient_sparse_actions(
+        self, posterior, n_train, train_data, dtype, key=jax.random.key(42)
+    ):
+        """Test that ``prior_kl`` gradient wrt sparse action parameters is correct."""
+        if dtype == jnp.float32:
+            pytest.skip("Skipping float32 test due to numerical precision limitations")
+
+        def kl_objective(nz_values):
+            policy = BlockSparsePolicy(n_actions=n_train, nz_values=nz_values)
+            cagp = ComputationallyAwareGP(posterior=posterior, policy=policy)
+            cagp.condition(train_data)
+            return cagp.prior_kl()
+
+        nz_values = jax.random.normal(key, (n_train,), dtype=dtype)
+        jax.test_util.check_grads(kl_objective, (nz_values,), order=1)
+
+    def test_integration_elbo(self, conditioned_cagp, posterior, train_data, dtype):
+        """Test that ``elbo`` objective from GPJax is computed correctly."""
+        if dtype == jnp.float32:
+            pytest.skip("Skipping float32 test due to numerical precision limitations")
+
+        elbo_value = elbo(conditioned_cagp, train_data)
+        assert isinstance(elbo_value, jnp.ndarray)
+        assert elbo_value.dtype == dtype
+        assert jnp.isscalar(elbo_value)
+        assert jnp.isfinite(elbo_value)
+
+        # compute CaGP posterior mean and variance
+        q = conditioned_cagp.predict()
+        mean_q = q.mean
+        var_q = q.variance
+
+        # compute ELBO explicitly
+        var_exp = posterior.likelihood.expected_log_likelihood(
+            train_data.y, mean_q[:, None], var_q[:, None]
+        )
+        elbo_value_explicit = var_exp.sum() - conditioned_cagp.prior_kl()
+
+        assert jnp.allclose(elbo_value, elbo_value_explicit)

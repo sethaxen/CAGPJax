@@ -155,6 +155,43 @@ class ComputationallyAwareGP(AbstractComputationallyAwareGP):
 
         return GaussianDistribution(mean_pred, cov_pred)
 
+    def prior_kl(self) -> ScalarFloat:
+        r"""Compute KL divergence between approximate and exact posterior.
+
+        Calculates $\mathrm{KL}[q(f) || p(f)]$, where $q(f)$ is the CaGP
+        posterior approximation and $p(f)$ is the exact GP posterior.
+
+        ``condition`` must be called before this method can be used.
+
+        Returns:
+            KL divergence value (scalar).
+        """
+        if not self.is_conditioned:
+            raise ValueError("Model is not yet conditioned. Call ``condition`` first.")
+
+        # help out pyright
+        assert self._posterior_params is not None
+
+        # Unpack posterior parameters
+        obs_cov_proj = self._posterior_params.obs_cov_proj
+        cov_prior_lchol_proj = self._posterior_params.cov_prior_lchol_proj
+        residual_proj = self._posterior_params.residual_proj
+        repr_weights_proj = self._posterior_params.repr_weights_proj
+
+        obs_cov_lchol_proj = lower_cholesky(obs_cov_proj, jitter=self.jitter)
+
+        kl = (
+            _kl_divergence_from_cholesky(
+                residual_proj,
+                obs_cov_lchol_proj,
+                jnp.zeros_like(residual_proj),
+                cov_prior_lchol_proj,
+            )
+            - 0.5 * congruence_transform(repr_weights_proj.T, obs_cov_proj).squeeze()
+        )
+
+        return kl
+
 
 # Technically we need the projected mean and covariance of the prior, projected data, and
 # projected likelihood, but these intermediates are more computationally useful.
@@ -178,3 +215,25 @@ class _ProjectedPosteriorParameters:
     cov_prior_lchol_proj: LinearOperator
     residual_proj: Float[Array, "M"]
     repr_weights_proj: Float[Array, "M"]
+
+
+def _kl_divergence_from_cholesky(
+    mean_q: Float[Array, "N"],
+    lchol_cov_q: LinearOperator,
+    mean_p: Float[Array, "N"],
+    lchol_cov_p: LinearOperator,
+) -> ScalarFloat:
+    """Compute KL divergence between two Gaussian distributions."""
+    n = mean_q.shape[0]
+    diff = mean_p - mean_q
+
+    # tr(inv(cov_p) cov_q)
+    inner = jnp.sum(jnp.square(cola.solve(lchol_cov_p, lchol_cov_q.to_dense())))
+
+    # (mean_p - mean_q)' inv(cov_p) (mean_p - mean_q)
+    mahalanobis = jnp.sum(jnp.square(cola.solve(lchol_cov_p, diff)))
+
+    # log(det(cov_p) / det(cov_q)) / 2
+    logdet_ratio = cola.logdet(lchol_cov_p) - cola.logdet(lchol_cov_q)
+
+    return 0.5 * (inner + mahalanobis - n) + logdet_ratio
