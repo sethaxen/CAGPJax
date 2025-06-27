@@ -4,9 +4,9 @@ import cola
 import jax
 import jax.numpy as jnp
 import pytest
-from cola.ops import Diagonal, LinearOperator
+from cola.ops import Dense, Diagonal, I_like, LinearOperator, Triangular
 
-from cagpjax.linalg import congruence_transform
+from cagpjax.linalg import congruence_transform, lower_cholesky
 from cagpjax.operators import BlockDiagonalSparse
 
 jax.config.update("jax_enable_x64", True)
@@ -71,3 +71,52 @@ class TestCongruenceTransform:
         assert jnp.allclose(
             C.to_dense(), congruence_transform(A.to_dense(), B.to_dense())
         )
+
+
+class TestLowerCholesky:
+    """Tests for ``lower_cholesky``."""
+
+    @pytest.fixture(params=[42, 78, 36])
+    def key(self, request):
+        return jax.random.key(request.param)
+
+    @pytest.fixture(params=[None, 1e-3])
+    def jitter(self, request):
+        return request.param
+
+    @pytest.mark.parametrize("n", [5, 10, 30])
+    @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
+    @pytest.mark.parametrize("jitter", [None, 1e-3])
+    def test_lower_cholesky_diagonal(self, n, dtype, key, jitter):
+        """Test overload where ``A`` is ``Diagonal``."""
+        A = Diagonal(jax.random.uniform(key, (n,), dtype=dtype))
+        L = lower_cholesky(A, jitter)
+        assert isinstance(L, Diagonal)
+        assert L.shape == (n, n)
+        assert L.dtype == dtype
+        L_diag = L.diag
+        if jitter is None:
+            assert jnp.allclose(L_diag**2, A.diag)
+        else:
+            assert jnp.allclose(L_diag**2, A.diag + jitter)
+
+    @pytest.mark.parametrize("n", [5, 10, 30])
+    @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
+    @pytest.mark.parametrize("jitter", [None, 1e-3])
+    def test_lower_cholesky_dense(self, n, dtype, key, jitter):
+        """Test overload where ``A`` is ``Dense``."""
+        B = jax.random.normal(key, (n, n), dtype=dtype)
+        A_mat = B @ B.T
+        A = Dense(A_mat)
+        L = lower_cholesky(A, jitter)
+        assert isinstance(L, Triangular)
+        assert L.shape == (n, n)
+        assert L.dtype == dtype
+        if jitter is None:
+            assert jnp.allclose(L.to_dense(), jnp.linalg.cholesky(A_mat))
+        else:
+            if dtype == jnp.float64:
+                assert jnp.allclose(
+                    L.to_dense(),
+                    jnp.linalg.cholesky(A_mat + jitter * jnp.eye(n, dtype=dtype)),
+                )
