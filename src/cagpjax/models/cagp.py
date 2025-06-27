@@ -9,6 +9,7 @@ from cola.linalg import Cholesky
 from cola.ops import LinearOperator
 from gpjax.distributions import GaussianDistribution
 from gpjax.gps import ConjugatePosterior, Dataset
+from gpjax.lower_cholesky import lower_cholesky
 from gpjax.mean_functions import Constant
 from jaxtyping import Array, Float
 from typing_extensions import override
@@ -92,20 +93,21 @@ class ComputationallyAwareGP(AbstractComputationallyAwareGP):
         proj = self.policy.to_actions(cov_prior).T
         obs_cov_proj = congruence_transform(proj, obs_cov)
         cov_prior_proj = congruence_transform(proj, cov_prior)
-        cov_prior_proj = cola.PSD(
-            cov_prior_proj + diag_like(cov_prior_proj, self.jitter)
+        cov_prior_lchol_proj = lower_cholesky(
+            cola.PSD(cov_prior_proj + diag_like(cov_prior_proj, self.jitter))
         )
-        inv_cov_prior_proj = cola.linalg.inv(cov_prior_proj, alg=Cholesky())
 
         residual_proj = proj @ (y - mean_prior)
-        repr_weights_proj = inv_cov_prior_proj @ residual_proj
+        inv_cov_prior_lchol_proj = cola.linalg.inv(cov_prior_lchol_proj)
+        repr_weights_proj = inv_cov_prior_lchol_proj.T @ (
+            inv_cov_prior_lchol_proj @ residual_proj
+        )
 
         self._posterior_params = _ProjectedPosteriorParameters(
             x=x,
             proj=proj,
             obs_cov_proj=obs_cov_proj,
-            cov_prior_proj=cov_prior_proj,
-            inv_cov_prior_proj=inv_cov_prior_proj,
+            cov_prior_lchol_proj=cov_prior_lchol_proj,
             residual_proj=residual_proj,
             repr_weights_proj=repr_weights_proj,
         )
@@ -135,7 +137,7 @@ class ComputationallyAwareGP(AbstractComputationallyAwareGP):
         # Unpack posterior parameters
         x = self._posterior_params.x
         proj = self._posterior_params.proj
-        inv_cov_prior_proj = self._posterior_params.inv_cov_prior_proj
+        cov_prior_lchol_proj = self._posterior_params.cov_prior_lchol_proj
         repr_weights_proj = self._posterior_params.repr_weights_proj
 
         # Predictions at test points
@@ -151,9 +153,9 @@ class ComputationallyAwareGP(AbstractComputationallyAwareGP):
 
         # Posterior predictive distribution
         mean_pred = jnp.atleast_1d(mean_z + cov_xz_proj.T @ repr_weights_proj)
-        cov_pred = cola.PSD(
-            cov_zz - congruence_transform(cov_xz_proj.T, inv_cov_prior_proj)
-        )
+        right_shift_factor = cola.linalg.inv(cov_prior_lchol_proj) @ cov_xz_proj
+        cov_pred = cov_zz - right_shift_factor.T @ right_shift_factor
+        cov_pred = cola.PSD(cov_pred + diag_like(cov_pred, self.jitter))
 
         return GaussianDistribution(mean_pred, cov_pred)
 
@@ -169,8 +171,7 @@ class _ProjectedPosteriorParameters:
         proj: Projection operator mapping from N-dimensional space
             to M-dimensional subspace.
         obs_cov_proj: Projected covariance of likelihood.
-        cov_prior_proj: Projected covariance of prior-predictive distribution.
-        inv_cov_prior_proj: Operator representing inverse of ``cov_prior_proj``.
+        cov_prior_lchol_proj: Lower Cholesky factor of ``cov_prior_proj``.
         residual_proj: Projected residuals between observations and prior mean.
         repr_weights_proj: Projected representer weights.
     """
@@ -178,7 +179,6 @@ class _ProjectedPosteriorParameters:
     x: Float[Array, "N D"]
     proj: LinearOperator
     obs_cov_proj: LinearOperator
-    cov_prior_proj: LinearOperator
-    inv_cov_prior_proj: LinearOperator
+    cov_prior_lchol_proj: LinearOperator
     residual_proj: Float[Array, "M"]
     repr_weights_proj: Float[Array, "M"]
