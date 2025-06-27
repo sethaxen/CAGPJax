@@ -18,6 +18,10 @@ import jax
 import jax.numpy as jnp
 import gpjax as gpx
 import cagpjax
+import optax as ox
+
+# Enable float64 for higher numerical precision
+jax.config.update("jax_enable_x64", True)
 
 n_data = 1_000
 
@@ -41,12 +45,26 @@ train_data = gpx.Dataset(x_train, y_train)
 
 # Condition a CaGP with an (untrained) sparse linear solver policy
 key, subkey = jax.random.split(key)
-policy = cagpjax.policies.BlockSparsePolicy(n_actions=100, n=n_data, key=subkey)
+policy = cagpjax.policies.BlockSparsePolicy(n_actions=10, n=n_data, key=subkey)
 cagp = cagpjax.models.ComputationallyAwareGP(posterior, policy)
-cagp.condition(train_data)
+
+# Optimize hyperparameters (including actions)
+def negative_elbo(cagp, train_data):
+    cagp.condition(train_data)  # update intermediates
+    return -gpx.objectives.elbo(cagp, train_data)
+
+cagp_optimized, history = gpx.fit(
+    model=cagp,
+    objective=negative_elbo, 
+    train_data=train_data,
+    optim=ox.adamw(learning_rate=0.01),
+    num_iters=250,
+    key=key,
+)
 
 # Get CaGP posterior distribution at the inputs
-cagp_post = cagp.predict()
+cagp_optimized.condition(train_data)
+cagp_post = cagp_optimized.predict()
 ```
 
 ## Citation
