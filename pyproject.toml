@@ -50,7 +50,7 @@ docs = [
     "mkdocs-section-index",
 ]
 dev = [
-    "cagpjax[test]",
+    "cagpjax[test,docs]",
     "pre-commit",
 ]
 
