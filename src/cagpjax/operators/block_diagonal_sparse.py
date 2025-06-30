@@ -17,18 +17,22 @@ class BlockDiagonalSparse(LinearOperator):
         nz_values: Non-zero values to be distributed across diagonal blocks.
         n_blocks: Number of diagonal blocks in the matrix.
 
-    Example:
-        >>> import jax.numpy as jnp
-        >>> from cagpjax.operators import BlockDiagonalSparse
-        >>>
-        >>> # Create a 3x6 block-diagonal matrix with 3 blocks
-        >>> nz_values = jnp.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
-        >>> op = BlockDiagonalSparse(nz_values, n_blocks=3)
-        >>> print(op.shape)  # (3, 6)
-        >>>
-        >>> # Apply to a vector
-        >>> x = jnp.ones(6)
-        >>> result = op @ x
+    Examples
+    --------
+    ```python
+    >>> import jax.numpy as jnp
+    >>> from cagpjax.operators import BlockDiagonalSparse
+    >>>
+    >>> # Create a 3x6 block-diagonal matrix with 3 blocks
+    >>> nz_values = jnp.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
+    >>> op = BlockDiagonalSparse(nz_values, n_blocks=3)
+    >>> print(op.shape)
+    (3, 6)
+    >>>
+    >>> # Apply to a vector
+    >>> x = jnp.ones(6)
+    >>> result = op @ x
+    ```
     """
 
     def __init__(self, nz_values: Float[Array, "N"], n_blocks: int):

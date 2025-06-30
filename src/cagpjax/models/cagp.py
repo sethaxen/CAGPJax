@@ -20,7 +20,7 @@ from .base import AbstractComputationallyAwareGP
 
 
 class ComputationallyAwareGP(AbstractComputationallyAwareGP):
-    """Computationally-aware Gaussian Process model[@wenger2022;@wenger2024].
+    """Computationally-aware Gaussian Process model.
 
     This model implements scalable GP inference by using batch linear solver
     policies to project the kernel and data to a lower-dimensional subspace, while
@@ -156,10 +156,10 @@ class ComputationallyAwareGP(AbstractComputationallyAwareGP):
         return GaussianDistribution(mean_pred, cov_pred)
 
     def prior_kl(self) -> ScalarFloat:
-        r"""Compute KL divergence between approximate and exact posterior.
+        r"""Compute KL divergence between CaGP posterior and GP prior..
 
         Calculates $\mathrm{KL}[q(f) || p(f)]$, where $q(f)$ is the CaGP
-        posterior approximation and $p(f)$ is the exact GP posterior.
+        posterior approximation and $p(f)$ is the GP prior.
 
         ``condition`` must be called before this method can be used.
 
