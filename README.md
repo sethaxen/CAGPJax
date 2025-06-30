@@ -2,6 +2,7 @@
 
 [![Tests](https://github.com/sethaxen/CAGPJax/actions/workflows/run_tests.yml/badge.svg)](https://github.com/sethaxen/CAGPJax/actions/workflows/run_tests.yml)
 [![codecov](https://codecov.io/gh/sethaxen/CAGPJax/branch/main/graph/badge.svg)](https://codecov.io/gh/sethaxen/CAGPJax)
+[![Documentation](https://img.shields.io/badge/docs-latest-blue)](https://sethaxen.github.io/CAGPJax)
 
 Computation-Aware Gaussian Processes for GPJax
 
