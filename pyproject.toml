@@ -47,6 +47,7 @@ docs = [
     "mkdocs-gen-files",
     "mkdocs-literate-nav",
     "mkdocs-bibtex",
+    "mkdocs-section-index",
 ]
 dev = [
     "cagpjax[test]",
