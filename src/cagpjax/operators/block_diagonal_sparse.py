@@ -1,7 +1,5 @@
 """Block-diagonal sparse linear operator."""
 
-import math
-
 import jax.numpy as jnp
 from cola.ops import LinearOperator
 from jaxtyping import Array, Float
@@ -43,21 +41,26 @@ class BlockDiagonalSparse(LinearOperator):
     def _matmat(self, X: Float[Array, "N #M"]) -> Float[Array, "K #M"]:
         # figure out size of main blocks
         n_blocks, n = self.shape
-        block_size = math.ceil(n / n_blocks)
-        n_blocks_main = n // block_size
+        block_size = n // n_blocks
+        n_blocks_main = n_blocks if n % n_blocks == 0 else n_blocks - 1
         n_main = n_blocks_main * block_size
 
-        # block-wise multiplication
-        blocks_main = self.nz_values[:n_main].reshape(n_blocks_main, block_size)
-        X_main = X[:n_main, ...].reshape(n_blocks_main, block_size, -1)
-        res = jnp.einsum("ik,ikj->ij", blocks_main, X_main)
+        # block-wise multiplication for main blocks
+        if n_blocks_main > 0:
+            blocks_main = self.nz_values[:n_main].reshape(n_blocks_main, block_size)
+            X_main = X[:n_main, ...].reshape(n_blocks_main, block_size, -1)
+            res_main = jnp.einsum("ik,ikj->ij", blocks_main, X_main)
+        else:
+            res_main = jnp.empty((0, *X.shape[1:]), dtype=X.dtype)
 
         # handle overhang if any
         if n > n_main:
             n_overhang = n - n_main
             X_overhang = X[n_main:, ...].reshape(n_overhang, -1)
-            block_overhang = self.nz_values[n_blocks_main * block_size :]
+            block_overhang = self.nz_values[n_main:]
             res_overhang = block_overhang[None, :] @ X_overhang
-            res = jnp.concatenate([res, res_overhang], axis=0)
+            res = jnp.concatenate([res_main, res_overhang], axis=0)
+        else:
+            res = res_main
 
         return res.reshape(-1, *X.shape[1:])
