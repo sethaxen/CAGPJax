@@ -47,10 +47,11 @@ nav:
   - Reference: reference/
 
 markdown_extensions:
+  - admonition
   - footnotes
   - pymdownx.arithmatex:
       generic: true
-  - pymdownx.superfences 
+  - pymdownx.superfences
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
