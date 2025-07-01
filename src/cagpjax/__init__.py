@@ -1,6 +1,6 @@
 """Computation-Aware Gaussian Processes for GPJax."""
 
-from cagpjax.models import ComputationallyAwareGP
+from cagpjax.models import ComputationAwareGP
 from cagpjax.operators import BlockDiagonalSparse
 from cagpjax.policies import BlockSparsePolicy, LanczosPolicy
 
@@ -9,5 +9,5 @@ __all__ = [
     "BlockDiagonalSparse",
     "LanczosPolicy",
     "BlockSparsePolicy",
-    "ComputationallyAwareGP",
+    "ComputationAwareGP",
 ]

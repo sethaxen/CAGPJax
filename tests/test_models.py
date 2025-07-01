@@ -12,14 +12,14 @@ from gpjax.mean_functions import Constant
 from gpjax.objectives import elbo, variational_expectation
 
 import cagpjax
-from cagpjax.models import ComputationallyAwareGP
+from cagpjax.models import ComputationAwareGP
 from cagpjax.policies import BlockSparsePolicy, LanczosPolicy
 
 jax.config.update("jax_enable_x64", True)
 
 
-class TestComputationallyAwareGP:
-    """Test suite for ComputationallyAwareGP class."""
+class TestComputationAwareGP:
+    """Test suite for ComputationAwareGP class."""
 
     @pytest.fixture(params=[jnp.float32, jnp.float64])
     def dtype(self, request):
@@ -91,13 +91,13 @@ class TestComputationallyAwareGP:
     @pytest.fixture
     def conditioned_cagp(self, policy, posterior, train_data):
         """Create CAGP policy."""
-        cagp = ComputationallyAwareGP(posterior=posterior, policy=policy)
+        cagp = ComputationAwareGP(posterior=posterior, policy=policy)
         cagp.condition(train_data)
         return cagp
 
     def test_initialization(self, policy, posterior, jitter=1e-3):
         """Test that CAGP initializes correctly."""
-        cagp = ComputationallyAwareGP(posterior=posterior, policy=policy, jitter=jitter)
+        cagp = ComputationAwareGP(posterior=posterior, policy=policy, jitter=jitter)
         assert cagp.posterior is posterior
         assert cagp.policy is policy
         assert cagp.jitter == jitter
@@ -112,7 +112,7 @@ class TestComputationallyAwareGP:
             "error", message=".*scatter inputs have incompatible types.*"
         )
 
-        cagp = ComputationallyAwareGP(posterior=posterior, policy=policy)
+        cagp = ComputationAwareGP(posterior=posterior, policy=policy)
         cagp.condition(train_data)
         assert cagp.is_conditioned
         assert isinstance(
@@ -126,7 +126,7 @@ class TestComputationallyAwareGP:
         self, policy, posterior, train_data, dataset_replacements
     ):
         """Test that CAGP raises an error if conditioned on unsupervised data."""
-        cagp = ComputationallyAwareGP(posterior=posterior, policy=policy)
+        cagp = ComputationAwareGP(posterior=posterior, policy=policy)
         train_data_entries = {"X": train_data.X, "y": train_data.y}
         train_data_entries.update(dataset_replacements)
         train_data_new = gpjax.Dataset(**train_data_entries)
@@ -137,7 +137,7 @@ class TestComputationallyAwareGP:
         self, policy, posterior, train_data, train_data_alt
     ):
         """Test that CAGP can be reconditioned with new data."""
-        cagp = ComputationallyAwareGP(posterior=posterior, policy=policy)
+        cagp = ComputationAwareGP(posterior=posterior, policy=policy)
         cagp.condition(train_data)
         assert cagp._posterior_params is not None  # help pyright
         assert jnp.allclose(cagp._posterior_params.x, train_data.X)
@@ -177,7 +177,7 @@ class TestComputationallyAwareGP:
 
         x_test = test_data.X
         policy = LanczosPolicy(n_actions=n_train, key=key)
-        cagp = ComputationallyAwareGP(posterior=posterior, policy=policy)
+        cagp = ComputationAwareGP(posterior=posterior, policy=policy)
         cagp.condition(train_data)
         pred = cagp.predict(x_test)
 
@@ -218,7 +218,7 @@ class TestComputationallyAwareGP:
 
         def kl_objective(nz_values):
             policy = BlockSparsePolicy(n_actions=n_train, nz_values=nz_values)
-            cagp = ComputationallyAwareGP(posterior=posterior, policy=policy)
+            cagp = ComputationAwareGP(posterior=posterior, policy=policy)
             cagp.condition(train_data)
             return cagp.prior_kl()
 

@@ -1,6 +1,6 @@
 """Gaussian process models."""
 
-from .base import AbstractComputationallyAwareGP
-from .cagp import ComputationallyAwareGP
+from .base import AbstractComputationAwareGP
+from .cagp import ComputationAwareGP
 
-__all__ = ["AbstractComputationallyAwareGP", "ComputationallyAwareGP"]
+__all__ = ["AbstractComputationAwareGP", "ComputationAwareGP"]
