@@ -45,8 +45,17 @@ def _test_linear_operator_consistency(op: LinearOperator):
 class TestBlockDiagonalSparse:
     """Test cases for BlockDiagonalSparse."""
 
+    @pytest.fixture(
+        params=[
+            (2, 5),  # has overhang
+            (4, 9),  # has overhang
+            (3, 6),  # no overhang
+        ]
+    )
+    def shape(self, request):
+        return request.param
+
     @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
-    @pytest.mark.parametrize("shape", [(2, 5), (4, 8)])
     def test_basic(self, shape, dtype, key=jax.random.key(42)):
         """Test initialization and basic properties."""
         n_blocks, n_nz_values = shape
@@ -56,7 +65,6 @@ class TestBlockDiagonalSparse:
         assert op.dtype == dtype
         _test_linear_operator_consistency(op)
 
-    @pytest.mark.parametrize("shape", [(2, 5), (5, 10)])
     def test_grad(self, shape, dtype=jnp.float64, key=jax.random.key(42)):
         """Test gradient containing the linear operator."""
         n_blocks, n_nz_values = shape
