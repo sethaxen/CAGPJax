@@ -72,6 +72,27 @@ class TestCongruenceTransform:
             C.to_dense(), congruence_transform(A.to_dense(), B.to_dense())
         )
 
+    @pytest.mark.parametrize("n, n_blocks", [(7, 3), (10, 2)])
+    def test_congruence_block_diagonal_sparse_scalar(
+        self, n, n_blocks, dtype=jnp.float64, key=jax.random.key(42)
+    ):
+        """Test overload where ``A`` is ``BlockDiagonalSparse`` and ``B`` is ``ScalarMul``."""
+        from cola.ops import ScalarMul
+
+        key, subkey = jax.random.split(key)
+        A = BlockDiagonalSparse(
+            jax.random.normal(subkey, (n,), dtype=dtype), n_blocks=n_blocks
+        )
+        scalar_val = 2.5
+        B = ScalarMul(scalar_val, (n, n), dtype=dtype)
+        C = congruence_transform(A, B)
+        assert isinstance(C, Diagonal)
+        assert C.shape == (n_blocks, n_blocks)
+        assert C.dtype == dtype
+        assert jnp.allclose(
+            C.to_dense(), congruence_transform(A.to_dense(), B.to_dense())
+        )
+
 
 class TestLowerCholesky:
     """Tests for ``lower_cholesky``."""
