@@ -46,7 +46,7 @@ train_data = gpx.Dataset(x_train, y_train)
 
 # Condition a CaGP with an (untrained) sparse linear solver policy
 key, subkey = jax.random.split(key)
-policy = cagpjax.policies.BlockSparsePolicy(n_actions=10, n=n_data, key=subkey)
+policy = cagpjax.policies.BlockSparsePolicy(n_data, n_actions=10, key=subkey)
 cagp = cagpjax.models.ComputationAwareGP(posterior, policy)
 
 # Optimize hyperparameters (including actions)
