@@ -22,20 +22,27 @@ class BlockSparsePolicy(AbstractBatchLinearSolverPolicy):
 
     $$
     S = \begin{bmatrix}
-        s_1 & 0 & \cdots & 0 & 0 \\
-        0 & s_2 & \cdots & 0 & 0 \\
-        \vdots & \vdots & \ddots & \vdots & \vdots \\
-        0 & 0 & \cdots & s_{\text{n_actions}} & 0 \\
-        0 & 0 & \cdots & 0 & 0
+        s_1    & 0      & \cdots & 0                        & 0 \\
+        0      & s_2    & \cdots & 0                        & 0 \\
+        \vdots & \vdots & \ddots & \vdots                   & \vdots \\
+        0      & 0      & \cdots & s_{\text{n_actions}}     & 0 \\
+        0      & 0      & \cdots & 0                        & 0
     \end{bmatrix}.
     $$
-    This effectively ignores the last ``n % n_actions`` rows of data.
+    
+    The non-zero values are stacked and stored as a single trainable parameter
+    ``nz_values`` with structure:
 
-    These are stacked and stored as a single trainable parameter ``nz_values``.
+    $$
+    \text{nz_values} = \begin{bmatrix}
+        s_1 & s_2 & \cdots s_{\text{n_actions}}
+    \end{bmatrix}^\mathrm{T}.
+    $$
 
     !!! note
-        The last block is included if necessary to pad the first dimension of the matrix
-        to be equal to ``n``. This effectively ignores the last ``n % n_actions`` rows of data.
+        The bottom right block of $S$ is implicitly included if necessary to pad its
+        first dimension to be equal to ``n``. It is never stored. This effectively
+        ignores the last ``n % n_actions`` rows of data.
     """
 
     def __init__(
