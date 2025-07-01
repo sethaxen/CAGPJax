@@ -47,7 +47,7 @@ train_data = gpx.Dataset(x_train, y_train)
 # Condition a CaGP with an (untrained) sparse linear solver policy
 key, subkey = jax.random.split(key)
 policy = cagpjax.policies.BlockSparsePolicy(n_actions=10, n=n_data, key=subkey)
-cagp = cagpjax.models.ComputationallyAwareGP(posterior, policy)
+cagp = cagpjax.models.ComputationAwareGP(posterior, policy)
 
 # Optimize hyperparameters (including actions)
 def negative_elbo(cagp, train_data):

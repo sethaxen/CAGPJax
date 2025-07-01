@@ -1,4 +1,4 @@
-"""Computationally-aware Gaussian Process models."""
+"""Computation-aware Gaussian Process models."""
 
 from dataclasses import dataclass
 
@@ -16,11 +16,11 @@ from ..linalg import congruence_transform, lower_cholesky
 from ..operators import diag_like
 from ..policies import AbstractBatchLinearSolverPolicy
 from ..typing import ScalarFloat
-from .base import AbstractComputationallyAwareGP
+from .base import AbstractComputationAwareGP
 
 
-class ComputationallyAwareGP(AbstractComputationallyAwareGP):
-    """Computationally-aware Gaussian Process model.
+class ComputationAwareGP(AbstractComputationAwareGP):
+    """Computation-aware Gaussian Process model.
 
     This model implements scalable GP inference by using batch linear solver
     policies to project the kernel and data to a lower-dimensional subspace, while
@@ -41,7 +41,7 @@ class ComputationallyAwareGP(AbstractComputationallyAwareGP):
         policy: AbstractBatchLinearSolverPolicy,
         jitter: ScalarFloat = 1e-6,
     ):
-        """Initialize the Computationally-Aware GP model.
+        """Initialize the Computation-Aware GP model.
 
         Args:
             posterior: GPJax conjugate posterior.
@@ -197,7 +197,7 @@ class ComputationallyAwareGP(AbstractComputationallyAwareGP):
 # projected likelihood, but these intermediates are more computationally useful.
 @dataclass
 class _ProjectedPosteriorParameters:
-    """Projected quantities for computationally-aware GP inference.
+    """Projected quantities for computation-aware GP inference.
 
     Args:
         x: N training inputs with D dimensions.
