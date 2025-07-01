@@ -1,6 +1,5 @@
 """Congruence transformations for linear operators."""
 
-import math
 from typing import Any
 
 import cola
@@ -28,12 +27,18 @@ def congruence_transform(A: BlockDiagonalSparse, B: Diagonal | ScalarMul) -> Dia
     nz_values = B @ A.nz_values**2
 
     n_blocks, n = A.shape
-    block_size = math.ceil(n / n_blocks)
-    n_blocks_main = n // block_size
+    block_size = n // n_blocks
+    n_blocks_main = n_blocks if n % n_blocks == 0 else n_blocks - 1
     n_main = n_blocks_main * block_size
-    diag = nz_values[:n_main].reshape(n_blocks_main, block_size).sum(axis=1)
+
+    if n_blocks_main > 0:
+        diag = nz_values[:n_main].reshape(n_blocks_main, block_size).sum(axis=1)
+    else:
+        diag = jnp.array([], dtype=nz_values.dtype)
+
     if n > n_main:
-        diag = jnp.concatenate([diag, nz_values[n_main:].sum(axis=0, keepdims=True)])
+        overhang_sum = nz_values[n_main:].sum(axis=0, keepdims=True)
+        diag = jnp.concatenate([diag, overhang_sum])
 
     return Diagonal(diag)
 
