@@ -12,8 +12,8 @@ class BlockDiagonalSparse(LinearOperator):
     each contains a row vector, so that exactly one value is non-zero in each column.
 
     Args:
-        nz_values: Non-zero values to be distributed across diagonal blocks.
-        n_blocks: Number of diagonal blocks in the matrix.
+        nz_values: Non-zero values organized as blocks, shape (n_blocks, block_size).
+        n: Total number of columns in the matrix. Must be >= n_blocks * block_size.
 
     Examples
     --------
@@ -21,9 +21,9 @@ class BlockDiagonalSparse(LinearOperator):
     >>> import jax.numpy as jnp
     >>> from cagpjax.operators import BlockDiagonalSparse
     >>>
-    >>> # Create a 3x6 block-diagonal matrix with 3 blocks
-    >>> nz_values = jnp.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
-    >>> op = BlockDiagonalSparse(nz_values, n_blocks=3)
+    >>> # Create a 3x6 block-diagonal matrix with 3 blocks of size 2
+    >>> nz_values = jnp.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
+    >>> op = BlockDiagonalSparse(nz_values, n=6)
     >>> print(op.shape)
     (3, 6)
     >>>
@@ -33,17 +33,18 @@ class BlockDiagonalSparse(LinearOperator):
     ```
     """
 
-    def __init__(self, nz_values: Float[Array, "N"], n_blocks: int):
-        n = nz_values.shape[0]
-        block_size = n // n_blocks
-        n_used = n_blocks * block_size
+    def __init__(self, nz_values: Float[Array, "n_blocks block_size"], n: int):
+        n_blocks, block_size = nz_values.shape
+        if n < n_blocks * block_size:
+            raise ValueError(
+                f"n ({n}) must be >= n_blocks * block_size ({n_blocks * block_size})"
+            )
         super().__init__(nz_values.dtype, (n_blocks, n))
-        self.nz_values = nz_values[:n_used].reshape(n_blocks, block_size)
+        self.nz_values = nz_values
 
     def _matmat(self, X: Float[Array, "N #M"]) -> Float[Array, "K #M"]:
-        n_blocks, n = self.shape
-        n_used = self.nz_values.size
-        block_size = n_used // n_blocks
+        n_blocks, block_size = self.nz_values.shape
+        n_used = n_blocks * block_size
 
         # block-wise multiplication for used portion
         X_used = X[:n_used, ...].reshape(n_blocks, block_size, -1)

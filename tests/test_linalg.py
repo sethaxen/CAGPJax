@@ -60,9 +60,9 @@ class TestCongruenceTransform:
     ):
         """Test overload where ``A`` is ``BlockDiagonalSparse`` and ``B`` is ``Diagonal``."""
         key, subkey = jax.random.split(key)
-        A = BlockDiagonalSparse(
-            jax.random.normal(subkey, (n,), dtype=dtype), n_blocks=n_blocks
-        )
+        block_size = n // n_blocks
+        nz_values = jax.random.normal(subkey, (n_blocks, block_size), dtype=dtype)
+        A = BlockDiagonalSparse(nz_values, n)
         B = Diagonal(jax.random.normal(subkey, (n,), dtype=dtype))
         C = congruence_transform(A, B)
         assert isinstance(C, Diagonal)
@@ -80,9 +80,9 @@ class TestCongruenceTransform:
         from cola.ops import ScalarMul
 
         key, subkey = jax.random.split(key)
-        A = BlockDiagonalSparse(
-            jax.random.normal(subkey, (n,), dtype=dtype), n_blocks=n_blocks
-        )
+        block_size = n // n_blocks
+        nz_values = jax.random.normal(subkey, (n_blocks, block_size), dtype=dtype)
+        A = BlockDiagonalSparse(nz_values, n)
         scalar_val = 2.5
         B = ScalarMul(scalar_val, (n, n), dtype=dtype)
         C = congruence_transform(A, B)
