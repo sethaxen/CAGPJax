@@ -35,7 +35,7 @@ class PseudoInverse(AbstractLinearSolverMethod):
     def __init__(
         self,
         rtol: ScalarFloat | None = None,
-        alg: cola.linalg.Algorithm = cola.linalg.Auto(),
+        alg: cola.linalg.Algorithm = cola.linalg.Eigh(),
     ):
         self.rtol = rtol
         self.alg = alg
