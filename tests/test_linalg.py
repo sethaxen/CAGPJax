@@ -6,7 +6,8 @@ import jax.numpy as jnp
 import pytest
 from cola.ops import Dense, Diagonal, I_like, LinearOperator, Triangular
 
-from cagpjax.linalg import congruence_transform, lower_cholesky
+from cagpjax.linalg import congruence_transform, eigh, lower_cholesky
+from cagpjax.linalg.eigh import EighResult
 from cagpjax.operators import BlockDiagonalSparse
 
 jax.config.update("jax_enable_x64", True)
@@ -92,6 +93,77 @@ class TestCongruenceTransform:
         assert jnp.allclose(
             C.to_dense(), congruence_transform(A.to_dense(), B.to_dense())
         )
+
+
+class TestEigh:
+    """Tests for ``eigh``."""
+
+    @pytest.fixture(params=[42, 78, 36])
+    def key(self, request):
+        return jax.random.key(request.param)
+
+    @pytest.fixture(params=[5, 10, 30])
+    def n(self, request):
+        return request.param
+
+    @pytest.fixture(params=[jnp.float32, jnp.float64])
+    def dtype(self, request):
+        return request.param
+
+    @pytest.fixture(
+        params=[
+            cola.ops.Dense,
+            cola.ops.Diagonal,
+            cola.ops.ScalarMul,
+            cola.ops.Identity,
+        ]
+    )
+    def op(self, request, n, dtype, key):
+        if request.param is Diagonal:
+            return Diagonal(jax.random.normal(key, (n,), dtype=dtype))
+        elif request.param is cola.ops.ScalarMul:
+            return cola.ops.ScalarMul(
+                jax.random.normal(key, dtype=dtype), (n, n), dtype=dtype
+            )
+        elif request.param is cola.ops.Identity:
+            return cola.ops.Identity((n, n), dtype=dtype)
+        else:
+            A = jax.random.normal(key, (n, n), dtype=dtype)
+            return cola.ops.Dense(A + A.T)
+
+    @pytest.fixture(params=[cola.linalg.Auto, cola.linalg.Eigh, cola.linalg.Lanczos])
+    def alg(self, request):
+        return request.param()
+
+    def test_eigh(self, op, n, dtype, alg):
+        """Test eigh for various operators."""
+        result = eigh(op, alg=alg)
+        assert isinstance(result, EighResult)
+        assert isinstance(result.eigenvalues, jnp.ndarray)
+        assert result.eigenvalues.shape == (n,)
+        assert result.eigenvalues.dtype == dtype
+        assert isinstance(result.eigenvectors, cola.ops.LinearOperator)
+        assert result.eigenvectors.isa(cola.Unitary)
+        assert result.eigenvectors.shape == (n, n)
+        assert result.eigenvectors.dtype == dtype
+        if isinstance(op, (cola.ops.Diagonal, cola.ops.ScalarMul, cola.ops.Identity)):
+            assert jnp.array_equal(result.eigenvalues, cola.linalg.diag(op))
+            assert isinstance(result.eigenvectors, cola.ops.Identity)
+        else:
+            with jax.default_matmul_precision("highest"):
+                op_mat = (
+                    result.eigenvectors
+                    @ jnp.diag(result.eigenvalues)
+                    @ result.eigenvectors.T
+                )
+            rtol = 1e-2 if dtype == jnp.float32 else 0.0
+            assert jnp.allclose(op_mat, op.to_dense(), rtol=rtol)
+            if isinstance(alg, (cola.linalg.Eigh, cola.linalg.Auto)):
+                result_jax = jax.numpy.linalg.eigh(op.to_dense())
+                assert jnp.allclose(result.eigenvalues, result_jax.eigenvalues)
+                assert jnp.allclose(
+                    result.eigenvectors.to_dense(), result_jax.eigenvectors
+                )
 
 
 class TestLowerCholesky:
