@@ -58,22 +58,25 @@ class TestBlockDiagonalSparse:
     @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
     def test_basic(self, shape, dtype, key=jax.random.key(42)):
         """Test initialization and basic properties."""
-        n_blocks, n_nz_values = shape
-        nz_values = jax.random.normal(key, (n_nz_values,), dtype=dtype)
-        op = BlockDiagonalSparse(nz_values, n_blocks)
+        n_blocks, n = shape
+        block_size = n // n_blocks
+        n_used = n_blocks * block_size
+        nz_values = jax.random.normal(key, (n_blocks, block_size), dtype=dtype)
+        op = BlockDiagonalSparse(nz_values, n)
         assert op.shape == shape
         assert op.dtype == dtype
         _test_linear_operator_consistency(op)
 
     def test_grad(self, shape, dtype=jnp.float64, key=jax.random.key(42)):
         """Test gradient containing the linear operator."""
-        n_blocks, n_nz_values = shape
+        n_blocks, n = shape
+        block_size = n // n_blocks
         key, subkey = jax.random.split(key)
-        nz_values = jax.random.normal(subkey, (n_nz_values,), dtype=dtype)
-        op = BlockDiagonalSparse(nz_values, n_blocks)
+        nz_values = jax.random.normal(subkey, (n_blocks, block_size), dtype=dtype)
+        op = BlockDiagonalSparse(nz_values, n)
 
         f = lambda x: jnp.prod(jnp.sin(op @ x))
-        x = jax.random.normal(key, (n_nz_values,), dtype=dtype)
+        x = jax.random.normal(key, (n,), dtype=dtype)
         jax.test_util.check_grads(f, (x,), order=1)
 
 
