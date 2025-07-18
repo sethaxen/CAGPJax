@@ -23,7 +23,7 @@ class AbstractLinearSolver(nnx.Module):
 
     @abstractmethod
     def solve(self, b: Float[Array, "N #K"]) -> Float[Array, "N #K"]:
-        """Computat a solution to the linear system $Ax = b$.
+        """Compute a solution to the linear system $Ax = b$.
 
         Arguments:
             b: Right-hand side of the linear system.
@@ -36,13 +36,26 @@ class AbstractLinearSolver(nnx.Module):
         pass
 
     @abstractmethod
+    def inv_congruence_transform(
+        self, B: LinearOperator | Float[Array, "K N"]
+    ) -> LinearOperator | Float[Array, "K K"]:
+        """Compute the inverse congruence transform $B x$ for $x$ in $Ax = B^T$.
+
+        Arguments:
+            B: Linear operator or array to be applied.
+
+        Returns:
+            Linear operator or array resulting from the congruence transform.
+        """
+        pass
+
     def inv_quad(self, b: Float[Array, "N #1"]) -> ScalarFloat:
         """Compute the inverse quadratic form $b^T x$, for $x$ in $Ax = b$.
 
         Arguments:
             b: Right-hand side of the linear system.
         """
-        pass
+        return self.inv_congruence_transform(b.reshape(1, -1)).squeeze()
 
     @abstractmethod
     def trace_solve(self, B: Self) -> ScalarFloat:

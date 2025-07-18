@@ -54,10 +54,12 @@ class CholeskySolver(AbstractLinearSolver):
         return 2 * jnp.sum(jnp.log(cola.linalg.diag(self.lchol)))
 
     @override
-    def inv_quad(self, b: Float[Array, "N #1"]) -> ScalarFloat:
+    def inv_congruence_transform(
+        self, B: LinearOperator | Float[Array, "N K"]
+    ) -> LinearOperator | Float[Array, "K K"]:
         Linv = cola.linalg.inv(self.lchol)
-        z = Linv @ b
-        return jnp.sum(jnp.square(z))
+        right_term = Linv @ B.T
+        return right_term.T @ right_term
 
     @override
     def trace_solve(self, B: Self) -> ScalarFloat:

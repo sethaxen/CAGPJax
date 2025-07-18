@@ -22,7 +22,7 @@ class PseudoInverse(AbstractLinearSolverMethod):
     pseudoinverse is discontinuous, the optimization problem may be ill-posed.
 
     Attributes:
-        alg: Algorithm for eigenvalue decomposition passed to [`eigh`][].
+        alg: Algorithm for eigenvalue decomposition passed to [`cagpjax.linalg.eigh`][].
         rtol: Specifies the cutoff for small eigenvalues.
               Eigenvalues smaller than `rtol * largest_nonzero_eigenvalue` are treated as zero.
               The default is determined based on the floating point precision of the dtype
@@ -93,6 +93,15 @@ class PseudoInverseSolver(AbstractLinearSolver):
     def inv_quad(self, b: Float[Array, "N #1"]) -> ScalarFloat:
         z = self.eigh_result.eigenvectors.T @ b
         return jnp.dot(jnp.square(z), self.eigvals_inv).squeeze()
+
+    @override
+    def inv_congruence_transform(
+        self, B: LinearOperator | Float[Array, "N K"]
+    ) -> LinearOperator | Float[Array, "K K"]:
+        eigenvectors = self.eigh_result.eigenvectors
+        z = B @ eigenvectors
+        z = z @ cola.ops.Diagonal(self.eigvals_inv) @ z.T
+        return z
 
     @override
     def trace_solve(self, B: Self) -> ScalarFloat:

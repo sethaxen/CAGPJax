@@ -6,6 +6,7 @@ import jax.numpy as jnp
 import pytest
 from jaxtyping import Array, Float
 
+from cagpjax.linalg import congruence_transform
 from cagpjax.operators import diag_like
 from cagpjax.solvers import Cholesky, PseudoInverse
 from cagpjax.solvers.cholesky import CholeskySolver
@@ -136,6 +137,33 @@ class TestSolvers:
         # and this makes more of a difference for float32
         rtol = (1e-3 if dtype == jnp.float32 else 1e-8) * n
         assert jnp.allclose(x, x_lstsq, rtol=rtol)
+
+    @pytest.mark.parametrize("m", [2, 5])
+    @pytest.mark.parametrize("B_type", [jnp.ndarray, cola.ops.LinearOperator])
+    def test_inv_congruence_transform_consistency(
+        self, solver, n, m, dtype, B_type, key=jax.random.key(23)
+    ):
+        """Test inv_congruence_transform is consistent with solve and congruence_transform."""
+        B = jax.random.normal(key, (m, n), dtype=dtype)
+        if B_type == cola.ops.LinearOperator:
+            B = cola.lazify(B)
+
+        with jax.default_matmul_precision("highest"):
+            cong_transform = solver.inv_congruence_transform(B)
+            op_mat_inv = solver.solve(jnp.eye(n, dtype=dtype))
+            cong_transform_ref = congruence_transform(B, op_mat_inv)
+            cong_trans_mat = cola.densify(cong_transform)
+            cong_trans_ref_mat = cola.densify(cong_transform_ref)
+
+        assert cong_transform.shape == (m, m)
+        assert cong_transform.dtype == dtype
+        if B_type == jnp.ndarray:
+            assert isinstance(cong_transform, jnp.ndarray)
+            assert jnp.allclose(cong_trans_mat, cong_trans_ref_mat)
+        else:
+            assert isinstance(cong_transform, cola.ops.LinearOperator)
+            rtol = 1e-4 if dtype == jnp.float32 else 1e-12
+            assert jnp.allclose(cong_trans_mat, cong_trans_ref_mat, rtol=rtol)
 
     def test_inv_quad_consistency(self, solver, n, dtype, key=jax.random.key(23)):
         """Test inv_quad is consistent with solve."""
