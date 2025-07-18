@@ -22,11 +22,11 @@ class PseudoInverse(AbstractLinearSolverMethod):
     pseudoinverse is discontinuous, the optimization problem may be ill-posed.
 
     Attributes:
-        alg: Algorithm for eigenvalue decomposition passed to [`cagpjax.linalg.eigh`][].
         rtol: Specifies the cutoff for small eigenvalues.
               Eigenvalues smaller than `rtol * largest_nonzero_eigenvalue` are treated as zero.
               The default is determined based on the floating point precision of the dtype
               of the operator (see [`jax.numpy.linalg.pinv`][]).
+        alg: Algorithm for eigenvalue decomposition passed to [`cagpjax.linalg.eigh`][].
     """
 
     alg: cola.linalg.Algorithm
@@ -34,15 +34,15 @@ class PseudoInverse(AbstractLinearSolverMethod):
 
     def __init__(
         self,
-        alg: cola.linalg.Algorithm = cola.linalg.Auto(),
         rtol: ScalarFloat | None = None,
+        alg: cola.linalg.Algorithm = cola.linalg.Auto(),
     ):
-        self.alg = alg
         self.rtol = rtol
+        self.alg = alg
 
     @override
     def __call__(self, A: LinearOperator) -> AbstractLinearSolver:
-        return PseudoInverseSolver(A, alg=self.alg, rtol=self.rtol)
+        return PseudoInverseSolver(A, rtol=self.rtol, alg=self.alg)
 
 
 class PseudoInverseSolver(AbstractLinearSolver):
@@ -57,8 +57,8 @@ class PseudoInverseSolver(AbstractLinearSolver):
     def __init__(
         self,
         A: LinearOperator,
-        alg: cola.linalg.Algorithm = cola.linalg.Auto(),
         rtol: ScalarFloat | None = None,
+        alg: cola.linalg.Algorithm = cola.linalg.Auto(),
     ):
         n = A.shape[0]
         # select rtol using same heuristic as jax.numpy.linalg.lstsq
