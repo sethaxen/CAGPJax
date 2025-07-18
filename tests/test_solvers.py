@@ -157,13 +157,9 @@ class TestSolvers:
 
         assert cong_transform.shape == (m, m)
         assert cong_transform.dtype == dtype
-        if B_type == jnp.ndarray:
-            assert isinstance(cong_transform, jnp.ndarray)
-            assert jnp.allclose(cong_trans_mat, cong_trans_ref_mat)
-        else:
-            assert isinstance(cong_transform, cola.ops.LinearOperator)
-            rtol = 1e-4 if dtype == jnp.float32 else 1e-12
-            assert jnp.allclose(cong_trans_mat, cong_trans_ref_mat, rtol=rtol)
+        rtol = 1e-4 if dtype == jnp.float32 else 1e-12
+        assert isinstance(cong_transform, B_type)
+        assert jnp.allclose(cong_trans_mat, cong_trans_ref_mat, rtol=rtol)
 
     def test_inv_quad_consistency(self, solver, n, dtype, key=jax.random.key(23)):
         """Test inv_quad is consistent with solve."""
