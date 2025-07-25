@@ -144,6 +144,32 @@ class TestEigh:
                     result.eigenvectors.to_dense(), result_jax.eigenvectors
                 )
 
+    @pytest.mark.xfail(
+        reason="Expected to fail due to NaN gradients from degenerate eigenvalues"
+    )
+    def test_eigh_gradient_degenerate_fails(self):
+        """Test that gradient computation fails with degenerate eigenvalues.
+        
+        See https://github.com/jax-ml/jax/issues/669
+        """
+        n = 4
+        A = cola.ops.Dense(jnp.eye(n, dtype=jnp.float64))
+
+        def loss_fn(A_dense):
+            A_op = cola.ops.Dense(A_dense)
+            result = eigh(A_op)
+            # Reconstruct the matrix from eigendecomposition to force gradient through eigenvectors
+            A_recon = (
+                result.eigenvectors
+                @ jnp.diag(result.eigenvalues)
+                @ result.eigenvectors.T
+            )
+            return jnp.trace(A_recon)
+
+        grad_fn = jax.grad(loss_fn)
+        grad = grad_fn(A.to_dense())
+        assert not jnp.any(jnp.isnan(grad)), f"Gradients contain NaN: {grad}"
+
 
 class TestLowerCholesky:
     """Tests for ``lower_cholesky``."""
