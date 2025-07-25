@@ -4,11 +4,12 @@ import cola
 import jax
 import jax.numpy as jnp
 import pytest
-from cola.ops import Dense, Diagonal, I_like, LinearOperator, Triangular
+from cola.ops import Dense, Diagonal, Identity, LinearOperator, ScalarMul, Triangular
 
 from cagpjax.linalg import congruence_transform, eigh, lower_cholesky
 from cagpjax.linalg.eigh import EighResult
-from cagpjax.operators import BlockDiagonalSparse
+from cagpjax.linalg.utils import _add_jitter
+from cagpjax.operators import BlockDiagonalSparse, diag_like
 
 jax.config.update("jax_enable_x64", True)
 
@@ -224,3 +225,64 @@ class TestLowerCholesky:
                     L.to_dense(),
                     jnp.linalg.cholesky(A_mat + jitter * jnp.eye(n, dtype=dtype)),
                 )
+
+
+class TestAddJitter:
+    """Tests for ``_add_jitter`` utility function."""
+
+    @pytest.fixture(params=[42, 78])
+    def key(self, request):
+        return jax.random.key(request.param)
+
+    @pytest.fixture(params=[4, 10])
+    def n(self, request):
+        return request.param
+
+    @pytest.fixture(params=[jnp.float32, jnp.float64])
+    def dtype(self, request):
+        return request.param
+
+    @pytest.mark.parametrize(
+        "op_type,jitter_type,out_type",
+        [
+            (Dense, "scalar", LinearOperator),
+            (Dense, "vector", LinearOperator),
+            (Diagonal, "scalar", Diagonal),
+            (Diagonal, "vector", Diagonal),
+            (ScalarMul, "scalar", ScalarMul),
+            (ScalarMul, "vector", Diagonal),
+            (Identity, "scalar", ScalarMul),
+            (Identity, "vector", Diagonal),
+        ],
+    )
+    def test_add_jitter(self, op_type, jitter_type, out_type, n, dtype, key):
+        """Test _add_jitter with different operator and jitter types."""
+        # Create operator
+        device = jax.devices()[0]
+        if op_type == Dense:
+            A_mat = jax.random.normal(key, (n, n), dtype=dtype)
+            A = cola.ops.Dense(A_mat)
+        elif op_type == Diagonal:
+            diag_vals = jax.random.normal(key, (n,), dtype=dtype)
+            A = cola.ops.Diagonal(diag_vals)
+        elif op_type == ScalarMul:
+            scalar = 2.5
+            A = cola.ops.ScalarMul(scalar, (n, n), dtype=dtype, device=device)
+        else:  # Identity
+            A = cola.ops.Identity((n, n), dtype=dtype)
+
+        # Create and add jitter
+        if jitter_type == "scalar":
+            jitter = 1e-6
+        else:  # vector
+            jitter = jax.random.uniform(key, (n,), dtype=dtype) * 1e-6
+        A_jittered = _add_jitter(A, jitter)
+
+        # Check output type and basic properties
+        assert isinstance(A_jittered, out_type)
+        assert A_jittered.shape == A.shape
+        assert A_jittered.dtype == A.dtype
+
+        # Check correctness: compare dense representations
+        expected = (A + diag_like(A, jitter)).to_dense()
+        assert jnp.allclose(A_jittered.to_dense(), expected)

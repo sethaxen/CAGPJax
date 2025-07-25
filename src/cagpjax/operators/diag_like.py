@@ -22,4 +22,5 @@ def diag_like(
     if jnp.isscalar(values):
         return ScalarMul(values, operator.shape, dtype=dtype, device=device)
     else:
-        return Diagonal(values.astype(dtype)).to(device)
+        values = values.astype(dtype).to_device(device)
+        return Diagonal(values)

@@ -9,8 +9,8 @@ from jax import numpy as jnp
 from jaxtyping import Array, Float, PRNGKeyArray
 from typing_extensions import NamedTuple, overload
 
-from ..operators import diag_like
 from ..typing import ScalarFloat
+from .utils import _add_jitter
 
 
 class EighResult(NamedTuple):
@@ -72,22 +72,4 @@ def _eigh(A: ScalarMul | Diagonal | Identity, alg: cola.linalg.Algorithm):  # py
 
 @cola.dispatch
 def _eigh(A: Any, alg: cola.linalg.Algorithm):
-    pass
-
-
-# fallback implementation
-@overload
-def _add_jitter(A: LinearOperator, jitter: Float[Array, "N"]) -> LinearOperator:
-    return A + diag_like(A, jitter)
-
-
-@overload
-def _add_jitter(  # pyright: ignore[reportOverlappingOverload]
-    A: ScalarMul | Diagonal | Identity, jitter: Float[Array, "N"]
-) -> Diagonal:
-    return Diagonal(cola.linalg.diag(A) + jitter)
-
-
-@cola.dispatch
-def _add_jitter(A: Any, jitter: Any) -> Any:
     pass
