@@ -144,20 +144,22 @@ class TestEigh:
                     result.eigenvectors.to_dense(), result_jax.eigenvectors
                 )
 
-    @pytest.mark.xfail(
-        reason="Expected to fail due to NaN gradients from degenerate eigenvalues"
-    )
-    def test_eigh_gradient_degenerate_fails(self):
-        """Test that gradient computation fails with degenerate eigenvalues.
-        
+    @pytest.mark.parametrize("jitter", [None, 1e-6, jnp.ndarray])
+    def test_eigh_gradient_degenerate(self, jitter, dtype=jnp.float64):
+        """Test gradient computation with degenerate eigenvalues.
+
+        Without jitter, gradients contain NaN. With jitter, gradients are finite.
         See https://github.com/jax-ml/jax/issues/669
         """
         n = 4
-        A = cola.ops.Dense(jnp.eye(n, dtype=jnp.float64))
+        A = cola.ops.Dense(jnp.eye(n, dtype=dtype))
+
+        if jitter is jnp.ndarray:
+            jitter = jnp.arange(1, n + 1, dtype=dtype) * 1e-6
 
         def loss_fn(A_dense):
             A_op = cola.ops.Dense(A_dense)
-            result = eigh(A_op)
+            result = eigh(A_op, jitter=jitter)
             # Reconstruct the matrix from eigendecomposition to force gradient through eigenvectors
             A_recon = (
                 result.eigenvectors
@@ -168,7 +170,11 @@ class TestEigh:
 
         grad_fn = jax.grad(loss_fn)
         grad = grad_fn(A.to_dense())
-        assert not jnp.any(jnp.isnan(grad)), f"Gradients contain NaN: {grad}"
+
+        if jitter is None:
+            assert not jnp.isfinite(grad).all()
+        else:
+            assert jnp.isfinite(grad).all()
 
 
 class TestLowerCholesky:
