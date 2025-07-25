@@ -21,6 +21,12 @@ class PseudoInverse(AbstractLinearSolverMethod):
     rank of $A$ is dependent on hyperparameters being optimized, because the
     pseudoinverse is discontinuous, the optimization problem may be ill-posed.
 
+    Note that if $A$ is (almost-)degenerate (some eigenvalues repeat), then
+    the gradient of its solves in JAX may be non-computable or numerically unstable
+    (see [jax#669](https://github.com/jax-ml/jax/issues/669)).
+    In this case adding a small amount of random `jitter` to the diagonal can
+    significantly improve stability.
+
     Attributes:
         rtol: Specifies the cutoff for small eigenvalues.
               Eigenvalues smaller than `rtol * largest_nonzero_eigenvalue` are treated as zero.

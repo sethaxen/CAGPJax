@@ -200,7 +200,7 @@ class TestSolvers:
 
         grad_fn = jax.grad(loss_fn)
         grad = grad_fn(A.to_dense())
-        
+
         if jitter is None:
             assert not jnp.isfinite(grad).all()
         else:
