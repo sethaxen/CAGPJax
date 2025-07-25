@@ -2,7 +2,7 @@ import cola
 import jax
 from cola.ops import LinearOperator
 from jax import numpy as jnp
-from jaxtyping import Array, Float
+from jaxtyping import Array, Float, PRNGKeyArray
 from typing_extensions import Self, override
 
 from ..linalg.eigh import EighResult, eigh
@@ -27,22 +27,34 @@ class PseudoInverse(AbstractLinearSolverMethod):
               The default is determined based on the floating point precision of the dtype
               of the operator (see [`jax.numpy.linalg.pinv`][]).
         alg: Algorithm for eigenvalue decomposition passed to [`cagpjax.linalg.eigh`][].
+        jitter: Jitter to add to diagonal to stabilize gradients for
+            (almost-)degenerate matrices. If scalar, random jitter in `[0, jitter]`
+            is generated. If vector, it's added directly.
+        key: Random key for jitter generation. Defaults to `key(0)` if not provided.
     """
 
     alg: cola.linalg.Algorithm
     rtol: ScalarFloat | None
+    jitter: ScalarFloat | Float[Array, "N"] | None
+    key: PRNGKeyArray | None
 
     def __init__(
         self,
         rtol: ScalarFloat | None = None,
         alg: cola.linalg.Algorithm = cola.linalg.Eigh(),
+        jitter: ScalarFloat | Float[Array, "N"] | None = None,
+        key: PRNGKeyArray | None = None,
     ):
         self.rtol = rtol
         self.alg = alg
+        self.jitter = jitter
+        self.key = key
 
     @override
     def __call__(self, A: LinearOperator) -> AbstractLinearSolver:
-        return PseudoInverseSolver(A, rtol=self.rtol, alg=self.alg)
+        return PseudoInverseSolver(
+            A, rtol=self.rtol, alg=self.alg, jitter=self.jitter, key=self.key
+        )
 
 
 class PseudoInverseSolver(AbstractLinearSolver):
@@ -59,12 +71,14 @@ class PseudoInverseSolver(AbstractLinearSolver):
         A: LinearOperator,
         rtol: ScalarFloat | None = None,
         alg: cola.linalg.Algorithm = cola.linalg.Auto(),
+        jitter: ScalarFloat | Float[Array, "N"] | None = None,
+        key: PRNGKeyArray | None = None,
     ):
         n = A.shape[0]
         # select rtol using same heuristic as jax.numpy.linalg.lstsq
         if rtol is None:
             rtol = float(jnp.finfo(A.dtype).eps) * n
-        self.eigh_result = eigh(A, alg=alg)
+        self.eigh_result = eigh(A, alg=alg, jitter=jitter, key=key)
         svdmax = jnp.max(jnp.abs(self.eigh_result.eigenvalues))
         cutoff = jnp.array(rtol * svdmax, dtype=svdmax.dtype)
         mask = self.eigh_result.eigenvalues >= cutoff
