@@ -178,3 +178,18 @@ class TestSolvers:
         trace_solve_solve = jnp.trace(solver.solve(other_op.to_dense()))
         rtol = (1e-4 if dtype == jnp.float32 else 1e-12) * n
         assert jnp.isclose(trace_solve, trace_solve_solve, rtol=rtol)
+
+    def test_pseudoinverse_gradient_degenerate_fails(self, n, dtype):
+        """Test that grad fails with degenerate operator."""
+        A = cola.ops.Dense(jnp.eye(n, dtype=dtype))
+
+        def loss_fn(A_matrix):
+            A_op = cola.ops.Dense(A_matrix)
+            solver = PseudoInverse()(A_op)
+            b = jnp.ones(n, dtype=dtype)
+            x = solver.solve(b)
+            return jnp.sum(x**2)
+
+        grad_fn = jax.grad(loss_fn)
+        grad = grad_fn(A.to_dense())
+        assert not jnp.isfinite(grad).all()
