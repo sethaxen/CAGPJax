@@ -28,7 +28,6 @@ class EighResult(NamedTuple):
 def eigh(
     A: LinearOperator,
     alg: cola.linalg.Algorithm = cola.linalg.Auto(),
-    jitter: ScalarFloat | Float[Array, "N"] | None = None,
     key: PRNGKeyArray | None = None,
 ) -> EighResult:
     """Compute the Hermitian eigenvalue decomposition of a linear operator.
@@ -36,24 +35,11 @@ def eigh(
     Args:
         A: Hermitian linear operator.
         alg: Algorithm for eigenvalue decomposition (see [`cola.linalg.eig`][]).
-        jitter: Jitter to add to diagonal to stabilize gradients for
-            (almost-)degenerate matrices. If scalar, random jitter in `[0, jitter]`
-            is generated. If vector, it's added directly.
-        key: Random key for jitter generation. Defaults to `key(0)` if not provided.
 
     Returns:
         A named tuple of `(eigenvalues, eigenvectors)` where `eigenvectors` is a unitary
             `LinearOperator`.
     """
-    if jitter is not None:
-        if jnp.isscalar(jitter):
-            if key is None:
-                key = jax.random.key(0)
-            n = A.shape[0]
-            jitter_values = jax.random.uniform(key, (n,), dtype=A.dtype, maxval=jitter)
-        else:
-            jitter_values = jnp.asarray(jitter, dtype=A.dtype)
-        A = _add_jitter(A, jitter_values)
 
     vals, vecs = _eigh(A, alg)
     return EighResult(vals, cola.Unitary(vecs))
