@@ -33,40 +33,48 @@ class Eigh(cola.linalg.Algorithm):
 
 def eigh(
     A: LinearOperator,
-    alg: cola.linalg.Algorithm = cola.linalg.Auto(),
-    key: PRNGKeyArray | None = None,
+    alg: cola.linalg.Algorithm = Eigh(),
+    grad_rtol: ScalarFloat | None = None,
 ) -> EighResult:
     """Compute the Hermitian eigenvalue decomposition of a linear operator.
 
     Args:
         A: Hermitian linear operator.
         alg: Algorithm for eigenvalue decomposition (see [`cola.linalg.eig`][]).
+        grad_rtol: Specifies the cutoff for similar eigenvalues, used to improve
+            gradient computation for (almost-)degenerate matrices.
+            If not provided, the default is 0.0.
+            If None or negative, all eigenvalues are treated as distinct.
 
     Returns:
         A named tuple of `(eigenvalues, eigenvectors)` where `eigenvectors` is a unitary
             `LinearOperator`.
     """
-
-    vals, vecs = _eigh(A, alg)
+    if grad_rtol is None:
+        grad_rtol = -1.0
+    grad_rtol = jnp.array(grad_rtol, dtype=A.dtype)
+    vals, vecs = _eigh(A, alg, grad_rtol)  # pyright: ignore[reportArgumentType]
     return EighResult(vals, cola.Unitary(vecs))
 
 
-@overload
-def _eigh(A: LinearOperator, alg: cola.linalg.Algorithm):  # pyright: ignore[reportOverlappingOverload]
-    A = cola.SelfAdjoint(A)
-    return cola.linalg.eig(A, A.shape[0], which="LM", alg=alg)
-
-
-@overload
-def _eigh(A: ScalarMul | Diagonal | Identity, alg: cola.linalg.Algorithm):  # pyright: ignore[reportOverlappingOverload]
-    return cola.linalg.diag(A), I_like(A)
+@cola.dispatch(precedence=-1)
+def _eigh(A: LinearOperator, alg: Eigh, grad_rtol: Float[Array, ""]):  # pyright: ignore[reportRedeclaration]
+    vals, vecs = _eigh_safe(A.to_dense(), grad_rtol=grad_rtol)
+    return vals, cola.lazify(vecs)
 
 
 @cola.dispatch
-def _eigh(A: Any, alg: cola.linalg.Algorithm):
-    pass
+def _eigh(
+    A: ScalarMul | Diagonal | Identity,
+    alg: cola.linalg.Algorithm,
+    grad_rtol: Float[Array, ""],
+):
+    return cola.linalg.diag(A), I_like(A)
+
+
 # Eigh with custom vjp to expand its support to (almost-)degenerate matrices.
 # jax-ml/jax#669
+
 
 @partial(jax.custom_vjp, nondiff_argnums=(1,))
 def _eigh_safe(a: Float[Array, "N N"], grad_rtol: Float[Array, ""]):
