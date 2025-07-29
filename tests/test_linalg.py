@@ -6,7 +6,7 @@ import jax.numpy as jnp
 import pytest
 from cola.ops import Dense, Diagonal, Identity, LinearOperator, ScalarMul, Triangular
 
-from cagpjax.linalg import congruence_transform, eigh, lower_cholesky
+from cagpjax.linalg import Eigh, congruence_transform, eigh, lower_cholesky
 from cagpjax.linalg.eigh import EighResult
 from cagpjax.linalg.utils import _add_jitter
 from cagpjax.operators import BlockDiagonalSparse, diag_like
@@ -111,7 +111,7 @@ class TestEigh:
             A = jax.random.normal(key, (n, n), dtype=dtype)
             return cola.ops.Dense(A + A.T)
 
-    @pytest.fixture(params=[cola.linalg.Auto, cola.linalg.Eigh, cola.linalg.Lanczos])
+    @pytest.fixture(params=[Eigh])
     def alg(self, request):
         return request.param()
 
@@ -138,15 +138,16 @@ class TestEigh:
                 )
             rtol = 1e-2 if dtype == jnp.float32 else 0.0
             assert jnp.allclose(op_mat, op.to_dense(), rtol=rtol)
-            if isinstance(alg, (cola.linalg.Eigh, cola.linalg.Auto)):
+            if isinstance(alg, (Eigh,)):
                 result_jax = jax.numpy.linalg.eigh(op.to_dense())
                 assert jnp.allclose(result.eigenvalues, result_jax.eigenvalues)
                 assert jnp.allclose(
                     result.eigenvectors.to_dense(), result_jax.eigenvectors
                 )
 
-    @pytest.mark.parametrize("jitter", [None, 1e-6, jnp.ndarray])
-    def test_eigh_gradient_degenerate(self, jitter, dtype=jnp.float64):
+    @pytest.mark.parametrize("grad_rtol", [None, -1.0, 0.0])
+    @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
+    def test_eigh_gradient_degenerate(self, grad_rtol, dtype):
         """Test gradient computation with degenerate eigenvalues.
 
         Without jitter, gradients contain NaN. With jitter, gradients are finite.
@@ -155,12 +156,9 @@ class TestEigh:
         n = 4
         A = cola.ops.Dense(jnp.eye(n, dtype=dtype))
 
-        if jitter is jnp.ndarray:
-            jitter = jnp.arange(1, n + 1, dtype=dtype) * 1e-6
-
         def loss_fn(A_dense):
             A_op = cola.ops.Dense(A_dense)
-            result = eigh(A_op, jitter=jitter)
+            result = eigh(A_op, grad_rtol=grad_rtol)
             # Reconstruct the matrix from eigendecomposition to force gradient through eigenvectors
             A_recon = (
                 result.eigenvectors
@@ -172,7 +170,7 @@ class TestEigh:
         grad_fn = jax.grad(loss_fn)
         grad = grad_fn(A.to_dense())
 
-        if jitter is None:
+        if grad_rtol is None or grad_rtol < 0.0:
             assert not jnp.isfinite(grad).all()
         else:
             assert jnp.isfinite(grad).all()
