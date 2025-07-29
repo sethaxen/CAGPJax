@@ -181,10 +181,7 @@ class TestSolvers:
 
     @pytest.mark.parametrize("grad_rtol", [None, -1.0, 0.0])
     def test_pseudoinverse_gradient_degenerate(self, n, dtype, grad_rtol):
-        """Test gradient computation with degenerate operators.
-
-        Without jitter, gradients contain NaN. With jitter, gradients are finite.
-        """
+        """Test gradient computation with degenerate operators."""
         A = cola.ops.Dense(jnp.eye(n, dtype=dtype))
 
         def loss_fn(A_matrix):

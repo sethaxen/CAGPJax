@@ -2,7 +2,7 @@ import cola
 import jax
 from cola.ops import LinearOperator
 from jax import numpy as jnp
-from jaxtyping import Array, Float, PRNGKeyArray
+from jaxtyping import Array, Float
 from typing_extensions import Self, override
 
 from ..linalg.eigh import Eigh, EighResult, eigh
@@ -24,8 +24,9 @@ class PseudoInverse(AbstractLinearSolverMethod):
     Note that if $A$ is (almost-)degenerate (some eigenvalues repeat), then
     the gradient of its solves in JAX may be non-computable or numerically unstable
     (see [jax#669](https://github.com/jax-ml/jax/issues/669)).
-    In this case adding a small amount of random `jitter` to the diagonal can
-    significantly improve stability.
+    For degenerate operators, it may be necessary to increase `grad_rtol` to improve
+    stability of gradients.
+    See [`cagpjax.linalg.eigh`][] for more details.
 
     Attributes:
         rtol: Specifies the cutoff for small eigenvalues.

@@ -7,11 +7,10 @@ import cola
 import jax
 from cola.ops import Diagonal, I_like, Identity, LinearOperator, ScalarMul
 from jax import numpy as jnp
-from jaxtyping import Array, Float, PRNGKeyArray
-from typing_extensions import NamedTuple, overload
+from jaxtyping import Array, Float
+from typing_extensions import NamedTuple
 
 from ..typing import ScalarFloat
-from .utils import _add_jitter
 
 
 class EighResult(NamedTuple):
@@ -41,7 +40,7 @@ def eigh(
 
     Args:
         A: Hermitian linear operator.
-        alg: Algorithm for eigenvalue decomposition (see [`cola.linalg.eig`][]).
+        alg: Algorithm for eigenvalue decomposition.
         grad_rtol: Specifies the cutoff for similar eigenvalues, used to improve
             gradient computation for (almost-)degenerate matrices.
             If not provided, the default is 0.0.
@@ -50,6 +49,14 @@ def eigh(
     Returns:
         A named tuple of `(eigenvalues, eigenvectors)` where `eigenvectors` is a unitary
             `LinearOperator`.
+
+    Note:
+        Degenerate matrices have repeated eigenvalues.
+        The set of eigenvectors that correspond to the same eigenvalue is not unique
+        but instead forms a subspace.
+        `grad_rtol` only improves stability of gradient-computation if the function
+        being differentiated depends only depends on these subspaces and not the
+        specific eigenvectors themselves.
     """
     if grad_rtol is None:
         grad_rtol = -1.0

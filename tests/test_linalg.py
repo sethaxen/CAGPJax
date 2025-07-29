@@ -148,11 +148,7 @@ class TestEigh:
     @pytest.mark.parametrize("grad_rtol", [None, -1.0, 0.0])
     @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
     def test_eigh_gradient_degenerate(self, grad_rtol, dtype):
-        """Test gradient computation with degenerate eigenvalues.
-
-        Without jitter, gradients contain NaN. With jitter, gradients are finite.
-        See https://github.com/jax-ml/jax/issues/669
-        """
+        """Test gradient computation with degenerate eigenvalues."""
         n = 4
         A = cola.ops.Dense(jnp.eye(n, dtype=dtype))
 
