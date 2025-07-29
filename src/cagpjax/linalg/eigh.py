@@ -10,8 +10,6 @@ from jax import numpy as jnp
 from jaxtyping import Array, Float
 from typing_extensions import NamedTuple
 
-from ..typing import ScalarFloat
-
 
 class EighResult(NamedTuple):
     """Result of Hermitian eigenvalue decomposition.
@@ -80,7 +78,7 @@ def _eigh(A: LinearOperator, alg: Eigh, grad_rtol: float):  # pyright: ignore[re
 def _eigh(
     A: ScalarMul | Diagonal | Identity,
     alg: cola.linalg.Algorithm,
-    grad_rtol: Float[Array, ""],
+    grad_rtol: float
 ):
     return cola.linalg.diag(A), I_like(A)
 
