@@ -25,6 +25,12 @@ class EighResult(NamedTuple):
     eigenvectors: LinearOperator
 
 
+class Eigh(cola.linalg.Algorithm):
+    """
+    Eigh algorithm for eigenvalue decomposition.
+    """
+
+
 def eigh(
     A: LinearOperator,
     alg: cola.linalg.Algorithm = cola.linalg.Auto(),
