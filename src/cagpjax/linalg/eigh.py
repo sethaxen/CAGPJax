@@ -76,9 +76,7 @@ def _eigh(A: LinearOperator, alg: Eigh, grad_rtol: float):  # pyright: ignore[re
 
 @cola.dispatch
 def _eigh(
-    A: ScalarMul | Diagonal | Identity,
-    alg: cola.linalg.Algorithm,
-    grad_rtol: float
+    A: ScalarMul | Diagonal | Identity, alg: cola.linalg.Algorithm, grad_rtol: float
 ):
     return cola.linalg.diag(A), I_like(A)
 
