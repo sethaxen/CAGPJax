@@ -111,7 +111,7 @@ class TestEigh:
             A = jax.random.normal(key, (n, n), dtype=dtype)
             return cola.ops.Dense(A + A.T)
 
-    @pytest.fixture(params=[Eigh])
+    @pytest.fixture(params=[Eigh, cola.linalg.Eigh, cola.linalg.Lanczos])
     def alg(self, request):
         return request.param()
 
@@ -138,7 +138,7 @@ class TestEigh:
                 )
             rtol = 1e-2 if dtype == jnp.float32 else 0.0
             assert jnp.allclose(op_mat, op.to_dense(), rtol=rtol)
-            if isinstance(alg, (Eigh,)):
+            if isinstance(alg, (Eigh, cola.linalg.Eigh)):
                 result_jax = jax.numpy.linalg.eigh(op.to_dense())
                 assert jnp.allclose(result.eigenvalues, result_jax.eigenvalues)
                 assert jnp.allclose(

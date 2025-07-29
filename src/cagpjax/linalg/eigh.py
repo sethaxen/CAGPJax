@@ -1,5 +1,6 @@
 """Hermitian eigenvalue decomposition."""
 
+import warnings
 from functools import partial
 
 import cola
@@ -55,6 +56,12 @@ def eigh(
     grad_rtol = jnp.array(grad_rtol, dtype=A.dtype)
     vals, vecs = _eigh(A, alg, grad_rtol)  # pyright: ignore[reportArgumentType]
     return EighResult(vals, cola.Unitary(vecs))
+
+
+@cola.dispatch(precedence=-2)
+def _eigh(A: LinearOperator, alg: cola.linalg.Algorithm, grad_rtol: Float[Array, ""]):  # pyright: ignore[reportRedeclaration]
+    warnings.warn("grad_rtol not supported for cola's eigh algorithms.")
+    return cola.linalg.eig(cola.SelfAdjoint(A), A.shape[0], which="SM", alg=alg)
 
 
 @cola.dispatch(precedence=-1)
