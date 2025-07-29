@@ -179,21 +179,14 @@ class TestSolvers:
         rtol = (1e-4 if dtype == jnp.float32 else 1e-12) * n
         assert jnp.isclose(trace_solve, trace_solve_solve, rtol=rtol)
 
-    @pytest.mark.parametrize("jitter", [None, 1e-6])
-    def test_pseudoinverse_gradient_degenerate(self, n, dtype, jitter):
-        """Test gradient computation with degenerate operators.
-
-        Without jitter, gradients contain NaN. With jitter, gradients are finite.
-        """
+    @pytest.mark.parametrize("grad_rtol", [None, -1.0, 0.0])
+    def test_pseudoinverse_gradient_degenerate(self, n, dtype, grad_rtol):
+        """Test gradient computation with degenerate operators."""
         A = cola.ops.Dense(jnp.eye(n, dtype=dtype))
-
-        if dtype == jnp.float32 and jitter is not None:
-            # Use larger jitter for float32 due to lower precision
-            jitter *= 100
 
         def loss_fn(A_matrix):
             A_op = cola.ops.Dense(A_matrix)
-            solver = PseudoInverse(jitter=jitter)(A_op)
+            solver = PseudoInverse(grad_rtol=grad_rtol)(A_op)
             b = jnp.ones(n, dtype=dtype)
             x = solver.solve(b)
             return jnp.sum(x**2)
@@ -201,7 +194,7 @@ class TestSolvers:
         grad_fn = jax.grad(loss_fn)
         grad = grad_fn(A.to_dense())
 
-        if jitter is None:
+        if grad_rtol is None or grad_rtol < 0.0:
             assert not jnp.isfinite(grad).all()
         else:
             assert jnp.isfinite(grad).all()
