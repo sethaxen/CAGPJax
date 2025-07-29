@@ -5,7 +5,7 @@ from jax import numpy as jnp
 from jaxtyping import Array, Float, PRNGKeyArray
 from typing_extensions import Self, override
 
-from ..linalg.eigh import EighResult, eigh
+from ..linalg.eigh import Eigh, EighResult, eigh
 from ..typing import ScalarFloat
 from .base import AbstractLinearSolver, AbstractLinearSolverMethod
 
@@ -32,34 +32,31 @@ class PseudoInverse(AbstractLinearSolverMethod):
               Eigenvalues smaller than `rtol * largest_nonzero_eigenvalue` are treated as zero.
               The default is determined based on the floating point precision of the dtype
               of the operator (see [`jax.numpy.linalg.pinv`][]).
+        grad_rtol: Specifies the cutoff for similar eigenvalues, used to improve
+            gradient computation for (almost-)degenerate matrices.
+            If not provided, the default is 0.0.
+            If None or negative, all eigenvalues are treated as distinct.
         alg: Algorithm for eigenvalue decomposition passed to [`cagpjax.linalg.eigh`][].
-        jitter: Jitter to add to diagonal to stabilize gradients for
-            (almost-)degenerate matrices. If scalar, random jitter in `[0, jitter]`
-            is generated. If vector, it's added directly.
-        key: Random key for jitter generation. Defaults to `key(0)` if not provided.
     """
 
-    alg: cola.linalg.Algorithm
     rtol: ScalarFloat | None
-    jitter: ScalarFloat | Float[Array, "N"] | None
-    key: PRNGKeyArray | None
+    grad_rtol: ScalarFloat | None
+    alg: cola.linalg.Algorithm
 
     def __init__(
         self,
         rtol: ScalarFloat | None = None,
-        alg: cola.linalg.Algorithm = cola.linalg.Eigh(),
-        jitter: ScalarFloat | Float[Array, "N"] | None = None,
-        key: PRNGKeyArray | None = None,
+        grad_rtol: ScalarFloat | None = None,
+        alg: cola.linalg.Algorithm = Eigh(),
     ):
         self.rtol = rtol
+        self.grad_rtol = grad_rtol
         self.alg = alg
-        self.jitter = jitter
-        self.key = key
 
     @override
     def __call__(self, A: LinearOperator) -> AbstractLinearSolver:
         return PseudoInverseSolver(
-            A, rtol=self.rtol, alg=self.alg, jitter=self.jitter, key=self.key
+            A, rtol=self.rtol, grad_rtol=self.grad_rtol, alg=self.alg
         )
 
 
@@ -76,15 +73,14 @@ class PseudoInverseSolver(AbstractLinearSolver):
         self,
         A: LinearOperator,
         rtol: ScalarFloat | None = None,
-        alg: cola.linalg.Algorithm = cola.linalg.Auto(),
-        jitter: ScalarFloat | Float[Array, "N"] | None = None,
-        key: PRNGKeyArray | None = None,
+        grad_rtol: ScalarFloat | None = None,
+        alg: cola.linalg.Algorithm = Eigh(),
     ):
         n = A.shape[0]
         # select rtol using same heuristic as jax.numpy.linalg.lstsq
         if rtol is None:
             rtol = float(jnp.finfo(A.dtype).eps) * n
-        self.eigh_result = eigh(A, alg=alg, jitter=jitter, key=key)
+        self.eigh_result = eigh(A, alg=alg, grad_rtol=grad_rtol)
         svdmax = jnp.max(jnp.abs(self.eigh_result.eigenvalues))
         cutoff = jnp.array(rtol * svdmax, dtype=svdmax.dtype)
         mask = self.eigh_result.eigenvalues >= cutoff
