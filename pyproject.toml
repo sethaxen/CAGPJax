@@ -33,7 +33,7 @@ dependencies = [
     "cola-ml>=0.0.7",
     "flax>=0.10.0",
     "typing-extensions",
-    "matfree>=0.2.0",
+    "matfree>=0.1.0",
 ]
 
 [project.optional-dependencies]
