@@ -1,6 +1,6 @@
 """Hermitian eigenvalue decomposition."""
 
-from typing import Any
+from functools import partial
 
 import cola
 import jax
@@ -73,3 +73,61 @@ def _eigh(A: ScalarMul | Diagonal | Identity, alg: cola.linalg.Algorithm):  # py
 @cola.dispatch
 def _eigh(A: Any, alg: cola.linalg.Algorithm):
     pass
+# Eigh with custom vjp to expand its support to (almost-)degenerate matrices.
+# jax-ml/jax#669
+
+@partial(jax.custom_vjp, nondiff_argnums=(1,))
+def _eigh_safe(a: Float[Array, "N N"], grad_rtol: Float[Array, ""]):
+    return jnp.linalg.eigh(a, symmetrize_input=True)
+
+
+def _eigh_safe_fwd(a: Float[Array, "N N"], grad_rtol: Float[Array, ""]):
+    eigh_result = _eigh_safe(a, grad_rtol)
+    return eigh_result, eigh_result
+
+
+def _eigh_safe_rev(
+    grad_rtol: Float[Array, ""],
+    residual: tuple[Float[Array, "N"], Float[Array, "N N"]],
+    grad: tuple[Float[Array, "N"], Float[Array, "N N"]],
+):
+    grad_eigvals, grad_eigvecs = grad
+    eigvals, eigvecs = residual
+
+    dot = partial(jnp.dot, precision=jax.lax.Precision.HIGHEST)
+    vt_grad_v = dot(eigvecs.T, grad_eigvecs)
+    # the backward part of input-symmetrization skew-symmetrizes this part
+    vt_grad_v = 0.5 * (vt_grad_v - vt_grad_v.T)
+
+    with jax.numpy_rank_promotion("allow"):
+        w_diff = eigvals[..., None, :] - eigvals[..., None]
+
+        if grad_rtol >= 0.0:
+            # If eigenvalues (i,j) are (approximately) equal, then grad_a_v[i,j] is
+            # underdetermined unless vt_grad_v[i,j]==0, which implies that the downstream
+            # code is only sensitive to the subspace spanned by eigenvectors (i,j) not
+            # the eigenvectors themselves.
+            w_thresh = (
+                grad_rtol
+                if grad_rtol == 0.0
+                else jnp.abs(eigvals).max(axis=-1) * grad_rtol
+            )
+            grad_thresh = (
+                grad_rtol if grad_rtol == 0.0 else jnp.abs(vt_grad_v).max() * grad_rtol
+            )
+            inv_mask = (
+                (jnp.abs(w_diff) <= w_thresh) & (jnp.abs(vt_grad_v) <= grad_thresh)
+            ).astype(eigvals.dtype)
+        else:
+            inv_mask = jnp.eye(eigvals.shape[-1], dtype=eigvals.dtype)
+
+        Fmat = jnp.reciprocal(w_diff + inv_mask) - inv_mask
+
+    grad_a_v = vt_grad_v * Fmat
+    grad_a_v = grad_a_v.at[jnp.diag_indices_from(grad_a_v)].set(grad_eigvals)
+    grad_a = dot(eigvecs, dot(grad_a_v, eigvecs.T))
+
+    return (grad_a,)
+
+
+_eigh_safe.defvjp(_eigh_safe_fwd, _eigh_safe_rev)
