@@ -41,13 +41,13 @@ class PseudoInverse(AbstractLinearSolverMethod):
     """
 
     rtol: ScalarFloat | None
-    grad_rtol: ScalarFloat | None
+    grad_rtol: float | None
     alg: cola.linalg.Algorithm
 
     def __init__(
         self,
         rtol: ScalarFloat | None = None,
-        grad_rtol: ScalarFloat | None = None,
+        grad_rtol: float | None = None,
         alg: cola.linalg.Algorithm = Eigh(),
     ):
         self.rtol = rtol
@@ -74,7 +74,7 @@ class PseudoInverseSolver(AbstractLinearSolver):
         self,
         A: LinearOperator,
         rtol: ScalarFloat | None = None,
-        grad_rtol: ScalarFloat | None = None,
+        grad_rtol: float | None = None,
         alg: cola.linalg.Algorithm = Eigh(),
     ):
         n = A.shape[0]

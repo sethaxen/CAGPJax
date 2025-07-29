@@ -34,7 +34,7 @@ class Eigh(cola.linalg.Algorithm):
 def eigh(
     A: LinearOperator,
     alg: cola.linalg.Algorithm = Eigh(),
-    grad_rtol: ScalarFloat | None = None,
+    grad_rtol: float | None = None,
 ) -> EighResult:
     """Compute the Hermitian eigenvalue decomposition of a linear operator.
 
@@ -60,19 +60,18 @@ def eigh(
     """
     if grad_rtol is None:
         grad_rtol = -1.0
-    grad_rtol = jnp.array(grad_rtol, dtype=A.dtype)
     vals, vecs = _eigh(A, alg, grad_rtol)  # pyright: ignore[reportArgumentType]
     return EighResult(vals, cola.Unitary(vecs))
 
 
 @cola.dispatch(precedence=-2)
-def _eigh(A: LinearOperator, alg: cola.linalg.Algorithm, grad_rtol: Float[Array, ""]):  # pyright: ignore[reportRedeclaration]
+def _eigh(A: LinearOperator, alg: cola.linalg.Algorithm, grad_rtol: float):  # pyright: ignore[reportRedeclaration]
     warnings.warn("grad_rtol not supported for cola's eigh algorithms.")
     return cola.linalg.eig(cola.SelfAdjoint(A), A.shape[0], which="SM", alg=alg)
 
 
 @cola.dispatch(precedence=-1)
-def _eigh(A: LinearOperator, alg: Eigh, grad_rtol: Float[Array, ""]):  # pyright: ignore[reportRedeclaration]
+def _eigh(A: LinearOperator, alg: Eigh, grad_rtol: float):  # pyright: ignore[reportRedeclaration]
     vals, vecs = _eigh_safe(A.to_dense(), grad_rtol=grad_rtol)
     return vals, cola.lazify(vecs)
 
@@ -91,17 +90,17 @@ def _eigh(
 
 
 @partial(jax.custom_vjp, nondiff_argnums=(1,))
-def _eigh_safe(a: Float[Array, "N N"], grad_rtol: Float[Array, ""]):
+def _eigh_safe(a: Float[Array, "N N"], grad_rtol: float):
     return jnp.linalg.eigh(a, symmetrize_input=True)
 
 
-def _eigh_safe_fwd(a: Float[Array, "N N"], grad_rtol: Float[Array, ""]):
+def _eigh_safe_fwd(a: Float[Array, "N N"], grad_rtol: float):
     eigh_result = _eigh_safe(a, grad_rtol)
     return eigh_result, eigh_result
 
 
 def _eigh_safe_rev(
-    grad_rtol: Float[Array, ""],
+    grad_rtol: float,
     residual: tuple[Float[Array, "N"], Float[Array, "N N"]],
     grad: tuple[Float[Array, "N"], Float[Array, "N N"]],
 ):
