@@ -64,6 +64,8 @@ def eigh(
 ) -> EighResult:
     """Compute the Hermitian eigenvalue decomposition of a linear operator.
 
+    For some algorithms, the decomposition may be approximate or partial.
+
     Args:
         A: Hermitian linear operator.
         alg: Algorithm for eigenvalue decomposition.
@@ -73,8 +75,8 @@ def eigh(
             If None or negative, all eigenvalues are treated as distinct.
 
     Returns:
-        A named tuple of `(eigenvalues, eigenvectors)` where `eigenvectors` is a unitary
-            `LinearOperator`.
+        A named tuple of `(eigenvalues, eigenvectors)` where `eigenvectors` is a
+            (semi-)orthogonal `LinearOperator`.
 
     Note:
         Degenerate matrices have repeated eigenvalues.
@@ -87,7 +89,11 @@ def eigh(
     if grad_rtol is None:
         grad_rtol = -1.0
     vals, vecs = _eigh(A, alg, grad_rtol)  # pyright: ignore[reportArgumentType]
-    return EighResult(vals, cola.Unitary(vecs))
+    if vecs.shape[-1] == A.shape[-1]:
+        vecs = cola.Unitary(vecs)
+    else:
+        vecs = cola.Stiefel(vecs)
+    return EighResult(vals, vecs)
 
 
 @cola.dispatch(precedence=-2)
