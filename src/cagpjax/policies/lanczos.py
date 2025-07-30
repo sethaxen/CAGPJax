@@ -1,11 +1,10 @@
 """Lanczos-based policies."""
 
-import cola
-import cola.linalg
-from cola.ops import Dense, LinearOperator
+from cola.ops import LinearOperator
 from jaxtyping import PRNGKeyArray
 from typing_extensions import override
 
+from ..linalg.eigh import Lanczos, eigh
 from .base import AbstractBatchLinearSolverPolicy
 
 
@@ -45,12 +44,5 @@ class LanczosPolicy(AbstractBatchLinearSolverPolicy):
         Returns:
             Linear operator containing the Lanczos vectors as columns.
         """
-        vecs = cola.linalg.eig(
-            cola.SelfAdjoint(A),
-            self.n_actions,
-            which="LM",
-            alg=cola.linalg.Lanczos(key=self.key),
-        )[1]
-        if not isinstance(vecs, LinearOperator):
-            vecs = Dense(vecs)
+        vecs = eigh(A, alg=Lanczos(self.n_actions, key=self.key)).eigenvectors
         return vecs
