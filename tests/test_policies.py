@@ -100,6 +100,37 @@ class TestLanczosPolicy:
             "CG eigenvectors don't match reference eigenvectors (up to sign)"
         )
 
+    @pytest.mark.parametrize("grad_rtol", [None, 1e-9])
+    @pytest.mark.parametrize("key", [jax.random.key(42), jax.random.key(98)])
+    @pytest.mark.parametrize("n", [8, 10])
+    def test_eigenvector_gradient_degenerate(
+        self, n, grad_rtol, key, dtype=jnp.float64
+    ):
+        """Test that the gradient is zero for a degenerate matrix."""
+        key, subkey = jax.random.split(key)
+        policy = LanczosPolicy(n_actions=n, grad_rtol=grad_rtol, key=subkey)
+        assert policy.grad_rtol == grad_rtol
+        x = jnp.ones(n, dtype=dtype)
+
+        # This loss function is constant within floating point precision, so its gradient
+        # when considering all eigenvectors should be zero.
+        # If matrix is degenerate, gradient will contain NaNs or (because Lanczos is approximate)
+        # be numerically unstable.
+        # Increasing grad_rtol allows the gradient should stabilize the gradient..
+        def loss(op_diag):
+            op = cola.lazify(jnp.diag(op_diag))
+            actions = policy.to_actions(op)
+            return jnp.sum(jnp.square(actions.T @ x))
+
+        op_diag = jnp.concatenate(
+            [jax.random.normal(key, (n - 2,), dtype=dtype), jnp.ones(2, dtype=dtype)]
+        )
+        grad = jax.grad(loss)(op_diag)
+        if grad_rtol is None:
+            assert not jnp.isclose(grad.max(), 0.0, atol=1e-3).any()
+        else:
+            assert jnp.isclose(grad, 0.0, atol=1e-9).all()
+
 
 class TestBlockSparsePolicy:
     """Test the BlockSparsePolicy concrete implementation."""

@@ -20,16 +20,28 @@ class LanczosPolicy(AbstractBatchLinearSolverPolicy):
     """
 
     key: PRNGKeyArray | None
+    grad_rtol: float | None
 
-    def __init__(self, n_actions: int | None, key: PRNGKeyArray | None = None):
+    def __init__(
+        self,
+        n_actions: int | None,
+        key: PRNGKeyArray | None = None,
+        grad_rtol: float | None = 0.0,
+    ):
         """Initialize the Lanczos policy.
 
         Args:
             n_actions: Number of Lanczos vectors to compute.
             key: Random key for initialization.
+            grad_rtol: Specifies the cutoff for similar eigenvalues, used to improve
+                gradient computation for (almost-)degenerate matrices.
+                If not provided, the default is 0.0.
+                If None or negative, all eigenvalues are treated as distinct.
+                (see [`cagpjax.linalg.eigh`][] for more details)
         """
         self._n_actions: int = n_actions
         self.key = key
+        self.grad_rtol = grad_rtol
 
     @property
     @override
@@ -46,5 +58,7 @@ class LanczosPolicy(AbstractBatchLinearSolverPolicy):
         Returns:
             Linear operator containing the Lanczos vectors as columns.
         """
-        vecs = eigh(A, alg=Lanczos(self.n_actions, key=self.key)).eigenvectors
+        vecs = eigh(
+            A, alg=Lanczos(self.n_actions, key=self.key), grad_rtol=self.grad_rtol
+        ).eigenvectors
         return vecs
