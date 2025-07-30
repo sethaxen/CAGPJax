@@ -7,7 +7,7 @@ import cola
 import jax
 from cola.ops import Diagonal, I_like, Identity, LinearOperator, ScalarMul
 from jax import numpy as jnp
-from jaxtyping import Array, Float
+from jaxtyping import Array, Float, PRNGKeyArray
 from typing_extensions import NamedTuple
 
 
@@ -27,6 +27,34 @@ class Eigh(cola.linalg.Algorithm):
     """
     Eigh algorithm for eigenvalue decomposition.
     """
+
+
+class Lanczos(cola.linalg.Algorithm):
+    """Lanczos algorithm for approximate partial eigenvalue decomposition.
+
+    Args:
+        max_iters: Maximum number of iterations (number of eigenvalues/vectors to compute).
+            If `None`, all eigenvalues/eigenvectors are computed.
+        v0: Initial vector. If `None`, a random vector is generated using `key`.
+        key: Random key for generating a random initial vector if `v0` is
+            not provided.
+    """
+
+    max_iters: int | None
+    v0: Float[Array, "N"] | None
+    key: PRNGKeyArray | None
+
+    def __init__(
+        self,
+        max_iters: int | None = None,
+        /,
+        *,
+        v0: Float[Array, "N"] | None = None,
+        key: PRNGKeyArray | None = None,
+    ):
+        self.max_iters = max_iters
+        self.v0 = v0
+        self.key = key
 
 
 def eigh(

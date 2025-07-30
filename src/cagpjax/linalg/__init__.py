@@ -1,7 +1,7 @@
 """Linear algebra functions."""
 
 from .congruence import congruence_transform
-from .eigh import Eigh, eigh
+from .eigh import Eigh, Lanczos, eigh
 from .lower_cholesky import lower_cholesky
 
-__all__ = ["congruence_transform", "lower_cholesky", "eigh", "Eigh"]
+__all__ = ["congruence_transform", "lower_cholesky", "eigh", "Eigh", "Lanczos"]

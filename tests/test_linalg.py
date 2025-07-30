@@ -6,7 +6,7 @@ import jax.numpy as jnp
 import pytest
 from cola.ops import Dense, Diagonal, Identity, LinearOperator, ScalarMul, Triangular
 
-from cagpjax.linalg import Eigh, congruence_transform, eigh, lower_cholesky
+from cagpjax.linalg import Eigh, Lanczos, congruence_transform, eigh, lower_cholesky
 from cagpjax.linalg.eigh import EighResult
 from cagpjax.linalg.utils import _add_jitter
 from cagpjax.operators import BlockDiagonalSparse, diag_like
@@ -145,6 +145,21 @@ class TestEigh:
                     result.eigenvectors.to_dense(), result_jax.eigenvectors
                 )
 
+
+    @pytest.mark.parametrize("key", [None, jax.random.key(42)])
+    @pytest.mark.parametrize("v0", [None, jnp.arange(5)])
+    @pytest.mark.parametrize("max_iters", [None, 2, 4])
+    def test_lanczos_constructor(self, max_iters, v0, key):
+        """Test Lanczos constructor."""
+        alg = Lanczos(max_iters, v0=v0, key=key)
+        assert isinstance(alg, Lanczos)
+        assert isinstance(alg, cola.linalg.Algorithm)
+        assert alg.max_iters == max_iters
+        assert alg.v0 is v0
+        assert alg.key is key
+        
+        with pytest.raises(TypeError):
+            Lanczos(max_iters=max_iters, v0=v0, key=key)
     @pytest.mark.parametrize("grad_rtol", [None, -1.0, 0.0])
     @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
     def test_eigh_gradient_degenerate(self, grad_rtol, dtype):
