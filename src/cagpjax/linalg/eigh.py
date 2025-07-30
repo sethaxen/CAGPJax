@@ -132,9 +132,7 @@ def _eigh(A: LinearOperator, alg: Lanczos, grad_rtol: float):  # pyright: ignore
     Q, H, *_ = tridiag_sym(matvec, v0)
 
     # Diagonalize the tridiagonal matrix
-    print(A.dtype, H.dtype)
     vals, vecs = _eigh_safe(H, grad_rtol=grad_rtol)
-    print(vals.dtype, vecs.dtype)
     vecs = Q @ vecs
     return vals, cola.lazify(vecs)
 
