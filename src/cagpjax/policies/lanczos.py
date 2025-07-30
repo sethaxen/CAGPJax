@@ -19,7 +19,9 @@ class LanczosPolicy(AbstractBatchLinearSolverPolicy):
         key: Random key for reproducible Lanczos iterations.
     """
 
-    def __init__(self, n_actions: int, key: PRNGKeyArray | None = None):
+    key: PRNGKeyArray | None
+
+    def __init__(self, n_actions: int | None, key: PRNGKeyArray | None = None):
         """Initialize the Lanczos policy.
 
         Args:
@@ -27,7 +29,7 @@ class LanczosPolicy(AbstractBatchLinearSolverPolicy):
             key: Random key for initialization.
         """
         self._n_actions: int = n_actions
-        self.key: PRNGKeyArray | None = key
+        self.key = key
 
     @property
     @override
