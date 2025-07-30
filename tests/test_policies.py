@@ -64,11 +64,19 @@ class TestLanczosPolicy:
             result1 @ jnp.eye(n_actions), result2 @ jnp.eye(n_actions)
         )
 
-    @pytest.mark.parametrize("n_actions", [2, 4])
+    @pytest.mark.parametrize("n_actions", [8, None])
     def test_eigenvectors_match_dense_computation(
         self, psd_linear_operator, n_actions, key=jax.random.key(42)
     ):
         """Test that the eigenvectors match those from dense eigendecomposition."""
+
+        if n_actions is None:
+            n_actions = psd_linear_operator.shape[0]
+            atol = 1e-8 if psd_linear_operator.dtype == jnp.float64 else 1e-5
+            nvecs_check = n_actions
+        else:
+            atol = 1e-4
+            nvecs_check = 2
 
         # Get eigenvectors using LanczosPolicy
         actions = LanczosPolicy(n_actions=n_actions, key=key)
@@ -76,19 +84,18 @@ class TestLanczosPolicy:
 
         # Get reference eigenvectors using dense computation
         _, eigenvecs = jnp.linalg.eigh(psd_linear_operator.to_dense())
-        # Get the largest n_actions eigenvectors (eigh returns them in ascending order)
-        ref_vecs = eigenvecs[:, -n_actions:]
+        # Get the largest nvecs_check eigenvectors (eigh returns them in ascending order)
+        ref_vecs = eigenvecs[:, -nvecs_check:]
 
         # Convert LanczosPolicy result to dense array for comparison
-        cg_vecs_dense = cg_vecs @ jnp.eye(n_actions)
+        cg_vecs_dense = cg_vecs.to_dense()[:, -nvecs_check:]
 
         # Compare eigenvectors (they should match up to sign)
         # Computing the product should give a diagonal matrix with +/-1 entries
         product = cg_vecs_dense.T @ ref_vecs
         abs_product = jnp.abs(product)
-        expected_identity = jnp.eye(n_actions)
+        expected_identity = jnp.eye(nvecs_check, dtype=cg_vecs_dense.dtype)
 
-        atol = 1e-6 if psd_linear_operator.dtype == jnp.float64 else 1e-3
         assert jnp.allclose(abs_product, expected_identity, atol=atol), (
             "CG eigenvectors don't match reference eigenvectors (up to sign)"
         )
