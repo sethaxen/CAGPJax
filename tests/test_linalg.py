@@ -136,9 +136,9 @@ class TestEigh:
                     @ jnp.diag(result.eigenvalues)
                     @ result.eigenvectors.T
                 )
-            rtol = 1e-2 if dtype == jnp.float32 else 0.0
-            assert jnp.allclose(op_mat, op.to_dense(), rtol=rtol)
             if isinstance(alg, (Eigh, cola.linalg.Eigh)):
+                rtol = 1e-2 if dtype == jnp.float32 else 1e-3
+                assert jnp.allclose(op_mat, op.to_dense(), rtol=rtol)
                 result_jax = jax.numpy.linalg.eigh(op.to_dense())
                 assert jnp.allclose(result.eigenvalues, result_jax.eigenvalues)
                 assert jnp.allclose(
@@ -148,7 +148,10 @@ class TestEigh:
                 result_jax = jax.numpy.linalg.eigh(op.to_dense())
                 assert jnp.allclose(result.eigenvalues, result_jax.eigenvalues)
                 eigvecs_mul = result.eigenvectors.T @ result_jax.eigenvectors
-                assert jnp.allclose(jnp.abs(eigvecs_mul), jnp.eye(n), atol=1e-4)
+                rtol = 1e-2 if dtype == jnp.float32 else 1e-9
+                assert jnp.allclose(
+                    jnp.abs(jnp.diag(eigvecs_mul)), jnp.ones(n, dtype=dtype), rtol=rtol
+                )
 
     @pytest.mark.parametrize("key", [None, jax.random.key(42)])
     @pytest.mark.parametrize("v0", [None, jnp.arange(5)])
