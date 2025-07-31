@@ -230,21 +230,7 @@ class TestEigh:
         else:
             assert jnp.isfinite(grad).all()
 
-    @pytest.mark.parametrize(
-        "grad_rtol",
-        [
-            None,
-            pytest.param(
-                1e-9,
-                marks=[
-                    pytest.mark.xfail(
-                        reason="Gradient is close to zero everywhere, so rtol for identifying "
-                        + "zero gradient fails."
-                    )
-                ],
-            ),
-        ],
-    )
+    @pytest.mark.parametrize("grad_rtol", [None, 1e-9])
     @pytest.mark.parametrize("dtype", [jnp.float64])
     def test_eigh_gradient_degenerate_zero_grad(self, grad_rtol, dtype):
         """Test computation of almost-zero gradient with degenerate eigenvalues."""
