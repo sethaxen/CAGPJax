@@ -5,9 +5,10 @@ from functools import partial
 
 import cola
 import jax
+import matfree.decomp
 from cola.ops import Diagonal, I_like, Identity, LinearOperator, ScalarMul
 from jax import numpy as jnp
-from jaxtyping import Array, Float
+from jaxtyping import Array, Float, PRNGKeyArray
 from typing_extensions import NamedTuple
 
 
@@ -29,12 +30,42 @@ class Eigh(cola.linalg.Algorithm):
     """
 
 
+class Lanczos(cola.linalg.Algorithm):
+    """Lanczos algorithm for approximate partial eigenvalue decomposition.
+
+    Args:
+        max_iters: Maximum number of iterations (number of eigenvalues/vectors to compute).
+            If `None`, all eigenvalues/eigenvectors are computed.
+        v0: Initial vector. If `None`, a random vector is generated using `key`.
+        key: Random key for generating a random initial vector if `v0` is
+            not provided.
+    """
+
+    max_iters: int | None
+    v0: Float[Array, "N"] | None
+    key: PRNGKeyArray | None
+
+    def __init__(
+        self,
+        max_iters: int | None = None,
+        /,
+        *,
+        v0: Float[Array, "N"] | None = None,
+        key: PRNGKeyArray | None = None,
+    ):
+        self.max_iters = max_iters
+        self.v0 = v0
+        self.key = key
+
+
 def eigh(
     A: LinearOperator,
     alg: cola.linalg.Algorithm = Eigh(),
     grad_rtol: float | None = None,
 ) -> EighResult:
     """Compute the Hermitian eigenvalue decomposition of a linear operator.
+
+    For some algorithms, the decomposition may be approximate or partial.
 
     Args:
         A: Hermitian linear operator.
@@ -45,8 +76,8 @@ def eigh(
             If None or negative, all eigenvalues are treated as distinct.
 
     Returns:
-        A named tuple of `(eigenvalues, eigenvectors)` where `eigenvectors` is a unitary
-            `LinearOperator`.
+        A named tuple of `(eigenvalues, eigenvectors)` where `eigenvectors` is a
+            (semi-)orthogonal `LinearOperator`.
 
     Note:
         Degenerate matrices have repeated eigenvalues.
@@ -59,7 +90,11 @@ def eigh(
     if grad_rtol is None:
         grad_rtol = -1.0
     vals, vecs = _eigh(A, alg, grad_rtol)  # pyright: ignore[reportArgumentType]
-    return EighResult(vals, cola.Unitary(vecs))
+    if vecs.shape[-1] == A.shape[-1]:
+        vecs = cola.Unitary(vecs)
+    else:
+        vecs = cola.Stiefel(vecs)
+    return EighResult(vals, vecs)
 
 
 @cola.dispatch(precedence=-2)
@@ -71,6 +106,34 @@ def _eigh(A: LinearOperator, alg: cola.linalg.Algorithm, grad_rtol: float):  # p
 @cola.dispatch(precedence=-1)
 def _eigh(A: LinearOperator, alg: Eigh, grad_rtol: float):  # pyright: ignore[reportRedeclaration]
     vals, vecs = _eigh_safe(A.to_dense(), grad_rtol=grad_rtol)
+    return vals, cola.lazify(vecs)
+
+
+@cola.dispatch(precedence=-1)
+def _eigh(A: LinearOperator, alg: Lanczos, grad_rtol: float):  # pyright: ignore[reportRedeclaration]
+    if alg.v0 is None:
+        key = jax.random.key(0) if alg.key is None else alg.key
+        v0 = jax.random.normal(key, (A.shape[0],), dtype=A.dtype)
+    else:
+        v0 = alg.v0
+
+    num_matvecs = alg.max_iters if alg.max_iters is not None else A.shape[0]
+
+    # Set up Lanczos algorithm
+    tridiag_sym = matfree.decomp.tridiag_sym(
+        num_matvecs, materialize=True, reortho="full"
+    )
+
+    # Define matrix-vector product
+    def matvec(v):
+        return (A @ v).astype(A.dtype)
+
+    # Tridiagonalize the matrix using the Lanczos algorithm
+    Q, H, *_ = tridiag_sym(matvec, v0)
+
+    # Diagonalize the tridiagonal matrix
+    vals, vecs = _eigh_safe(H, grad_rtol=grad_rtol)
+    vecs = Q @ vecs
     return vals, cola.lazify(vecs)
 
 
