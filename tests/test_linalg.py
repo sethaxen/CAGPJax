@@ -230,6 +230,46 @@ class TestEigh:
         else:
             assert jnp.isfinite(grad).all()
 
+    @pytest.mark.parametrize(
+        "grad_rtol",
+        [
+            None,
+            pytest.param(
+                0.0,
+                marks=[
+                    pytest.mark.xfail(
+                        message="Gradient is close to zero everywhere, so rtol for identifying "
+                        + "zero gradient fails."
+                    )
+                ],
+            ),
+        ],
+    )
+    @pytest.mark.parametrize("dtype", [jnp.float64])
+    def test_eigh_gradient_degenerate_zero_grad(self, grad_rtol, dtype):
+        """Test computation of almost-zero gradient with degenerate eigenvalues."""
+        n = 4
+        x = jnp.ones(n, dtype=dtype)
+
+        # a small perturbation makes the gradient almost-zero but not exactly zero
+        A_delta = jax.random.normal(jax.random.key(42), (n, n), dtype=dtype)
+        A_delta = (A_delta + A_delta.T) * 1e-30
+
+        def loss_fn(A_diag):
+            A_op = cola.ops.Dense(jnp.diag(A_diag) + A_delta)
+            result = eigh(A_op, grad_rtol=grad_rtol)
+            z = result.eigenvectors.T @ x
+            return jnp.sum(jnp.square(z))
+
+        a_diag = jnp.ones(n, dtype=dtype)
+
+        grad_fn = jax.grad(loss_fn)
+        grad = grad_fn(a_diag)
+        if grad_rtol is None:
+            assert not jnp.isfinite(grad).all()
+        else:
+            assert jnp.allclose(grad, 0.0, atol=1e-9)
+
 
 class TestLowerCholesky:
     """Tests for ``lower_cholesky``."""
