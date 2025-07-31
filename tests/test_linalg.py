@@ -235,10 +235,10 @@ class TestEigh:
         [
             None,
             pytest.param(
-                0.0,
+                1e-9,
                 marks=[
                     pytest.mark.xfail(
-                        message="Gradient is close to zero everywhere, so rtol for identifying "
+                        reason="Gradient is close to zero everywhere, so rtol for identifying "
                         + "zero gradient fails."
                     )
                 ],
