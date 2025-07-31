@@ -184,11 +184,11 @@ def _eigh_safe_rev(
                 if grad_rtol == 0.0
                 else jnp.abs(eigvals).max(axis=-1) * grad_rtol
             )
-            grad_thresh = (
-                grad_rtol if grad_rtol == 0.0 else jnp.abs(vt_grad_v).max() * grad_rtol
-            )
+            # use 1.0 as reference for rtol check for gradient so that we don't
+            # count a very low (e.g. 1e-30) value as being greater than zero
+            # when the largest gradient value is also very low.
             inv_mask = (
-                (jnp.abs(w_diff) <= w_thresh) & (jnp.abs(vt_grad_v) <= grad_thresh)
+                (jnp.abs(w_diff) <= w_thresh) & (jnp.abs(vt_grad_v) <= grad_rtol)
             ).astype(eigvals.dtype)
         else:
             inv_mask = jnp.eye(eigvals.shape[-1], dtype=eigvals.dtype)
