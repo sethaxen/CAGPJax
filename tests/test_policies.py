@@ -1,14 +1,16 @@
 """Test the linear solver policies."""
 
 import cola
+import gpjax.kernels
 import jax
 import jax.numpy as jnp
 import pytest
 from cola.ops import Dense, LinearOperator, Transpose
+from gpjax.dataset import Dataset
 from gpjax.parameters import Real, Static
 
 from cagpjax.operators import BlockDiagonalSparse
-from cagpjax.policies import BlockSparsePolicy, LanczosPolicy
+from cagpjax.policies import BlockSparsePolicy, LanczosPolicy, PseudoInputPolicy
 
 jax.config.update("jax_enable_x64", True)
 
@@ -196,3 +198,85 @@ class TestBlockSparsePolicy:
         actions1 = policy.to_actions(psd_linear_operator)
         actions2 = policy.to_actions(psd_linear_operator)
         assert jnp.allclose(actions1.to_dense(), actions2.to_dense())
+
+
+class TestPseudoInputPolicy:
+    """Test the PseudoInputPolicy."""
+
+    @pytest.fixture(params=[jnp.float32, jnp.float64])
+    def dtype(self, request):
+        """Data type for testing."""
+        return request.param
+
+    @pytest.fixture(params=[1, 2])
+    def input_dim(self, request):
+        """Dimension of the input space."""
+        return request.param
+
+    @pytest.fixture(params=[gpjax.kernels.RBF, gpjax.kernels.Matern32])
+    def kernel(self, request, input_dim, dtype, key=jax.random.key(42)):
+        """Create a kernel for testing."""
+        lengthscale = jax.random.uniform(key, (input_dim,), dtype=dtype)
+        variance = jax.random.uniform(key, (), dtype=dtype)
+        return request.param(lengthscale=lengthscale, variance=variance)
+
+    @pytest.fixture(params=[(10, 5), (15, 8)])
+    def inputs(self, request, input_dim, dtype, key=jax.random.key(42)):
+        """Create a training dataset."""
+        n, n_pseudo = request.param
+        key, subkey = jax.random.split(key)
+        train_inputs = jax.random.normal(subkey, (n, input_dim), dtype=dtype)
+        pseudo_inputs = jax.random.normal(key, (n_pseudo, input_dim), dtype=dtype)
+        return train_inputs, pseudo_inputs
+
+    @pytest.mark.parametrize("pseudo_input_type", [jnp.ndarray, Static, Real])
+    @pytest.mark.parametrize("train_input_type", [jnp.ndarray, Dataset])
+    def test_basic_properties(
+        self,
+        inputs,
+        kernel,
+        train_input_type,
+        pseudo_input_type,
+    ):
+        """Test basic initialization."""
+        train_inputs, pseudo_inputs = inputs
+        train_data = (
+            Dataset(X=train_inputs) if train_input_type is Dataset else train_inputs
+        )
+        pseudo_input_wrapped = (
+            pseudo_input_type(pseudo_inputs)
+            if pseudo_input_type is not jnp.ndarray
+            else pseudo_inputs
+        )
+        policy = PseudoInputPolicy(pseudo_input_wrapped, train_data, kernel)
+
+        # check correctly initialized
+        assert isinstance(policy, PseudoInputPolicy)
+        assert policy.n_actions == pseudo_inputs.shape[0]
+        assert policy.kernel is kernel
+        assert isinstance(policy.train_inputs, jnp.ndarray)
+        assert jnp.array_equal(policy.train_inputs, train_inputs)
+        if pseudo_input_type is jnp.ndarray:
+            assert isinstance(policy.pseudo_inputs, Static)
+        else:
+            assert isinstance(policy.pseudo_inputs, pseudo_input_type)
+        assert jnp.array_equal(policy.pseudo_inputs.value, pseudo_inputs)
+
+    def test_actions_is_cross_covariance(self, inputs, kernel, dtype):
+        """Test actions are the cross-covariance between the training inputs and pseudo-inputs."""
+        train_inputs, pseudo_inputs = inputs
+        policy = PseudoInputPolicy(pseudo_inputs, train_inputs, kernel)
+        op = kernel.gram(train_inputs)
+        actions = policy.to_actions(op)
+        assert isinstance(actions, LinearOperator)
+        assert actions.dtype == dtype
+        assert jnp.allclose(
+            actions.to_dense(), kernel.cross_covariance(train_inputs, pseudo_inputs)
+        )
+
+    def test_actions_consistency(self, inputs, kernel):
+        """Test to_actions consistency and return type."""
+        train_inputs, pseudo_inputs = inputs
+        policy = PseudoInputPolicy(pseudo_inputs, train_inputs, kernel)
+        op = kernel.gram(train_inputs)
+        _test_batch_policy_actions_consistency(policy, op)
