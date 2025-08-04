@@ -47,9 +47,9 @@ class TestBlockDiagonalSparse:
 
     @pytest.fixture(
         params=[
-            (5, 2),  # has overhang
-            (9, 4),  # has overhang
-            (6, 3),  # no overhang
+            pytest.param((5, 2), id="has_overhang"),
+            pytest.param((9, 4), id="has_overhang"),
+            pytest.param((6, 3), id="no_overhang"),
         ]
     )
     def shape(self, request):
