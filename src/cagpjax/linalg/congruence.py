@@ -26,7 +26,7 @@ def congruence_transform(A: Diagonal, B: Diagonal) -> Diagonal:  # pyright: igno
 def congruence_transform(A: BlockDiagonalSparse, B: Diagonal | ScalarMul) -> Diagonal:  # pyright: ignore[reportOverlappingOverload]
     nz_values = B @ A.nz_values**2
 
-    n_blocks, n = A.shape
+    n, n_blocks = A.shape
     block_size = n // n_blocks
     n_blocks_main = n_blocks if n % n_blocks == 0 else n_blocks - 1
     n_main = n_blocks_main * block_size

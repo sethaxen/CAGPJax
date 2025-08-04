@@ -47,9 +47,9 @@ class TestBlockDiagonalSparse:
 
     @pytest.fixture(
         params=[
-            (2, 5),  # has overhang
-            (4, 9),  # has overhang
-            (3, 6),  # no overhang
+            (5, 2),  # has overhang
+            (9, 4),  # has overhang
+            (6, 3),  # no overhang
         ]
     )
     def shape(self, request):
@@ -58,7 +58,7 @@ class TestBlockDiagonalSparse:
     @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
     def test_basic(self, shape, dtype, key=jax.random.key(42)):
         """Test initialization and basic properties."""
-        n_blocks, n_nz_values = shape
+        n_nz_values, n_blocks = shape
         nz_values = jax.random.normal(key, (n_nz_values,), dtype=dtype)
         op = BlockDiagonalSparse(nz_values, n_blocks)
         assert op.shape == shape
@@ -67,14 +67,18 @@ class TestBlockDiagonalSparse:
 
     def test_grad(self, shape, dtype=jnp.float64, key=jax.random.key(42)):
         """Test gradient containing the linear operator."""
-        n_blocks, n_nz_values = shape
+        n_nz_values, n_blocks = shape
         key, subkey = jax.random.split(key)
         nz_values = jax.random.normal(subkey, (n_nz_values,), dtype=dtype)
         op = BlockDiagonalSparse(nz_values, n_blocks)
 
-        f = lambda x: jnp.prod(jnp.sin(op @ x))
-        x = jax.random.normal(key, (n_nz_values,), dtype=dtype)
-        jax.test_util.check_grads(f, (x,), order=1)
+        f1 = lambda x: jnp.prod(jnp.sin(op @ x))
+        x1 = jax.random.normal(key, (n_blocks,), dtype=dtype)
+        jax.test_util.check_grads(f1, (x1,), order=1)
+
+        f2 = lambda x: jnp.prod(jnp.sin(op.T @ x))
+        x2 = jax.random.normal(key, (n_nz_values,), dtype=dtype)
+        jax.test_util.check_grads(f2, (x2,), order=1)
 
 
 class TestDiagLike:
