@@ -93,17 +93,17 @@ class ComputationAwareGP(AbstractComputationAwareGP):
         cov_prior = cov_xx + obs_cov
 
         # Project quantities to subspace
-        proj = self.policy.to_actions(cov_prior).T
-        obs_cov_proj = congruence_transform(proj, obs_cov)
-        cov_prior_proj = congruence_transform(proj, cov_prior)
+        actions = self.policy.to_actions(cov_prior)
+        obs_cov_proj = congruence_transform(actions, obs_cov)
+        cov_prior_proj = congruence_transform(actions, cov_prior)
         cov_prior_proj_solver = self.solver_method(cov_prior_proj)
 
-        residual_proj = proj @ (y - mean_prior)
+        residual_proj = actions.T @ (y - mean_prior)
         repr_weights_proj = cov_prior_proj_solver.solve(residual_proj)
 
         self._posterior_params = _ProjectedPosteriorParameters(
             x=x,
-            proj=proj,
+            actions=actions,
             obs_cov_proj=obs_cov_proj,
             cov_prior_proj_solver=cov_prior_proj_solver,
             residual_proj=residual_proj,
@@ -134,7 +134,7 @@ class ComputationAwareGP(AbstractComputationAwareGP):
 
         # Unpack posterior parameters
         x = self._posterior_params.x
-        proj = self._posterior_params.proj
+        actions = self._posterior_params.actions
         cov_prior_proj_solver = self._posterior_params.cov_prior_proj_solver
         repr_weights_proj = self._posterior_params.repr_weights_proj
 
@@ -146,12 +146,12 @@ class ComputationAwareGP(AbstractComputationAwareGP):
         if isinstance(prior.mean_function, Constant):
             mean_z = mean_z.astype(prior.mean_function.constant.value.dtype)
         cov_zz = prior.kernel.gram(z)
-        cov_zx = cov_zz if test_inputs is None else prior.kernel.cross_covariance(z, x)
-        cov_zx_proj = cov_zx @ proj.T
+        cov_xz = cov_zz if test_inputs is None else prior.kernel.cross_covariance(x, z)
+        cov_xz_proj = actions.T @ cov_xz
 
         # Posterior predictive distribution
-        mean_pred = jnp.atleast_1d(mean_z + cov_zx_proj @ repr_weights_proj)
-        cov_pred = cov_zz - cov_prior_proj_solver.inv_congruence_transform(cov_zx_proj)
+        mean_pred = jnp.atleast_1d(mean_z + cov_xz_proj.T @ repr_weights_proj)
+        cov_pred = cov_zz - cov_prior_proj_solver.inv_congruence_transform(cov_xz_proj)
         cov_pred = cola.PSD(cov_pred + diag_like(cov_pred, self.posterior.jitter))
 
         return GaussianDistribution(mean_pred, cov_pred)
@@ -202,7 +202,7 @@ class _ProjectedPosteriorParameters:
 
     Args:
         x: N training inputs with D dimensions.
-        proj: Projection operator mapping from N-dimensional space
+        actions: Actions operator; transpose of operator projecting from N-dimensional space
             to M-dimensional subspace.
         obs_cov_proj: Projected covariance of likelihood.
         cov_prior_proj_solver: Linear solver for ``cov_prior_proj``.
@@ -211,7 +211,7 @@ class _ProjectedPosteriorParameters:
     """
 
     x: Float[Array, "N D"]
-    proj: LinearOperator
+    actions: LinearOperator
     obs_cov_proj: LinearOperator
     cov_prior_proj_solver: AbstractLinearSolver
     residual_proj: Float[Array, "M"]
