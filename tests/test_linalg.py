@@ -25,7 +25,7 @@ class TestCongruenceTransform:
     ):
         """Test fallback case where ``A`` and ``B`` can be linear operators or dense arrays."""
         key, subkey = jax.random.split(key)
-        A_dense = jax.random.normal(key, (m, n), dtype=dtype)
+        A_dense = jax.random.normal(key, (n, m), dtype=dtype)
         B_dense = jax.random.normal(subkey, (n, n), dtype=dtype)
         A = A_wrap(A_dense)
         B = B_wrap(B_dense)
@@ -39,7 +39,7 @@ class TestCongruenceTransform:
             assert isinstance(C, jnp.ndarray)
             C_dense = C
 
-        assert jnp.allclose(C_dense, A_dense @ B_dense @ A_dense.T)
+        assert jnp.allclose(C_dense, A_dense.T @ B_dense @ A_dense)
 
     @pytest.mark.parametrize("n", [3, 6])
     def test_congruence_both_diagonal(

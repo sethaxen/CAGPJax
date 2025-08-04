@@ -14,7 +14,7 @@ from ..operators import BlockDiagonalSparse
 # fallback to plain multiplication
 @overload
 def congruence_transform(A: Any, B: Any) -> Any:
-    return (A @ B) @ A.T
+    return A.T @ (B @ A)
 
 
 @overload
@@ -26,7 +26,7 @@ def congruence_transform(A: Diagonal, B: Diagonal) -> Diagonal:  # pyright: igno
 def congruence_transform(A: BlockDiagonalSparse, B: Diagonal | ScalarMul) -> Diagonal:  # pyright: ignore[reportOverlappingOverload]
     nz_values = B @ A.nz_values**2
 
-    n_blocks, n = A.shape
+    n, n_blocks = A.shape
     block_size = n // n_blocks
     n_blocks_main = n_blocks if n % n_blocks == 0 else n_blocks - 1
     n_main = n_blocks_main * block_size
@@ -45,7 +45,7 @@ def congruence_transform(A: BlockDiagonalSparse, B: Diagonal | ScalarMul) -> Dia
 
 @cola.dispatch
 def congruence_transform(A: Any, B: Any) -> Any:
-    """Congruence transformation ``A @ B @ A.T``.
+    """Congruence transformation ``A.T @ B @ A``.
 
     Args:
         A: Linear operator or array to be applied.

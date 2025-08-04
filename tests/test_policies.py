@@ -184,8 +184,7 @@ class TestBlockSparsePolicy:
         policy = BlockSparsePolicy(n_actions=n_actions, n=n, key=key, dtype=dtype)
         _test_batch_policy_actions_consistency(policy, psd_linear_operator)
         action = policy.to_actions(psd_linear_operator)
-        assert isinstance(action, Transpose)
-        assert isinstance(action.T, BlockDiagonalSparse)
+        assert isinstance(action, BlockDiagonalSparse)
 
     @pytest.mark.parametrize("n_actions", [2, 3])
     def test_to_actions_reproducible(
