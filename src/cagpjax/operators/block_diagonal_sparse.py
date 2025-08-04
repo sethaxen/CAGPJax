@@ -51,12 +51,9 @@ class BlockDiagonalSparse(LinearOperator):
         m = X.shape[1]
 
         # block-wise multiplication for main blocks
-        if n_blocks_main > 0:
-            blocks_main = self.nz_values[:n_main].reshape(n_blocks_main, block_size)
-            X_main = X[:n_blocks_main, :]
-            res_main = (blocks_main[..., None] * X_main[:, None, :]).reshape(n_main, m)
-        else:
-            res_main = jnp.empty((0, m), dtype=X.dtype)
+        blocks_main = self.nz_values[:n_main].reshape(n_blocks_main, block_size)
+        X_main = X[:n_blocks_main, :]
+        res_main = (blocks_main[..., None] * X_main[:, None, :]).reshape(n_main, m)
 
         # handle overhang if any
         if n > n_main:
@@ -79,12 +76,9 @@ class BlockDiagonalSparse(LinearOperator):
         m = X.shape[0]
 
         # block-wise multiplication for main blocks
-        if n_blocks_main > 0:
-            blocks_main = self.nz_values[:n_main].reshape(n_blocks_main, block_size)
-            X_main = X[:, :n_main].reshape(m, n_blocks_main, block_size)
-            res_main = jnp.einsum("ik,jik->ji", blocks_main, X_main)
-        else:
-            res_main = jnp.empty((m, 0), dtype=X.dtype)
+        blocks_main = self.nz_values[:n_main].reshape(n_blocks_main, block_size)
+        X_main = X[:, :n_main].reshape(m, n_blocks_main, block_size)
+        res_main = jnp.einsum("ik,jik->ji", blocks_main, X_main)
 
         # handle overhang if any
         if n > n_main:
