@@ -146,12 +146,14 @@ class ComputationAwareGP(AbstractComputationAwareGP):
         if isinstance(prior.mean_function, Constant):
             mean_z = mean_z.astype(prior.mean_function.constant.value.dtype)
         cov_zz = prior.kernel.gram(z)
-        cov_xz = cov_zz if test_inputs is None else prior.kernel.cross_covariance(x, z)
-        cov_xz_proj = actions.T @ cov_xz
+        cov_zx = cov_zz if test_inputs is None else prior.kernel.cross_covariance(z, x)
+        cov_zx_proj = cov_zx @ actions
 
         # Posterior predictive distribution
-        mean_pred = jnp.atleast_1d(mean_z + cov_xz_proj.T @ repr_weights_proj)
-        cov_pred = cov_zz - cov_prior_proj_solver.inv_congruence_transform(cov_xz_proj)
+        mean_pred = jnp.atleast_1d(mean_z + cov_zx_proj @ repr_weights_proj)
+        cov_pred = cov_zz - cov_prior_proj_solver.inv_congruence_transform(
+            cov_zx_proj.T
+        )
         cov_pred = cola.PSD(cov_pred + diag_like(cov_pred, self.posterior.jitter))
 
         return GaussianDistribution(mean_pred, cov_pred)
