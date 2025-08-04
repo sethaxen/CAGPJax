@@ -144,7 +144,7 @@ class TestSolvers:
         self, solver, n, m, dtype, B_type, key=jax.random.key(23)
     ):
         """Test inv_congruence_transform is consistent with solve and congruence_transform."""
-        B = jax.random.normal(key, (m, n), dtype=dtype)
+        B = jax.random.normal(key, (n, m), dtype=dtype)
         if B_type == cola.ops.LinearOperator:
             B = cola.lazify(B)
 

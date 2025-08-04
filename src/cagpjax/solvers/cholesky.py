@@ -55,10 +55,10 @@ class CholeskySolver(AbstractLinearSolver):
 
     @override
     def inv_congruence_transform(
-        self, B: LinearOperator | Float[Array, "N K"]
+        self, B: LinearOperator | Float[Array, "K N"]
     ) -> LinearOperator | Float[Array, "K K"]:
         Linv = cola.linalg.inv(self.lchol)
-        right_term = Linv @ B.T
+        right_term = Linv @ B
         return right_term.T @ right_term
 
     @override

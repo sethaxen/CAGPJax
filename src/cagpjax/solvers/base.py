@@ -37,9 +37,9 @@ class AbstractLinearSolver(nnx.Module):
 
     @abstractmethod
     def inv_congruence_transform(
-        self, B: LinearOperator | Float[Array, "K N"]
+        self, B: LinearOperator | Float[Array, "N K"]
     ) -> LinearOperator | Float[Array, "K K"]:
-        """Compute the inverse congruence transform $B x$ for $x$ in $Ax = B^T$.
+        """Compute the inverse congruence transform $B^T x$ for $x$ in $Ax = B$.
 
         Arguments:
             B: Linear operator or array to be applied.
@@ -55,7 +55,7 @@ class AbstractLinearSolver(nnx.Module):
         Arguments:
             b: Right-hand side of the linear system.
         """
-        return self.inv_congruence_transform(b.reshape(1, -1)).squeeze()
+        return self.inv_congruence_transform(b[:, None]).squeeze()
 
     @abstractmethod
     def trace_solve(self, B: Self) -> ScalarFloat:

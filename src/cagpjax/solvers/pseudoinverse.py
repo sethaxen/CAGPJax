@@ -113,11 +113,11 @@ class PseudoInverseSolver(AbstractLinearSolver):
 
     @override
     def inv_congruence_transform(
-        self, B: LinearOperator | Float[Array, "N K"]
+        self, B: LinearOperator | Float[Array, "K N"]
     ) -> LinearOperator | Float[Array, "K K"]:
         eigenvectors = self.eigh_result.eigenvectors
-        z = B @ eigenvectors
-        z = z @ cola.ops.Diagonal(self.eigvals_inv) @ z.T
+        z = eigenvectors.T @ B
+        z = z.T @ cola.ops.Diagonal(self.eigvals_inv) @ z
         return z
 
     @override
