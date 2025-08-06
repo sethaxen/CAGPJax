@@ -4,6 +4,8 @@ import jax.numpy as jnp
 from cola.ops import LinearOperator
 from jaxtyping import Array, Float
 
+from .annotations import ScaledOrthogonal
+
 
 class BlockDiagonalSparse(LinearOperator):
     """Block-diagonal sparse linear operator.
@@ -40,7 +42,7 @@ class BlockDiagonalSparse(LinearOperator):
 
     def __init__(self, nz_values: Float[Array, "N"], n_blocks: int):
         n = nz_values.shape[0]
-        super().__init__(nz_values.dtype, (n, n_blocks))
+        super().__init__(nz_values.dtype, (n, n_blocks), annotations={ScaledOrthogonal})
         self.nz_values = nz_values
 
     def _matmat(self, X: Float[Array, "K M"]) -> Float[Array, "N M"]:

@@ -7,6 +7,7 @@ import pytest
 from cola.ops import Dense, Diagonal, LinearOperator, ScalarMul
 
 from cagpjax.operators import BlockDiagonalSparse
+from cagpjax.operators.annotations import ScaledOrthogonal
 from cagpjax.operators.diag_like import diag_like
 
 jax.config.update("jax_enable_x64", True)
@@ -63,6 +64,7 @@ class TestBlockDiagonalSparse:
         op = BlockDiagonalSparse(nz_values, n_blocks)
         assert op.shape == shape
         assert op.dtype == dtype
+        assert op.isa(ScaledOrthogonal)
         _test_linear_operator_consistency(op)
 
     def test_grad(self, shape, dtype=jnp.float64, key=jax.random.key(42)):
