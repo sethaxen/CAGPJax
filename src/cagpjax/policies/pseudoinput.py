@@ -24,6 +24,11 @@ class PseudoInputPolicy(AbstractBatchLinearSolverPolicy):
             same inputs in the same order as the training data used to condition the CaGP model.
         kernel: Kernel for the GP prior. It must be able to take `train_inputs` and `pseudo_inputs`
             as arguments to its `cross_covariance` method.
+
+    Note:
+        When training with many pseudo-inputs, it is common for the cross-covariance matrix to
+        become poorly conditioned. Performance can be significantly improved by orthogonalizing
+        the actions using an [`OrthogonalizationPolicy`][cagpjax.policies.OrthogonalizationPolicy].
     """
 
     pseudo_inputs: nnx.Variable
