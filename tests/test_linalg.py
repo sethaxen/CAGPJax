@@ -408,6 +408,11 @@ class TestOrthogonalize:
         projector = Q @ Q.T
         assert jnp.allclose(projector @ A, A)
 
+    def test_orthogonalize_errors_on_negative_n_reortho(self):
+        """Test that orthogonalize errors on negative n_reortho."""
+        with pytest.raises(ValueError):
+            orthogonalize(jnp.eye(10), method=OrthogonalizationMethod.QR, n_reortho=-1)
+
     @pytest.mark.parametrize("n,m,rank", [(10, 5, 3), (15, 15, 10)])
     @pytest.mark.parametrize("dtype", [jnp.float64])
     @pytest.mark.parametrize("n_reortho", [0, 1])
