@@ -6,10 +6,19 @@ import jax.numpy as jnp
 import pytest
 from cola.ops import Dense, Diagonal, Identity, LinearOperator, ScalarMul, Triangular
 
-from cagpjax.linalg import Eigh, Lanczos, congruence_transform, eigh, lower_cholesky
+from cagpjax.linalg import (
+    Eigh,
+    Lanczos,
+    OrthogonalizationMethod,
+    congruence_transform,
+    eigh,
+    lower_cholesky,
+    orthogonalize,
+)
 from cagpjax.linalg.eigh import EighResult
 from cagpjax.linalg.utils import _add_jitter
 from cagpjax.operators import BlockDiagonalSparse, diag_like
+from cagpjax.operators.annotations import ScaledOrthogonal
 
 jax.config.update("jax_enable_x64", True)
 
@@ -365,3 +374,123 @@ class TestAddJitter:
         # Check correctness: compare dense representations
         expected = (A + diag_like(A, jitter)).to_dense()
         assert jnp.allclose(A_jittered.to_dense(), expected)
+
+
+class TestOrthogonalize:
+    """Tests for ``orthogonalize``."""
+
+    @pytest.fixture(
+        params=[
+            OrthogonalizationMethod.QR,
+            OrthogonalizationMethod.CGS,
+            OrthogonalizationMethod.MGS,
+        ]
+    )
+    def method(self, request):
+        return request.param
+
+    @pytest.mark.parametrize("shape", [(10, 5), (15, 15)])
+    @pytest.mark.parametrize("dtype", [jnp.float64])
+    @pytest.mark.parametrize("n_reortho", [0, 1])
+    def test_orthogonalize_array(
+        self, shape, dtype, method, n_reortho, key=jax.random.key(42)
+    ):
+        """Test orthogonalize with different shapes and dtypes."""
+        A = jax.random.normal(key, shape, dtype=dtype)
+        Q = orthogonalize(A, method=method, n_reortho=n_reortho)
+        assert isinstance(Q, jnp.ndarray)
+        assert Q.shape == shape
+        assert Q.dtype == dtype
+        QT_Q = Q.T @ Q
+        # check that the result is orthogonal
+        assert jnp.allclose(QT_Q, jnp.eye(shape[1], dtype=dtype))
+        # check that Q has the same column space as A
+        projector = Q @ Q.T
+        assert jnp.allclose(projector @ A, A)
+
+    @pytest.mark.parametrize("n,m,rank", [(10, 5, 3), (15, 15, 10)])
+    @pytest.mark.parametrize("dtype", [jnp.float64])
+    @pytest.mark.parametrize("n_reortho", [0, 1])
+    def test_orthogonalize_rank_deficient(
+        self, n, m, rank, dtype, method, n_reortho, key=jax.random.key(42)
+    ):
+        """Test orthogonalize with different shapes and dtypes."""
+        key, subkey = jax.random.split(key)
+        A = jax.random.normal(subkey, (n, rank), dtype=dtype)
+        B = jax.random.normal(subkey, (rank, m), dtype=dtype)
+        C = A @ B
+        Q = orthogonalize(C, method, n_reortho=n_reortho)
+        QT_Q = Q.T @ Q
+
+        if n_reortho == 0 and method in [
+            OrthogonalizationMethod.CGS,
+            OrthogonalizationMethod.MGS,
+        ]:
+            pytest.xfail(
+                reason=(
+                    "Without reorthogonalization, Gram-Schmidt variants usually produce"
+                    " non-orthogonal columns"
+                )
+            )
+
+        # check that the columns are orthogonal
+        assert jnp.allclose(QT_Q - jnp.diag(jnp.diag(QT_Q)), jnp.zeros_like(QT_Q))
+        # check that Q's column space is (a superset of) A's column space
+        projector = Q @ Q.T
+        assert jnp.allclose(projector @ A, A)
+
+    @pytest.mark.parametrize("shape", [(10, 5), (15, 15)])
+    @pytest.mark.parametrize("dtype", [jnp.float64])
+    @pytest.mark.parametrize("n_reortho", [0, 1])
+    def test_orthogonalize_gradient(
+        self, shape, dtype, method, n_reortho, key=jax.random.key(42)
+    ):
+        """Test orthogonalize with different shapes and dtypes."""
+        A = jax.random.normal(key, shape, dtype=dtype)
+        jax.test_util.check_grads(
+            lambda A: orthogonalize(A, method=method, n_reortho=n_reortho),
+            (A,),
+            order=1,
+        )
+
+    # test operator overloads
+    @pytest.mark.parametrize("n", [10])
+    @pytest.mark.parametrize("dtype", [jnp.float64])
+    @pytest.mark.parametrize(
+        "op_type", [Dense, Diagonal, ScalarMul, Identity, BlockDiagonalSparse]
+    )
+    def test_orthogonalize_operator(
+        self, n, op_type, dtype, method, key=jax.random.key(42)
+    ):
+        """Test orthogonalize a LinearOperator."""
+        if op_type is Dense:
+            op = cola.lazify(jax.random.normal(key, (n, n), dtype=dtype))
+        elif op_type is Diagonal:
+            op = Diagonal(jax.random.normal(key, (n,), dtype=dtype))
+        elif op_type is ScalarMul:
+            op = ScalarMul(jax.random.normal(key, dtype=dtype), (n, n), dtype=dtype)
+        elif op_type is Identity:
+            op = Identity((n, n // 2), dtype=dtype)
+        elif op_type is BlockDiagonalSparse:
+            op = BlockDiagonalSparse(
+                jax.random.normal(key, (n,), dtype=dtype), n_blocks=3
+            )
+        else:
+            raise ValueError(f"Unknown operator type: {op_type}")
+        Q = orthogonalize(op, method=method)
+        assert isinstance(Q, cola.ops.LinearOperator)
+        assert Q.shape == op.shape
+        if isinstance(op, (Identity, Diagonal, ScalarMul)):
+            assert isinstance(Q, Identity)
+        elif op_type is BlockDiagonalSparse:
+            assert isinstance(Q, BlockDiagonalSparse)
+            assert jnp.array_equal(Q.nz_values, op.nz_values)
+        else:  # Dense
+            assert jnp.allclose(
+                Q.to_dense(), orthogonalize(op.to_dense(), method=method)
+            )
+            match method:
+                case OrthogonalizationMethod.QR:
+                    assert Q.isa(cola.Stiefel)
+                case _:
+                    assert Q.isa(ScaledOrthogonal)
