@@ -71,10 +71,31 @@ class TestCongruenceTransform:
     ):
         """Test overload where ``A`` is ``BlockDiagonalSparse`` and ``B`` is ``Diagonal``."""
         key, subkey = jax.random.split(key)
-        A = BlockDiagonalSparse(
-            jax.random.normal(subkey, (n,), dtype=dtype), n_blocks=n_blocks
-        )
+        block_size = n // n_blocks
+        nz_values = jax.random.normal(subkey, (n_blocks, block_size), dtype=dtype)
+        A = BlockDiagonalSparse(nz_values, n)
         B = Diagonal(jax.random.normal(subkey, (n,), dtype=dtype))
+        C = congruence_transform(A, B)
+        assert isinstance(C, Diagonal)
+        assert C.shape == (n_blocks, n_blocks)
+        assert C.dtype == dtype
+        assert jnp.allclose(
+            C.to_dense(), congruence_transform(A.to_dense(), B.to_dense())
+        )
+
+    @pytest.mark.parametrize("n, n_blocks", [(7, 3), (10, 2)])
+    def test_congruence_block_diagonal_sparse_scalar(
+        self, n, n_blocks, dtype=jnp.float64, key=jax.random.key(42)
+    ):
+        """Test overload where ``A`` is ``BlockDiagonalSparse`` and ``B`` is ``ScalarMul``."""
+        from cola.ops import ScalarMul
+
+        key, subkey = jax.random.split(key)
+        block_size = n // n_blocks
+        nz_values = jax.random.normal(subkey, (n_blocks, block_size), dtype=dtype)
+        A = BlockDiagonalSparse(nz_values, n)
+        scalar_val = 2.5
+        B = ScalarMul(scalar_val, (n, n), dtype=dtype)
         C = congruence_transform(A, B)
         assert isinstance(C, Diagonal)
         assert C.shape == (n_blocks, n_blocks)
@@ -477,8 +498,10 @@ class TestOrthogonalize:
         elif op_type is Identity:
             op = Identity((n, n // 2), dtype=dtype)
         elif op_type is BlockDiagonalSparse:
+            n_blocks = 3
+            n_nz_values = n // n_blocks
             op = BlockDiagonalSparse(
-                jax.random.normal(key, (n,), dtype=dtype), n_blocks=3
+                jax.random.normal(key, (n_nz_values, n_blocks), dtype=dtype), n
             )
         else:
             raise ValueError(f"Unknown operator type: {op_type}")

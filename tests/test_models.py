@@ -44,7 +44,7 @@ class TestComputationAwareGP:
         if policy_class is LanczosPolicy:
             return policy_class(n_actions=n_actions, key=key)
         elif policy_class is BlockSparsePolicy:
-            return policy_class(n_actions=n_actions, n=n_train, key=key, dtype=dtype)
+            return policy_class(n_train, n_actions=n_actions, key=key, dtype=dtype)
         else:
             raise ValueError(f"Invalid policy class: {policy_class}")
 
@@ -248,6 +248,7 @@ class TestComputationAwareGP:
         train_data,
         dtype,
         solver_method,
+        n_actions,
         key=jax.random.key(42),
     ):
         """Test that ``prior_kl`` gradient wrt sparse action parameters is correct."""
@@ -255,14 +256,15 @@ class TestComputationAwareGP:
             pytest.skip("Skipping float32 test due to numerical precision limitations")
 
         def kl_objective(nz_values):
-            policy = BlockSparsePolicy(n_actions=n_train, nz_values=nz_values)
+            policy = BlockSparsePolicy(n_train, nz_values=nz_values)
             cagp = ComputationAwareGP(
                 posterior=posterior, policy=policy, solver_method=solver_method
             )
             cagp.condition(train_data)
             return cagp.prior_kl()
 
-        nz_values = jax.random.normal(key, (n_train,), dtype=dtype)
+        block_size = n_train // n_actions
+        nz_values = jax.random.normal(key, (n_actions, block_size), dtype=dtype)
         jax.test_util.check_grads(kl_objective, (nz_values,), order=1, modes=["rev"])
 
     def test_integration_elbo(self, conditioned_cagp, posterior, train_data, dtype):

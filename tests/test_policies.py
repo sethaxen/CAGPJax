@@ -151,11 +151,12 @@ class TestBlockSparsePolicy:
     @pytest.mark.parametrize("n", [10, 20])
     def test_init_basic(self, n_actions, n, key, dtype):
         """Test basic initialization."""
-        policy = BlockSparsePolicy(n_actions=n_actions, n=n, key=key, dtype=dtype)
+        policy = BlockSparsePolicy(n, n_actions=n_actions, key=key, dtype=dtype)
 
         assert policy.n_actions == n_actions
         assert isinstance(policy.nz_values, Real)
-        assert policy.nz_values.value.shape == (n,)
+        block_size = n // n_actions
+        assert policy.nz_values.value.shape == (n_actions, block_size)
         assert policy.nz_values.value.dtype == dtype
 
     @pytest.mark.parametrize("n_actions", [2, 3])
@@ -165,17 +166,16 @@ class TestBlockSparsePolicy:
         self, n_actions, n, dtype, key=jax.random.key(42)
     ):
         """Test initialization with provided nz_values."""
-        nz_values = jax.random.normal(key, (n,), dtype=dtype)
+        block_size = n // n_actions
+        nz_values = jax.random.normal(key, (n_actions, block_size), dtype=dtype)
 
-        policy = BlockSparsePolicy(n_actions=n_actions, nz_values=nz_values)
+        policy = BlockSparsePolicy(n, nz_values=nz_values)
         assert policy.n_actions == n_actions
         assert isinstance(policy.nz_values, Real)
         assert policy.nz_values.value.dtype == dtype
         assert jnp.allclose(policy.nz_values.value, nz_values)
 
-        policy_static = BlockSparsePolicy(
-            n_actions=n_actions, nz_values=Static(nz_values)
-        )
+        policy_static = BlockSparsePolicy(n, nz_values=Static(nz_values))
         assert isinstance(policy_static.nz_values, Static)
         assert policy_static.nz_values.value.dtype == dtype
         assert jnp.allclose(policy_static.nz_values.value, nz_values)
@@ -187,7 +187,7 @@ class TestBlockSparsePolicy:
         """Test to_actions consistency and return type."""
         n = psd_linear_operator.shape[0]
         dtype = psd_linear_operator.dtype
-        policy = BlockSparsePolicy(n_actions=n_actions, n=n, key=key, dtype=dtype)
+        policy = BlockSparsePolicy(n, n_actions=n_actions, key=key, dtype=dtype)
         _test_batch_policy_actions_consistency(policy, psd_linear_operator)
         action = policy.to_actions(psd_linear_operator)
         assert isinstance(action, BlockDiagonalSparse)
@@ -199,7 +199,7 @@ class TestBlockSparsePolicy:
         """Test that to_actions produces reproducible results with same values."""
         n = psd_linear_operator.shape[0]
         dtype = psd_linear_operator.dtype
-        policy = BlockSparsePolicy(n_actions=n_actions, n=n, key=key, dtype=dtype)
+        policy = BlockSparsePolicy(n, n_actions=n_actions, key=key, dtype=dtype)
         actions1 = policy.to_actions(psd_linear_operator)
         actions2 = policy.to_actions(psd_linear_operator)
         assert jnp.allclose(actions1.to_dense(), actions2.to_dense())
