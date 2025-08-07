@@ -46,7 +46,7 @@ class BlockDiagonalSparse(LinearOperator):
             raise ValueError(
                 f"n ({n}) must be >= n_blocks * block_size ({n_blocks * block_size})"
             )
-        super().__init__(nz_values.dtype, (n_blocks, n))
+        super().__init__(nz_values.dtype, (n, n_blocks), annotations={ScaledOrthogonal})
         self.nz_values = nz_values
 
     def _matmat(self, X: Float[Array, "N #M"]) -> Float[Array, "K #M"]:
