@@ -453,7 +453,7 @@ class TestOrthogonalize:
         """Test orthogonalize with different shapes and dtypes."""
         A = jax.random.normal(key, shape, dtype=dtype)
         jax.test_util.check_grads(
-            lambda A: orthogonalize(A, method=method, n_reortho=n_reortho),
+            lambda A: orthogonalize(jnp.asarray(A), method=method, n_reortho=n_reortho),
             (A,),
             order=1,
         )
