@@ -104,7 +104,7 @@ def _orthogonalize(  # pyright: ignore[reportOverlappingOverload]
 
 @cola.dispatch
 def _orthogonalize(A: Any, method: OrthogonalizationMethod, n_reortho: int) -> Any:
-    return A
+    pass
 
 
 def _qr_q(A: Float[Array, "m n"], n_reortho: int) -> Float[Array, "m n"]:
