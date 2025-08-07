@@ -5,7 +5,7 @@ from jax import numpy as jnp
 from jaxtyping import Array, Float
 from typing_extensions import Self, override
 
-from ..linalg.eigh import EighResult, eigh
+from ..linalg.eigh import Eigh, EighResult, eigh
 from ..typing import ScalarFloat
 from .base import AbstractLinearSolver, AbstractLinearSolverMethod
 
@@ -21,28 +21,44 @@ class PseudoInverse(AbstractLinearSolverMethod):
     rank of $A$ is dependent on hyperparameters being optimized, because the
     pseudoinverse is discontinuous, the optimization problem may be ill-posed.
 
+    Note that if $A$ is (almost-)degenerate (some eigenvalues repeat), then
+    the gradient of its solves in JAX may be non-computable or numerically unstable
+    (see [jax#669](https://github.com/jax-ml/jax/issues/669)).
+    For degenerate operators, it may be necessary to increase `grad_rtol` to improve
+    stability of gradients.
+    See [`cagpjax.linalg.eigh`][] for more details.
+
     Attributes:
         rtol: Specifies the cutoff for small eigenvalues.
               Eigenvalues smaller than `rtol * largest_nonzero_eigenvalue` are treated as zero.
               The default is determined based on the floating point precision of the dtype
               of the operator (see [`jax.numpy.linalg.pinv`][]).
+        grad_rtol: Specifies the cutoff for similar eigenvalues, used to improve
+            gradient computation for (almost-)degenerate matrices.
+            If not provided, the default is 0.0.
+            If None or negative, all eigenvalues are treated as distinct.
         alg: Algorithm for eigenvalue decomposition passed to [`cagpjax.linalg.eigh`][].
     """
 
-    alg: cola.linalg.Algorithm
     rtol: ScalarFloat | None
+    grad_rtol: float | None
+    alg: cola.linalg.Algorithm
 
     def __init__(
         self,
         rtol: ScalarFloat | None = None,
-        alg: cola.linalg.Algorithm = cola.linalg.Eigh(),
+        grad_rtol: float | None = None,
+        alg: cola.linalg.Algorithm = Eigh(),
     ):
         self.rtol = rtol
+        self.grad_rtol = grad_rtol
         self.alg = alg
 
     @override
     def __call__(self, A: LinearOperator) -> AbstractLinearSolver:
-        return PseudoInverseSolver(A, rtol=self.rtol, alg=self.alg)
+        return PseudoInverseSolver(
+            A, rtol=self.rtol, grad_rtol=self.grad_rtol, alg=self.alg
+        )
 
 
 class PseudoInverseSolver(AbstractLinearSolver):
@@ -58,13 +74,14 @@ class PseudoInverseSolver(AbstractLinearSolver):
         self,
         A: LinearOperator,
         rtol: ScalarFloat | None = None,
-        alg: cola.linalg.Algorithm = cola.linalg.Auto(),
+        grad_rtol: float | None = None,
+        alg: cola.linalg.Algorithm = Eigh(),
     ):
         n = A.shape[0]
         # select rtol using same heuristic as jax.numpy.linalg.lstsq
         if rtol is None:
             rtol = float(jnp.finfo(A.dtype).eps) * n
-        self.eigh_result = eigh(A, alg=alg)
+        self.eigh_result = eigh(A, alg=alg, grad_rtol=grad_rtol)
         svdmax = jnp.max(jnp.abs(self.eigh_result.eigenvalues))
         cutoff = jnp.array(rtol * svdmax, dtype=svdmax.dtype)
         mask = self.eigh_result.eigenvalues >= cutoff
@@ -96,11 +113,11 @@ class PseudoInverseSolver(AbstractLinearSolver):
 
     @override
     def inv_congruence_transform(
-        self, B: LinearOperator | Float[Array, "N K"]
+        self, B: LinearOperator | Float[Array, "K N"]
     ) -> LinearOperator | Float[Array, "K K"]:
         eigenvectors = self.eigh_result.eigenvectors
-        z = B @ eigenvectors
-        z = z @ cola.ops.Diagonal(self.eigvals_inv) @ z.T
+        z = eigenvectors.T @ B
+        z = z.T @ cola.ops.Diagonal(self.eigvals_inv) @ z
         return z
 
     @override

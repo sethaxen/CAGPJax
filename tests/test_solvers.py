@@ -144,7 +144,7 @@ class TestSolvers:
         self, solver, n, m, dtype, B_type, key=jax.random.key(23)
     ):
         """Test inv_congruence_transform is consistent with solve and congruence_transform."""
-        B = jax.random.normal(key, (m, n), dtype=dtype)
+        B = jax.random.normal(key, (n, m), dtype=dtype)
         if B_type == cola.ops.LinearOperator:
             B = cola.lazify(B)
 
@@ -178,3 +178,23 @@ class TestSolvers:
         trace_solve_solve = jnp.trace(solver.solve(other_op.to_dense()))
         rtol = (1e-4 if dtype == jnp.float32 else 1e-12) * n
         assert jnp.isclose(trace_solve, trace_solve_solve, rtol=rtol)
+
+    @pytest.mark.parametrize("grad_rtol", [None, -1.0, 0.0])
+    def test_pseudoinverse_gradient_degenerate(self, n, dtype, grad_rtol):
+        """Test gradient computation with degenerate operators."""
+        A = cola.ops.Dense(jnp.eye(n, dtype=dtype))
+
+        def loss_fn(A_matrix):
+            A_op = cola.ops.Dense(A_matrix)
+            solver = PseudoInverse(grad_rtol=grad_rtol)(A_op)
+            b = jnp.ones(n, dtype=dtype)
+            x = solver.solve(b)
+            return jnp.sum(x**2)
+
+        grad_fn = jax.grad(loss_fn)
+        grad = grad_fn(A.to_dense())
+
+        if grad_rtol is None or grad_rtol < 0.0:
+            assert not jnp.isfinite(grad).all()
+        else:
+            assert jnp.isfinite(grad).all()

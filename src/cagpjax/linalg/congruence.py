@@ -14,7 +14,7 @@ from ..operators import BlockDiagonalSparse
 # fallback to plain multiplication
 @overload
 def congruence_transform(A: Any, B: Any) -> Any:
-    return (A @ B) @ A.T
+    return A.T @ (B @ A)
 
 
 @overload
@@ -38,7 +38,7 @@ def congruence_transform(A: BlockDiagonalSparse, B: ScalarMul) -> Diagonal:  # p
 
 @cola.dispatch
 def congruence_transform(A: Any, B: Any) -> Any:
-    """Congruence transformation ``A @ B @ A.T``.
+    """Congruence transformation ``A.T @ B @ A``.
 
     Args:
         A: Linear operator or array to be applied.

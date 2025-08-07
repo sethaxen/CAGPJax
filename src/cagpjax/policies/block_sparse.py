@@ -96,6 +96,6 @@ class BlockSparsePolicy(AbstractBatchLinearSolverPolicy):
             A: Linear operator (unused).
 
         Returns:
-            Transposed[BlockDiagonalSparse]: Sparse action structure representing the blocks.
+            BlockDiagonalSparse: Sparse action structure representing the blocks.
         """
-        return BlockDiagonalSparse(self.nz_values.value, self._n).T
+        return BlockDiagonalSparse(self.nz_values.value, self._n)

@@ -4,12 +4,14 @@ import jax.numpy as jnp
 from cola.ops import LinearOperator
 from jaxtyping import Array, Float
 
+from .annotations import ScaledOrthogonal
+
 
 class BlockDiagonalSparse(LinearOperator):
     """Block-diagonal sparse linear operator.
 
     This operator represents a block-diagonal matrix structure where the blocks are contiguous, and
-    each contains a row vector, so that exactly one value is non-zero in each column.
+    each contains a column vector, so that exactly one value is non-zero in each row.
 
     Args:
         nz_values: Non-zero values organized as blocks, shape (n_blocks, block_size).
@@ -25,11 +27,16 @@ class BlockDiagonalSparse(LinearOperator):
     >>> nz_values = jnp.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
     >>> op = BlockDiagonalSparse(nz_values, n=6)
     >>> print(op.shape)
-    (3, 6)
+    (6, 3)
     >>>
-    >>> # Apply to a vector
-    >>> x = jnp.ones(6)
-    >>> result = op @ x
+    >>> # Apply to identity matrices
+    >>> op @ jnp.eye(3)
+    Array([[1., 0., 0.],
+           [2., 0., 0.],
+           [0., 3., 0.],
+           [0., 4., 0.],
+           [0., 0., 5.],
+           [0., 0., 6.]], dtype=float32)
     ```
     """
 
@@ -50,4 +57,4 @@ class BlockDiagonalSparse(LinearOperator):
         X_used = X[:n_used, ...].reshape(n_blocks, block_size, -1)
         res = jnp.einsum("ik,ikj->ij", self.nz_values, X_used)
 
-        return res.reshape(-1, *X.shape[1:])
+        return res

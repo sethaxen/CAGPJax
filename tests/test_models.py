@@ -265,7 +265,7 @@ class TestComputationAwareGP:
 
         block_size = n_train // n_actions
         nz_values = jax.random.normal(key, (n_actions, block_size), dtype=dtype)
-        jax.test_util.check_grads(kl_objective, (nz_values,), order=1)
+        jax.test_util.check_grads(kl_objective, (nz_values,), order=1, modes=["rev"])
 
     def test_integration_elbo(self, conditioned_cagp, posterior, train_data, dtype):
         """Test that ``elbo`` objective from GPJax is computed correctly."""

@@ -7,6 +7,7 @@ import pytest
 from cola.ops import Dense, Diagonal, LinearOperator, ScalarMul
 
 from cagpjax.operators import BlockDiagonalSparse
+from cagpjax.operators.annotations import ScaledOrthogonal
 from cagpjax.operators.diag_like import diag_like
 
 jax.config.update("jax_enable_x64", True)
@@ -47,9 +48,9 @@ class TestBlockDiagonalSparse:
 
     @pytest.fixture(
         params=[
-            (2, 5),  # has overhang
-            (4, 9),  # has overhang
-            (3, 6),  # no overhang
+            pytest.param((5, 2), id="has_overhang"),
+            pytest.param((9, 4), id="has_overhang"),
+            pytest.param((6, 3), id="no_overhang"),
         ]
     )
     def shape(self, request):
@@ -58,18 +59,18 @@ class TestBlockDiagonalSparse:
     @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
     def test_basic(self, shape, dtype, key=jax.random.key(42)):
         """Test initialization and basic properties."""
-        n_blocks, n = shape
+        n, n_blocks = shape
         block_size = n // n_blocks
-        n_used = n_blocks * block_size
         nz_values = jax.random.normal(key, (n_blocks, block_size), dtype=dtype)
         op = BlockDiagonalSparse(nz_values, n)
         assert op.shape == shape
         assert op.dtype == dtype
+        assert op.isa(ScaledOrthogonal)
         _test_linear_operator_consistency(op)
 
     def test_grad(self, shape, dtype=jnp.float64, key=jax.random.key(42)):
         """Test gradient containing the linear operator."""
-        n_blocks, n = shape
+        n, n_blocks = shape
         block_size = n // n_blocks
         key, subkey = jax.random.split(key)
         nz_values = jax.random.normal(subkey, (n_blocks, block_size), dtype=dtype)

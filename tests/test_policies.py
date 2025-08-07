@@ -1,14 +1,22 @@
 """Test the linear solver policies."""
 
 import cola
+import gpjax.kernels
 import jax
 import jax.numpy as jnp
 import pytest
 from cola.ops import Dense, LinearOperator, Transpose
+from gpjax.dataset import Dataset
 from gpjax.parameters import Real, Static
 
+from cagpjax.linalg import OrthogonalizationMethod
 from cagpjax.operators import BlockDiagonalSparse
-from cagpjax.policies import BlockSparsePolicy, LanczosPolicy
+from cagpjax.policies import (
+    BlockSparsePolicy,
+    LanczosPolicy,
+    OrthogonalizationPolicy,
+    PseudoInputPolicy,
+)
 
 jax.config.update("jax_enable_x64", True)
 
@@ -64,11 +72,19 @@ class TestLanczosPolicy:
             result1 @ jnp.eye(n_actions), result2 @ jnp.eye(n_actions)
         )
 
-    @pytest.mark.parametrize("n_actions", [2, 4])
+    @pytest.mark.parametrize("n_actions", [8, None])
     def test_eigenvectors_match_dense_computation(
         self, psd_linear_operator, n_actions, key=jax.random.key(42)
     ):
         """Test that the eigenvectors match those from dense eigendecomposition."""
+
+        if n_actions is None:
+            n_actions = psd_linear_operator.shape[0]
+            atol = 1e-8 if psd_linear_operator.dtype == jnp.float64 else 1e-5
+            nvecs_check = n_actions
+        else:
+            atol = 1e-4
+            nvecs_check = 2
 
         # Get eigenvectors using LanczosPolicy
         actions = LanczosPolicy(n_actions=n_actions, key=key)
@@ -76,22 +92,54 @@ class TestLanczosPolicy:
 
         # Get reference eigenvectors using dense computation
         _, eigenvecs = jnp.linalg.eigh(psd_linear_operator.to_dense())
-        # Get the largest n_actions eigenvectors (eigh returns them in ascending order)
-        ref_vecs = eigenvecs[:, -n_actions:]
+        # Get the largest nvecs_check eigenvectors (eigh returns them in ascending order)
+        ref_vecs = eigenvecs[:, -nvecs_check:]
 
         # Convert LanczosPolicy result to dense array for comparison
-        cg_vecs_dense = cg_vecs @ jnp.eye(n_actions)
+        cg_vecs_dense = cg_vecs.to_dense()[:, -nvecs_check:]
 
         # Compare eigenvectors (they should match up to sign)
         # Computing the product should give a diagonal matrix with +/-1 entries
         product = cg_vecs_dense.T @ ref_vecs
         abs_product = jnp.abs(product)
-        expected_identity = jnp.eye(n_actions)
+        expected_identity = jnp.eye(nvecs_check, dtype=cg_vecs_dense.dtype)
 
-        atol = 1e-6 if psd_linear_operator.dtype == jnp.float64 else 1e-3
         assert jnp.allclose(abs_product, expected_identity, atol=atol), (
             "CG eigenvectors don't match reference eigenvectors (up to sign)"
         )
+
+    @pytest.mark.parametrize("grad_rtol", [None, 1e-9])
+    @pytest.mark.parametrize("key", [jax.random.key(42), jax.random.key(89)])
+    def test_eigenvector_gradient_degenerate(
+        self, grad_rtol, key, n=10, dtype=jnp.float64
+    ):
+        """Test that the gradient is zero for a degenerate matrix."""
+        policy = LanczosPolicy(n_actions=n, grad_rtol=grad_rtol, key=key)
+        assert policy.grad_rtol == grad_rtol
+        x = jnp.ones(n, dtype=dtype)
+        scale = jnp.concatenate(
+            [jnp.ones(n - 2, dtype=dtype), jnp.full(2, 3.0, dtype=dtype)]
+        )
+
+        # This loss function is constant within floating point precision, so its gradient
+        # when considering all eigenvectors should be zero.
+        # If matrix is degenerate, gradient will contain NaNs or (because Lanczos is approximate)
+        # be numerically unstable.
+        # Increasing grad_rtol should stabilize the gradient.
+        def loss(op_diag):
+            op = cola.lazify(jnp.diag(op_diag))
+            actions = policy.to_actions(op)
+            z = actions @ ((actions.T @ x) * scale)
+            return jnp.sum(jnp.square(z))
+
+        op_diag = jnp.concatenate(
+            [jnp.linspace(0, 1, n - 2, dtype=dtype) * 0.5, jnp.ones(2, dtype=dtype)]
+        )
+        grad = jax.grad(loss)(op_diag)
+        if grad_rtol is None:
+            assert not jnp.isclose(jnp.abs(grad).max(), 0.0, atol=1e-3)
+        else:
+            assert jnp.isclose(jnp.abs(grad).max(), 0.0, atol=1e-5)
 
 
 class TestBlockSparsePolicy:
@@ -142,8 +190,7 @@ class TestBlockSparsePolicy:
         policy = BlockSparsePolicy(n, n_actions=n_actions, key=key, dtype=dtype)
         _test_batch_policy_actions_consistency(policy, psd_linear_operator)
         action = policy.to_actions(psd_linear_operator)
-        assert isinstance(action, Transpose)
-        assert isinstance(action.T, BlockDiagonalSparse)
+        assert isinstance(action, BlockDiagonalSparse)
 
     @pytest.mark.parametrize("n_actions", [2, 3])
     def test_to_actions_reproducible(
@@ -156,3 +203,178 @@ class TestBlockSparsePolicy:
         actions1 = policy.to_actions(psd_linear_operator)
         actions2 = policy.to_actions(psd_linear_operator)
         assert jnp.allclose(actions1.to_dense(), actions2.to_dense())
+
+
+class TestPseudoInputPolicy:
+    """Test the PseudoInputPolicy."""
+
+    @pytest.fixture(params=[jnp.float32, jnp.float64])
+    def dtype(self, request):
+        """Data type for testing."""
+        return request.param
+
+    @pytest.fixture(params=[1, 2])
+    def input_dim(self, request):
+        """Dimension of the input space."""
+        return request.param
+
+    @pytest.fixture(params=[gpjax.kernels.RBF, gpjax.kernels.Matern32])
+    def kernel(self, request, input_dim, dtype, key=jax.random.key(42)):
+        """Create a kernel for testing."""
+        lengthscale = jax.random.uniform(key, (input_dim,), dtype=dtype)
+        variance = jax.random.uniform(key, (), dtype=dtype)
+        return request.param(lengthscale=lengthscale, variance=variance)
+
+    @pytest.fixture(params=[(10, 5), (15, 8)])
+    def inputs(self, request, input_dim, dtype, key=jax.random.key(42)):
+        """Create a training dataset."""
+        n, n_pseudo = request.param
+        key, subkey = jax.random.split(key)
+        train_inputs = jax.random.normal(subkey, (n, input_dim), dtype=dtype)
+        pseudo_inputs = jax.random.normal(key, (n_pseudo, input_dim), dtype=dtype)
+        return train_inputs, pseudo_inputs
+
+    @pytest.mark.parametrize("pseudo_input_type", [jnp.ndarray, Static, Real])
+    @pytest.mark.parametrize("train_input_type", [jnp.ndarray, Dataset])
+    def test_basic_properties(
+        self,
+        inputs,
+        kernel,
+        train_input_type,
+        pseudo_input_type,
+    ):
+        """Test basic initialization."""
+        train_inputs, pseudo_inputs = inputs
+        train_data = (
+            Dataset(X=train_inputs) if train_input_type is Dataset else train_inputs
+        )
+        pseudo_input_wrapped = (
+            pseudo_input_type(pseudo_inputs)
+            if pseudo_input_type is not jnp.ndarray
+            else pseudo_inputs
+        )
+        policy = PseudoInputPolicy(pseudo_input_wrapped, train_data, kernel)
+
+        # check correctly initialized
+        assert isinstance(policy, PseudoInputPolicy)
+        assert policy.n_actions == pseudo_inputs.shape[0]
+        assert policy.kernel is kernel
+        assert isinstance(policy.train_inputs, jnp.ndarray)
+        assert jnp.array_equal(policy.train_inputs, train_inputs)
+        if pseudo_input_type is jnp.ndarray:
+            assert isinstance(policy.pseudo_inputs, Static)
+        else:
+            assert isinstance(policy.pseudo_inputs, pseudo_input_type)
+        assert jnp.array_equal(policy.pseudo_inputs.value, pseudo_inputs)
+
+    def test_actions_is_cross_covariance(self, inputs, kernel, dtype):
+        """Test actions are the cross-covariance between the training inputs and pseudo-inputs."""
+        train_inputs, pseudo_inputs = inputs
+        policy = PseudoInputPolicy(pseudo_inputs, train_inputs, kernel)
+        op = kernel.gram(train_inputs)
+        actions = policy.to_actions(op)
+        assert isinstance(actions, LinearOperator)
+        assert actions.dtype == dtype
+        assert jnp.allclose(
+            actions.to_dense(), kernel.cross_covariance(train_inputs, pseudo_inputs)
+        )
+
+    def test_actions_consistency(self, inputs, kernel):
+        """Test to_actions consistency and return type."""
+        train_inputs, pseudo_inputs = inputs
+        policy = PseudoInputPolicy(pseudo_inputs, train_inputs, kernel)
+        op = kernel.gram(train_inputs)
+        _test_batch_policy_actions_consistency(policy, op)
+
+
+class TestOrthogonalizationPolicy:
+    """Test the OrthogonalizationPolicy concrete implementation."""
+
+    @pytest.mark.parametrize("method", list(OrthogonalizationMethod))
+    @pytest.mark.parametrize("n_reortho", [0, 1, 2])
+    def test_init_and_properties(self, method, n_reortho, key=jax.random.key(42)):
+        """Test initialization and basic properties."""
+        base_policy = LanczosPolicy(n_actions=3, key=key)
+        policy = OrthogonalizationPolicy(
+            base_policy=base_policy, method=method, n_reortho=n_reortho
+        )
+
+        assert policy.base_policy is base_policy
+        assert policy.method == method
+        assert policy.n_reortho == n_reortho
+        assert policy.n_actions == base_policy.n_actions
+
+    @pytest.mark.parametrize(
+        "method,n_reortho",
+        [
+            (OrthogonalizationMethod.QR, 0),
+            (OrthogonalizationMethod.CGS, 1),
+            (OrthogonalizationMethod.MGS, 1),
+        ],
+    )
+    @pytest.mark.parametrize("n", [10, 20])
+    @pytest.mark.parametrize("n_pseudo", [5, 10])
+    @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
+    def test_wrapping_pseudoinput_with_replicates(
+        self, n, n_pseudo, method, n_reortho, dtype, input_dim=1, key=jax.random.key(42)
+    ):
+        """Test PseudoInputPolicy with repeated pseudo-inputs (produces rank-deficient actions)."""
+        n_pseudo_repeated = n_pseudo // 2
+        _, subkey1, subkey2 = jax.random.split(key, 3)
+
+        # Create inputs with replicates to induce rank deficiency
+        pseudo_inputs = jax.random.normal(
+            subkey1, (n_pseudo - n_pseudo_repeated, input_dim), dtype=dtype
+        )
+        pseudo_inputs = jnp.concatenate(
+            [pseudo_inputs, pseudo_inputs[:n_pseudo_repeated, :]], axis=0
+        )
+        train_inputs = jax.random.normal(subkey2, (n, input_dim), dtype=dtype)
+
+        kernel = gpjax.kernels.RBF(lengthscale=jnp.ones(input_dim, dtype=dtype))
+        base_policy = PseudoInputPolicy(pseudo_inputs, train_inputs, kernel)
+        policy = OrthogonalizationPolicy(
+            base_policy=base_policy, method=method, n_reortho=n_reortho
+        )
+
+        op = kernel.gram(train_inputs)
+        _test_batch_policy_actions_consistency(policy, op)
+
+        # Verify orthogonality is maintained despite rank deficiency
+        base_actions = base_policy.to_actions(op)
+        actions = policy.to_actions(op)
+        assert actions.shape == base_actions.shape
+        assert actions.dtype == base_actions.dtype
+        assert not jnp.allclose(actions.to_dense(), base_actions.to_dense())
+        if dtype == jnp.float64:
+            projector = actions @ actions.T
+            assert jnp.allclose(
+                (projector @ base_actions).to_dense(), base_actions.to_dense()
+            )
+
+    def test_lanczos_passes_through(self, psd_linear_operator, key=jax.random.key(42)):
+        """Test wrapping LanczosPolicy preserves orthogonality."""
+        base_policy = LanczosPolicy(n_actions=3, key=key)
+        policy = OrthogonalizationPolicy(base_policy=base_policy)
+
+        base_actions = base_policy.to_actions(psd_linear_operator)
+        ortho_actions = policy.to_actions(psd_linear_operator)
+
+        assert isinstance(ortho_actions, type(base_actions))
+        assert ortho_actions.shape == base_actions.shape
+        assert jnp.array_equal(ortho_actions.to_dense(), base_actions.to_dense())
+
+    def test_block_sparse_passes_through(
+        self, psd_linear_operator, key=jax.random.key(42)
+    ):
+        """Test wrapping BlockSparsePolicy preserves orthogonality."""
+        n, dtype = psd_linear_operator.shape[0], psd_linear_operator.dtype
+        base_policy = BlockSparsePolicy(n_actions=3, n=n, key=key, dtype=dtype)
+        policy = OrthogonalizationPolicy(base_policy=base_policy)
+
+        base_actions = base_policy.to_actions(psd_linear_operator)
+        ortho_actions = policy.to_actions(psd_linear_operator)
+
+        assert isinstance(ortho_actions, BlockDiagonalSparse)
+        assert ortho_actions.shape == base_actions.shape
+        assert jnp.array_equal(ortho_actions.nz_values, base_actions.nz_values)
