@@ -49,12 +49,24 @@ class BlockDiagonalSparse(LinearOperator):
         super().__init__(nz_values.dtype, (n, n_blocks), annotations={ScaledOrthogonal})
         self.nz_values = nz_values
 
-    def _matmat(self, X: Float[Array, "N #M"]) -> Float[Array, "K #M"]:
+    def _matmat(self, X: Float[Array, "K M"]) -> Float[Array, "N K"]:
         n_blocks, block_size = self.nz_values.shape
         n_used = n_blocks * block_size
+        n = self.shape[0]
+        m = X.shape[1]
 
-        # block-wise multiplication for used portion
-        X_used = X[:n_used, ...].reshape(n_blocks, block_size, -1)
-        res = jnp.einsum("ik,ikj->ij", self.nz_values, X_used)
+        res = (self.nz_values[..., None] * X[:, None, :]).reshape(n_used, m)
+        if n_used < n:
+            res = jnp.pad(res, ((0, n - n_used), (0, 0)))
+
+        return res
+
+    def _rmatmat(self, X: Float[Array, "M N"]) -> Float[Array, "M K"]:
+        n_blocks, block_size = self.nz_values.shape
+        n_used = n_blocks * block_size
+        m = X.shape[0]
+
+        X_used = X[:, :n_used].reshape(m, n_blocks, block_size)
+        res = jnp.einsum("ik,jik->ji", self.nz_values, X_used)
 
         return res
