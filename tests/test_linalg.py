@@ -498,8 +498,10 @@ class TestOrthogonalize:
         elif op_type is Identity:
             op = Identity((n, n // 2), dtype=dtype)
         elif op_type is BlockDiagonalSparse:
+            n_blocks = 3
+            n_nz_values = n // n_blocks
             op = BlockDiagonalSparse(
-                jax.random.normal(key, (n,), dtype=dtype), n_blocks=3
+                jax.random.normal(key, (n_nz_values, n_blocks), dtype=dtype), n
             )
         else:
             raise ValueError(f"Unknown operator type: {op_type}")
