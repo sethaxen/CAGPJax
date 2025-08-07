@@ -76,9 +76,13 @@ class TestBlockDiagonalSparse:
         nz_values = jax.random.normal(subkey, (n_blocks, block_size), dtype=dtype)
         op = BlockDiagonalSparse(nz_values, n)
 
-        f = lambda x: jnp.prod(jnp.sin(op @ x))
-        x = jax.random.normal(key, (n,), dtype=dtype)
-        jax.test_util.check_grads(f, (x,), order=1)
+        f1 = lambda x: jnp.prod(jnp.sin(op @ x))
+        x1 = jax.random.normal(key, (n_blocks,), dtype=dtype)
+        jax.test_util.check_grads(f1, (x1,), order=1)
+
+        f2 = lambda x: jnp.prod(jnp.sin(op.T @ x))
+        x2 = jax.random.normal(key, (n,), dtype=dtype)
+        jax.test_util.check_grads(f2, (x2,), order=1)
 
 
 class TestDiagLike:
