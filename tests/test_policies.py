@@ -9,8 +9,14 @@ from cola.ops import Dense, LinearOperator, Transpose
 from gpjax.dataset import Dataset
 from gpjax.parameters import Real, Static
 
+from cagpjax.linalg import OrthogonalizationMethod
 from cagpjax.operators import BlockDiagonalSparse
-from cagpjax.policies import BlockSparsePolicy, LanczosPolicy, PseudoInputPolicy
+from cagpjax.policies import (
+    BlockSparsePolicy,
+    LanczosPolicy,
+    OrthogonalizationPolicy,
+    PseudoInputPolicy,
+)
 
 jax.config.update("jax_enable_x64", True)
 
@@ -279,3 +285,96 @@ class TestPseudoInputPolicy:
         policy = PseudoInputPolicy(pseudo_inputs, train_inputs, kernel)
         op = kernel.gram(train_inputs)
         _test_batch_policy_actions_consistency(policy, op)
+
+
+class TestOrthogonalizationPolicy:
+    """Test the OrthogonalizationPolicy concrete implementation."""
+
+    @pytest.mark.parametrize("method", list(OrthogonalizationMethod))
+    @pytest.mark.parametrize("n_reortho", [0, 1, 2])
+    def test_init_and_properties(self, method, n_reortho, key=jax.random.key(42)):
+        """Test initialization and basic properties."""
+        base_policy = LanczosPolicy(n_actions=3, key=key)
+        policy = OrthogonalizationPolicy(
+            base_policy=base_policy, method=method, n_reortho=n_reortho
+        )
+
+        assert policy.base_policy is base_policy
+        assert policy.method == method
+        assert policy.n_reortho == n_reortho
+        assert policy.n_actions == base_policy.n_actions
+
+    @pytest.mark.parametrize(
+        "method,n_reortho",
+        [
+            (OrthogonalizationMethod.QR, 0),
+            (OrthogonalizationMethod.CGS, 1),
+            (OrthogonalizationMethod.MGS, 1),
+        ],
+    )
+    @pytest.mark.parametrize("n", [10, 20])
+    @pytest.mark.parametrize("n_pseudo", [5, 10])
+    @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
+    def test_wrapping_pseudoinput_with_replicates(
+        self, n, n_pseudo, method, n_reortho, dtype, input_dim=1, key=jax.random.key(42)
+    ):
+        """Test PseudoInputPolicy with repeated pseudo-inputs (produces rank-deficient actions)."""
+        n_pseudo_repeated = n_pseudo // 2
+        _, subkey1, subkey2 = jax.random.split(key, 3)
+
+        # Create inputs with replicates to induce rank deficiency
+        pseudo_inputs = jax.random.normal(
+            subkey1, (n_pseudo - n_pseudo_repeated, input_dim), dtype=dtype
+        )
+        pseudo_inputs = jnp.concatenate(
+            [pseudo_inputs, pseudo_inputs[:n_pseudo_repeated, :]], axis=0
+        )
+        train_inputs = jax.random.normal(subkey2, (n, input_dim), dtype=dtype)
+
+        kernel = gpjax.kernels.RBF(lengthscale=jnp.ones(input_dim, dtype=dtype))
+        base_policy = PseudoInputPolicy(pseudo_inputs, train_inputs, kernel)
+        policy = OrthogonalizationPolicy(
+            base_policy=base_policy, method=method, n_reortho=n_reortho
+        )
+
+        op = kernel.gram(train_inputs)
+        _test_batch_policy_actions_consistency(policy, op)
+
+        # Verify orthogonality is maintained despite rank deficiency
+        base_actions = base_policy.to_actions(op)
+        actions = policy.to_actions(op)
+        assert actions.shape == base_actions.shape
+        assert actions.dtype == base_actions.dtype
+        assert not jnp.allclose(actions.to_dense(), base_actions.to_dense())
+        if dtype == jnp.float64:
+            projector = actions @ actions.T
+            assert jnp.allclose(
+                (projector @ base_actions).to_dense(), base_actions.to_dense()
+            )
+
+    def test_lanczos_passes_through(self, psd_linear_operator, key=jax.random.key(42)):
+        """Test wrapping LanczosPolicy preserves orthogonality."""
+        base_policy = LanczosPolicy(n_actions=3, key=key)
+        policy = OrthogonalizationPolicy(base_policy=base_policy)
+
+        base_actions = base_policy.to_actions(psd_linear_operator)
+        ortho_actions = policy.to_actions(psd_linear_operator)
+
+        assert isinstance(ortho_actions, type(base_actions))
+        assert ortho_actions.shape == base_actions.shape
+        assert jnp.array_equal(ortho_actions.to_dense(), base_actions.to_dense())
+
+    def test_block_sparse_passes_through(
+        self, psd_linear_operator, key=jax.random.key(42)
+    ):
+        """Test wrapping BlockSparsePolicy preserves orthogonality."""
+        n, dtype = psd_linear_operator.shape[0], psd_linear_operator.dtype
+        base_policy = BlockSparsePolicy(n_actions=3, n=n, key=key, dtype=dtype)
+        policy = OrthogonalizationPolicy(base_policy=base_policy)
+
+        base_actions = base_policy.to_actions(psd_linear_operator)
+        ortho_actions = policy.to_actions(psd_linear_operator)
+
+        assert isinstance(ortho_actions, BlockDiagonalSparse)
+        assert ortho_actions.shape == base_actions.shape
+        assert jnp.array_equal(ortho_actions.nz_values, base_actions.nz_values)
