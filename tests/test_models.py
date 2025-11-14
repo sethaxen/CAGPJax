@@ -7,11 +7,13 @@ import pytest
 from gpjax.distributions import GaussianDistribution
 from gpjax.gps import ConjugatePosterior
 from gpjax.kernels import RBF
+from gpjax.kernels.computations import DenseKernelComputation
 from gpjax.likelihoods import Gaussian
 from gpjax.mean_functions import Constant
 from gpjax.objectives import elbo
 
 import cagpjax
+from cagpjax.computations import LazyKernelComputation
 from cagpjax.models import ComputationAwareGP
 from cagpjax.policies import BlockSparsePolicy, LanczosPolicy
 from cagpjax.solvers import Cholesky, PseudoInverse
@@ -83,12 +85,21 @@ class TestComputationAwareGP:
         """Create simple 1D test data for testing."""
         return self.generate_dataset(n_test, (-2.5, 2.5), dtype, key)
 
-    @pytest.fixture
-    def posterior(self, n_train, dtype):
-        """Create GP posterior."""
+    @pytest.fixture(params=[DenseKernelComputation, LazyKernelComputation])
+    def compute_engine(self, request):
+        """Create compute engine."""
+        if request.param is DenseKernelComputation:
+            return DenseKernelComputation()
+        elif request.param is LazyKernelComputation:
+            return LazyKernelComputation(batch_size=5)
+        else:
+            raise ValueError(f"Invalid compute engine class: {request.param}")
+
+    def make_posterior(self, n_train, dtype, compute_engine):
         kernel = RBF(
             lengthscale=jnp.array(1.0, dtype=dtype),
             variance=jnp.array(1.0, dtype=dtype),
+            compute_engine=compute_engine,
         )
         likelihood = Gaussian(
             num_datapoints=n_train, obs_stddev=jnp.array(0.1, dtype=dtype)
@@ -98,6 +109,16 @@ class TestComputationAwareGP:
         posterior = ConjugatePosterior(prior=prior, likelihood=likelihood)
 
         return posterior
+
+    @pytest.fixture
+    def posterior(self, n_train, dtype, compute_engine):
+        """Create GP posterior."""
+        return self.make_posterior(n_train, dtype, compute_engine)
+
+    @pytest.fixture
+    def posterior_eager(self, n_train, dtype):
+        """Create alternative GP posterior."""
+        return self.make_posterior(n_train, dtype, DenseKernelComputation())
 
     @pytest.fixture
     def conditioned_cagp(self, policy, posterior, train_data, solver_method):
@@ -196,6 +217,7 @@ class TestComputationAwareGP:
         train_data,
         test_data,
         posterior,
+        posterior_eager,
         n_train,
         dtype,
         solver_method,
@@ -213,7 +235,7 @@ class TestComputationAwareGP:
         cagp.condition(train_data)
         pred = cagp.predict(x_test)
 
-        pred_exact = posterior.predict(x_test, train_data)
+        pred_exact = posterior_eager.predict(x_test, train_data)
 
         assert pred.mean.shape == pred_exact.mean.shape
         assert pred.scale.shape == pred_exact.scale.shape
