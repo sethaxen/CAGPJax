@@ -13,6 +13,18 @@ class LazyKernel(LinearOperator):
 
     This class implements a lazy kernel operator that computes rows/cols of a kernel
     matrix in blocks, preventing memory issues with large datasets.
+
+    Args:
+        kernel: The kernel function to use for computations.
+        x1: First set of input points for kernel evaluation.
+        x2: Second set of input points for kernel evaluation.
+        max_memory_mb: Maximum number of megabytes of memory to allocate for batching
+            the kernel matrix. If ``batch_size`` is provided, this is ignored.
+        batch_size: Number of rows/cols to materialize at once. If ``None``,
+            the batch size is determined based on ``max_memory_mb``.
+        checkpoint: Whether to checkpoint the computation. This is usually necessary to
+            prevent all materialized submatrices from being retained in memory for
+            gradient computation.
     """
 
     kernel: AbstractKernel
@@ -33,20 +45,6 @@ class LazyKernel(LinearOperator):
         batch_size: int | None = None,
         checkpoint: bool = False,
     ):
-        """Initialize the row-wise kernel operator.
-
-        Args:
-            kernel: The kernel function to use for computations.
-            x1: First set of input points for kernel evaluation.
-            x2: Second set of input points for kernel evaluation.
-            max_memory_mb: Maximum number of megabytes of memory to allocate for batching
-                the kernel matrix. If ``batch_size`` is provided, this is ignored.
-            batch_size: Number of rows/cols to materialize at once. If ``None``,
-                the batch size is determined based on ``max_memory_mb``.
-            checkpoint: Whether to checkpoint the computation. This is usually necessary to
-                prevent all materialized submatrices from being retained in memory for
-                gradient computation.
-        """
         shape = (x1.shape[0], x2.shape[0])
         dtype = kernel(x1[0, ...], x2[0, ...]).dtype
         super().__init__(dtype=dtype, shape=shape)
