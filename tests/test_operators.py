@@ -1,5 +1,6 @@
 """Tests for custom linear operators."""
 
+import cola
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -114,7 +115,7 @@ class TestDiagLike:
 class TestLazyKernel:
     """Test cases for LazyKernel."""
 
-    @pytest.fixture(params=[jnp.float64])
+    @pytest.fixture(params=[jnp.float32, jnp.float64])
     def dtype(self, request):
         return request.param
 
@@ -178,9 +179,18 @@ class TestLazyKernel:
             assert op.batch_size_row == batch_size
             assert op.batch_size_col == batch_size
 
-    def test_linear_operator_consistency(self, op):
+    @jax.default_matmul_precision("highest")
+    def test_linear_operator_consistency(self, op, atol=1e-6):
         """Test LinearOperator consistency for all parameter combinations."""
-        _test_linear_operator_consistency(op)
+        _test_linear_operator_consistency(op, atol=atol)
+
+    @jax.default_matmul_precision("highest")
+    def test_consistency_with_dense(self, op, kernel, inputs):
+        """Test consistency with dense kernel matrix."""
+        x1, x2 = inputs
+        assert jnp.allclose(
+            cola.densify(op), cola.densify(kernel.cross_covariance(x1, x2))
+        )
 
     @pytest.mark.parametrize("grad,checkpoint", [(False, False), (True, True)])
     @pytest.mark.parametrize("n,dtype", [(20_000, jnp.float64), (40_000, jnp.float32)])
