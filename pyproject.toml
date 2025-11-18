@@ -32,7 +32,7 @@ dependencies = [
     "gpjax<0.12",
     "jaxtyping",
     "cola-ml>=0.0.7",
-    "flax>=0.10.0",
+    "flax>=0.10.0,<0.11.0",
     "typing-extensions",
     "matfree>=0.1.0",
 ]
