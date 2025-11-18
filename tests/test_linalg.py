@@ -277,9 +277,14 @@ class TestLowerCholesky:
     def jitter(self, request):
         return request.param
 
-    @pytest.mark.parametrize("n", [5, 10, 30])
-    @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
-    @pytest.mark.parametrize("jitter", [None, 1e-3])
+    @pytest.fixture(params=[5, 10, 30])
+    def n(self, request):
+        return request.param
+
+    @pytest.fixture(params=[jnp.float32, jnp.float64])
+    def dtype(self, request):
+        return request.param
+
     def test_lower_cholesky_diagonal(self, n, dtype, key, jitter):
         """Test overload where ``A`` is ``Diagonal``."""
         A = Diagonal(jax.random.uniform(key, (n,), dtype=dtype))
@@ -293,9 +298,6 @@ class TestLowerCholesky:
         else:
             assert jnp.allclose(L_diag**2, A.diag + jitter)
 
-    @pytest.mark.parametrize("n", [5, 10, 30])
-    @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
-    @pytest.mark.parametrize("jitter", [None, 1e-3])
     def test_lower_cholesky_dense(self, n, dtype, key, jitter):
         """Test overload where ``A`` is ``Dense``."""
         B = jax.random.normal(key, (n, n), dtype=dtype)
