@@ -1,5 +1,7 @@
 """Tests for custom linear operators."""
 
+import cola
+import gpjax
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -9,6 +11,7 @@ from cola.ops import Dense, Diagonal, LinearOperator, ScalarMul
 from cagpjax.operators import BlockDiagonalSparse
 from cagpjax.operators.annotations import ScaledOrthogonal
 from cagpjax.operators.diag_like import diag_like
+from cagpjax.operators.utils import lazify
 
 jax.config.update("jax_enable_x64", True)
 
@@ -41,6 +44,87 @@ def _test_linear_operator_consistency(op: LinearOperator):
     _test_mul_consistency(op)
     _test_transpose_consistency(op)
     _test_dtype_consistency(op)
+
+
+class TestUtils:
+    # lazify needs to be tested for a cola.ops.Dense, cola.ops.Diagonal, and jnp.ndarray
+    # if gpjax.linalg is available, it should also be tested for gpjax.linalg.Dense, gpjax.linalg.Diagonal, gpjax.linalg.Identity, and gpjax.linalg.Triangular
+    # lazify should return a cola.ops.LinearOperator, and have the same shape and dtype as the input
+
+    @pytest.fixture(params=[5, 6])
+    def nrows(self, request) -> int:
+        return request.param
+
+    @pytest.fixture(params=[3, 7])
+    def ncols(self, request) -> int:
+        return request.param
+
+    @pytest.fixture(params=[jnp.float32, jnp.float64])
+    def dtype(self, request):
+        return request.param
+
+    def test_lazify_ndarray(self, nrows, ncols, dtype, key=jax.random.key(42)):
+        arr = jax.random.normal(key, (nrows, ncols), dtype=dtype)
+        lazy_op = lazify(arr)
+        assert isinstance(lazy_op, cola.ops.Dense)
+        assert lazy_op.shape == (nrows, ncols)
+        assert lazy_op.dtype == dtype
+        np.testing.assert_allclose(lazy_op.to_dense(), arr)
+
+    def test_lazify_dense(self, nrows, ncols, dtype, key=jax.random.key(42)):
+        op = cola.ops.Dense(jax.random.normal(key, (nrows, ncols), dtype=dtype))
+        lazy_op = lazify(op)
+        assert lazy_op is op
+
+    def test_lazify_diagonal(self, nrows, dtype, key=jax.random.key(42)):
+        diag = jax.random.normal(key, (nrows,), dtype=dtype)
+        op = cola.ops.Diagonal(diag)
+        lazy_op = lazify(op)
+        assert lazy_op is op
+
+    try:  # test support for GPJax v0.12.0
+        import gpjax.linalg
+
+        def test_lazify_gpjax_dense(self, nrows, ncols, dtype, key=jax.random.key(42)):
+            op = gpjax.linalg.Dense(jax.random.normal(key, (nrows, ncols), dtype=dtype))
+            lazy_op = lazify(op)
+            assert isinstance(lazy_op, cola.ops.Dense)
+            assert lazy_op.shape == (nrows, ncols)
+            assert lazy_op.dtype == dtype
+            np.testing.assert_allclose(lazy_op.to_dense(), op.to_dense())
+
+        def test_lazify_gpjax_diagonal(self, nrows, dtype, key=jax.random.key(42)):
+            diag = jax.random.normal(key, (nrows,), dtype=dtype)
+            op = gpjax.linalg.Diagonal(diag)
+            lazy_op = lazify(op)
+            assert isinstance(lazy_op, cola.ops.Diagonal)
+            assert lazy_op.shape == (nrows, nrows)
+            assert lazy_op.dtype == dtype
+            np.testing.assert_allclose(lazy_op.to_dense(), jnp.diag(diag))
+
+        def test_lazify_gpjax_identity(self, nrows, dtype, key=jax.random.key(42)):
+            op = gpjax.linalg.Identity(nrows, dtype=dtype)
+            lazy_op = lazify(op)
+            assert isinstance(lazy_op, cola.ops.Identity)
+            assert lazy_op.shape == (nrows, nrows)
+            assert lazy_op.dtype == dtype
+
+        @pytest.mark.parametrize("lower", [True, False])
+        def test_lazify_gpjax_triangular(
+            self, nrows, dtype, lower, key=jax.random.key(42)
+        ):
+            op = gpjax.linalg.Triangular(
+                jax.random.normal(key, (nrows, nrows), dtype=dtype), lower=lower
+            )
+            lazy_op = lazify(op)
+            assert isinstance(lazy_op, cola.ops.Triangular)
+            assert lazy_op.shape == (nrows, nrows)
+            assert lazy_op.dtype == dtype
+            assert lazy_op.lower == lower
+            np.testing.assert_allclose(lazy_op.to_dense(), op.to_dense())
+
+    except ImportError:
+        pass
 
 
 class TestBlockDiagonalSparse:

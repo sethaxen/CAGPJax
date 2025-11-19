@@ -277,9 +277,14 @@ class TestLowerCholesky:
     def jitter(self, request):
         return request.param
 
-    @pytest.mark.parametrize("n", [5, 10, 30])
-    @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
-    @pytest.mark.parametrize("jitter", [None, 1e-3])
+    @pytest.fixture(params=[5, 10, 30])
+    def n(self, request):
+        return request.param
+
+    @pytest.fixture(params=[jnp.float32, jnp.float64])
+    def dtype(self, request):
+        return request.param
+
     def test_lower_cholesky_diagonal(self, n, dtype, key, jitter):
         """Test overload where ``A`` is ``Diagonal``."""
         A = Diagonal(jax.random.uniform(key, (n,), dtype=dtype))
@@ -293,9 +298,6 @@ class TestLowerCholesky:
         else:
             assert jnp.allclose(L_diag**2, A.diag + jitter)
 
-    @pytest.mark.parametrize("n", [5, 10, 30])
-    @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
-    @pytest.mark.parametrize("jitter", [None, 1e-3])
     def test_lower_cholesky_dense(self, n, dtype, key, jitter):
         """Test overload where ``A`` is ``Dense``."""
         B = jax.random.normal(key, (n, n), dtype=dtype)
@@ -313,6 +315,37 @@ class TestLowerCholesky:
                     L.to_dense(),
                     jnp.linalg.cholesky(A_mat + jitter * jnp.eye(n, dtype=dtype)),
                 )
+
+    def test_lower_cholesky_scalarmul(self, n, dtype, key, jitter):
+        """Test overload where ``A`` is ``ScalarMul``."""
+        scalar = jnp.abs(jax.random.normal(key, dtype=dtype))
+        A = ScalarMul(scalar, (n, n), dtype=dtype)
+        L = lower_cholesky(A, jitter)
+        assert isinstance(L, ScalarMul)
+        assert L.shape == (n, n)
+        assert L.dtype == dtype
+        if jitter is None:
+            assert jnp.allclose(L.to_dense(), jnp.linalg.cholesky(A.to_dense()))
+        else:
+            assert jnp.allclose(
+                L.to_dense(),
+                jnp.linalg.cholesky(A.to_dense() + jitter * jnp.eye(n, dtype=dtype)),
+            )
+
+    def test_lower_cholesky_identity(self, n, dtype, key, jitter):
+        """Test overload where ``A`` is ``Identity``."""
+        A = Identity((n, n), dtype=dtype)
+        L = lower_cholesky(A, jitter)
+        assert L.shape == (n, n)
+        assert L.dtype == dtype
+        if jitter is None:
+            assert isinstance(L, Identity)
+        else:
+            assert isinstance(L, ScalarMul)
+            assert jnp.allclose(
+                L.to_dense(),
+                jnp.linalg.cholesky(A.to_dense() + jitter * jnp.eye(n, dtype=dtype)),
+            )
 
 
 class TestAddJitter:
