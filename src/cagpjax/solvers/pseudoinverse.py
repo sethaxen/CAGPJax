@@ -79,11 +79,10 @@ class PseudoInverseSolver(AbstractLinearSolver):
     ):
         n = A.shape[0]
         # select rtol using same heuristic as jax.numpy.linalg.lstsq
-        if rtol is None:
-            rtol = float(jnp.finfo(A.dtype).eps) * n
+        rtol_val = rtol if rtol is not None else float(jnp.finfo(A.dtype).eps) * n
         self.eigh_result = eigh(A, alg=alg, grad_rtol=grad_rtol)
         svdmax = jnp.max(jnp.abs(self.eigh_result.eigenvalues))
-        cutoff = jnp.array(rtol * svdmax, dtype=svdmax.dtype)
+        cutoff = jnp.array(rtol_val * svdmax, dtype=svdmax.dtype)
         mask = self.eigh_result.eigenvalues >= cutoff
         self.eigvals_safe = jnp.where(mask, self.eigh_result.eigenvalues, 1)
         self.eigvals_inv = jnp.where(mask, jnp.reciprocal(self.eigvals_safe), 0)
