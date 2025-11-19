@@ -82,7 +82,7 @@ class TestUtils:
         lazy_op = lazify(op)
         assert lazy_op is op
 
-    try:   # test support for GPJax v0.12.0
+    try:  # test support for GPJax v0.12.0
         import gpjax.linalg
 
         def test_lazify_gpjax_dense(self, nrows, ncols, dtype, key=jax.random.key(42)):
