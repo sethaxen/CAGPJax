@@ -5,6 +5,7 @@ import gpjax
 import jax.numpy as jnp
 from cola.ops import LinearOperator
 from flax import nnx
+from gpjax.parameters import Parameter
 from jaxtyping import Array, Float
 
 from .base import AbstractBatchLinearSolverPolicy
@@ -31,13 +32,13 @@ class PseudoInputPolicy(AbstractBatchLinearSolverPolicy):
         the actions using an [`OrthogonalizationPolicy`][cagpjax.policies.OrthogonalizationPolicy].
     """
 
-    pseudo_inputs: nnx.Variable
+    pseudo_inputs: Float[Array, "M D"] | Parameter[Float[Array, "M D"]]
     train_inputs: Float[Array, "N D"]
     kernel: gpjax.kernels.AbstractKernel
 
     def __init__(
         self,
-        pseudo_inputs: Float[Array, "M D"] | nnx.Variable,
+        pseudo_inputs: Float[Array, "M D"] | Parameter[Float[Array, "M D"]],
         train_inputs_or_dataset: Float[Array, "N D"] | gpjax.dataset.Dataset,
         kernel: gpjax.kernels.AbstractKernel,
     ):
@@ -48,8 +49,6 @@ class PseudoInputPolicy(AbstractBatchLinearSolverPolicy):
             train_inputs = train_data.X
         else:
             train_inputs = train_inputs_or_dataset
-        if not isinstance(pseudo_inputs, nnx.Variable):
-            pseudo_inputs = gpjax.parameters.Static(jnp.atleast_2d(pseudo_inputs))
         self.pseudo_inputs = pseudo_inputs
         self.train_inputs = jnp.atleast_2d(train_inputs)
         self.kernel = kernel
@@ -58,6 +57,13 @@ class PseudoInputPolicy(AbstractBatchLinearSolverPolicy):
     def n_actions(self):
         return self.pseudo_inputs.shape[0]
 
+    @property
+    def _pseudo_inputs(self) -> Float[Array, "M D"]:
+        if isinstance(self.pseudo_inputs, Parameter):
+            return self.pseudo_inputs.value
+        else:
+            return self.pseudo_inputs
+
     def to_actions(self, A: LinearOperator) -> LinearOperator:
-        S = self.kernel.cross_covariance(self.train_inputs, self.pseudo_inputs.value)
+        S = self.kernel.cross_covariance(self.train_inputs, self._pseudo_inputs)
         return cola.lazify(S)
