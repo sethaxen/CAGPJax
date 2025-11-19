@@ -35,11 +35,6 @@ def _lower_cholesky_jittered(A: LinearOperator, jitter: ScalarFloat) -> LinearOp
 
 @overload
 def _lower_cholesky(A: LinearOperator) -> Triangular:
-    if cola.PSD not in A.annotations:
-        raise ValueError(
-            "Expected LinearOperator to be PSD, did you forget to use cola.PSD?"
-        )
-
     return Triangular(jnp.linalg.cholesky(A.to_dense()), lower=True)
 
 
