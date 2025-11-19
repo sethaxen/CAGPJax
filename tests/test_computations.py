@@ -8,6 +8,7 @@ from gpjax.kernels import RBF
 
 from cagpjax.computations import LazyKernelComputation
 from cagpjax.operators import LazyKernel
+from cagpjax.operators.utils import lazify
 
 jax.config.update("jax_enable_x64", True)
 
@@ -71,7 +72,7 @@ class TestLazyKernelComputation:
             batch_size=batch_size, max_memory_mb=max_memory_mb, checkpoint=checkpoint
         )
         x1, _ = inputs
-        gram = comp.gram(kernel, x1)
+        gram = lazify(comp.gram(kernel, x1))
         assert isinstance(gram, LazyKernel)
         assert gram.shape == (x1.shape[0], x1.shape[0])
         assert gram.dtype == dtype
@@ -88,7 +89,7 @@ class TestLazyKernelComputation:
         assert gram.batch_size_row == gram_lazy.batch_size_row
         assert gram.batch_size_col == gram_lazy.batch_size_col
 
-        assert jnp.allclose(cola.densify(gram), cola.densify(kernel.gram(x1)))
+        assert jnp.allclose(cola.densify(gram), kernel.gram(x1).to_dense())
 
     @jax.default_matmul_precision("highest")
     def test_cross_covariance(
