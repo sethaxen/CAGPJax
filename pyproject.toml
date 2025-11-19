@@ -28,11 +28,11 @@ classifiers = [
 urls = {repository = "https://github.com/sethaxen/CAGPJax" }
 
 dependencies = [
-    "jax>=0.5,<0.8",
-    "gpjax<=0.12.0",
+    "jax>=0.5",
+    "gpjax<0.13",
     "jaxtyping",
     "cola-ml>=0.0.7",
-    "flax>=0.10.0,<0.11.0",
+    "flax>=0.10.0,<0.12.0",
     "typing-extensions",
     "matfree>=0.1.0",
 ]

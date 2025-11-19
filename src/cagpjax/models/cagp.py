@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import cola
 import jax.numpy as jnp
 from cola.ops import LinearOperator
+from flax import nnx
 from gpjax.distributions import GaussianDistribution
 from gpjax.gps import ConjugatePosterior, Dataset
 from gpjax.mean_functions import Constant
@@ -88,7 +89,10 @@ class ComputationAwareGP(AbstractComputationAwareGP):
         mean_prior = prior.mean_function(x).squeeze()
         # Work around GPJax promoting dtype of mean to float64 (See JaxGaussianProcesses/GPJax#523)
         if isinstance(prior.mean_function, Constant):
-            mean_prior = mean_prior.astype(prior.mean_function.constant.value.dtype)
+            constant = prior.mean_function.constant
+            if isinstance(constant, nnx.Variable):
+                constant = constant.value
+            mean_prior = mean_prior.astype(constant.dtype)
         cov_xx = lazify(prior.kernel.gram(x))
         obs_cov = diag_like(cov_xx, likelihood.obs_stddev.value**2)
         cov_prior = cov_xx + obs_cov
@@ -145,7 +149,10 @@ class ComputationAwareGP(AbstractComputationAwareGP):
         mean_z = prior.mean_function(z).squeeze()
         # Work around GPJax promoting dtype of mean to float64 (See JaxGaussianProcesses/GPJax#523)
         if isinstance(prior.mean_function, Constant):
-            mean_z = mean_z.astype(prior.mean_function.constant.value.dtype)
+            constant = prior.mean_function.constant
+            if isinstance(constant, nnx.Variable):
+                constant = constant.value
+            mean_z = mean_z.astype(constant.dtype)
         cov_zz = lazify(prior.kernel.gram(z))
         cov_zx = cov_zz if test_inputs is None else prior.kernel.cross_covariance(z, x)
         cov_zx_proj = cov_zx @ actions

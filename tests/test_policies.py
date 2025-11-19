@@ -7,7 +7,7 @@ import jax.numpy as jnp
 import pytest
 from cola.ops import Dense, LinearOperator, Transpose
 from gpjax.dataset import Dataset
-from gpjax.parameters import Real, Static
+from gpjax.parameters import Real
 
 from cagpjax.linalg import OrthogonalizationMethod
 from cagpjax.operators import BlockDiagonalSparse
@@ -175,9 +175,9 @@ class TestBlockSparsePolicy:
         assert jnp.allclose(policy.nz_values.value, nz_values)
 
         policy_static = BlockSparsePolicy(
-            n_actions=n_actions, nz_values=Static(nz_values)
+            n_actions=n_actions, nz_values=Real(nz_values)
         )
-        assert isinstance(policy_static.nz_values, Static)
+        assert isinstance(policy_static.nz_values, Real)
         assert policy_static.nz_values.value.dtype == dtype
         assert jnp.allclose(policy_static.nz_values.value, nz_values)
 
@@ -235,7 +235,7 @@ class TestPseudoInputPolicy:
         pseudo_inputs = jax.random.normal(key, (n_pseudo, input_dim), dtype=dtype)
         return train_inputs, pseudo_inputs
 
-    @pytest.mark.parametrize("pseudo_input_type", [jnp.ndarray, Static, Real])
+    @pytest.mark.parametrize("pseudo_input_type", [jnp.ndarray, Real])
     @pytest.mark.parametrize("train_input_type", [jnp.ndarray, Dataset])
     def test_basic_properties(
         self,
@@ -262,11 +262,8 @@ class TestPseudoInputPolicy:
         assert policy.kernel is kernel
         assert isinstance(policy.train_inputs, jnp.ndarray)
         assert jnp.array_equal(policy.train_inputs, train_inputs)
-        if pseudo_input_type is jnp.ndarray:
-            assert isinstance(policy.pseudo_inputs, Static)
-        else:
-            assert isinstance(policy.pseudo_inputs, pseudo_input_type)
-        assert jnp.array_equal(policy.pseudo_inputs.value, pseudo_inputs)
+        assert isinstance(policy.pseudo_inputs, pseudo_input_type)
+        assert jnp.array_equal(policy._pseudo_inputs, pseudo_inputs)
 
     def test_actions_is_cross_covariance(self, inputs, kernel, dtype):
         """Test actions are the cross-covariance between the training inputs and pseudo-inputs."""
