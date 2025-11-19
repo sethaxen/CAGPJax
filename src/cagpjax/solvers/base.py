@@ -1,6 +1,6 @@
 """Base classes for linear solvers and methods."""
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 
 from cola.ops import LinearOperator
 from flax import nnx
@@ -10,7 +10,7 @@ from typing_extensions import Self
 from ..typing import ScalarFloat
 
 
-class AbstractLinearSolver(nnx.Module):
+class AbstractLinearSolver(ABC):
     """
     Base class for linear solvers.
 
