@@ -4,12 +4,14 @@ import gpjax as gpjax
 import jax
 import jax.numpy as jnp
 import pytest
+from flax import nnx
 from gpjax.distributions import GaussianDistribution
 from gpjax.gps import ConjugatePosterior
 from gpjax.kernels import RBF
 from gpjax.likelihoods import Gaussian
 from gpjax.mean_functions import Constant
 from gpjax.objectives import elbo
+from gpjax.parameters import Real
 
 import cagpjax
 from cagpjax.models import ComputationAwareGP
@@ -83,8 +85,12 @@ class TestComputationAwareGP:
         """Create simple 1D test data for testing."""
         return self.generate_dataset(n_test, (-2.5, 2.5), dtype, key)
 
+    @pytest.fixture(params=[jnp.array, Real])
+    def constant_type(self, request):
+        return request.param
+
     @pytest.fixture
-    def posterior(self, n_train, dtype):
+    def posterior(self, n_train, dtype, constant_type):
         """Create GP posterior."""
         kernel = RBF(
             lengthscale=jnp.array(1.0, dtype=dtype),
@@ -93,7 +99,7 @@ class TestComputationAwareGP:
         likelihood = Gaussian(
             num_datapoints=n_train, obs_stddev=jnp.array(0.1, dtype=dtype)
         )
-        mean_function = Constant(jnp.array(3.0, dtype=dtype))
+        mean_function = Constant(constant_type(jnp.array(3.0, dtype=dtype)))
         prior = gpjax.gps.Prior(kernel=kernel, mean_function=mean_function)
         posterior = ConjugatePosterior(prior=prior, likelihood=likelihood)
 
@@ -108,6 +114,7 @@ class TestComputationAwareGP:
         cagp.condition(train_data)
         return cagp
 
+    @pytest.mark.skipif(constant_type is nnx.Variable, reason="Test is redundant")
     def test_initialization(self, policy, posterior, solver_method):
         """Test that CAGP initializes correctly."""
         cagp = ComputationAwareGP(
@@ -222,6 +229,7 @@ class TestComputationAwareGP:
             pred.scale.to_dense(), pred_exact.scale.to_dense(), atol=1e-5
         )
 
+    @pytest.mark.skipif(constant_type is nnx.Variable, reason="Test is redundant")
     def test_prior_kl_consistency(self, conditioned_cagp, train_data, dtype):
         """Test that custom ``prior_kl`` matches KL computed from result of ``predict``."""
         if dtype == jnp.float32:
@@ -241,6 +249,7 @@ class TestComputationAwareGP:
 
         assert jnp.allclose(kl, kl_explicit, rtol=1e-4)
 
+    @pytest.mark.skipif(constant_type is nnx.Variable, reason="Test is redundant")
     def test_prior_kl_gradient_sparse_actions(
         self,
         posterior,
