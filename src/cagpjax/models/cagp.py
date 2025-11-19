@@ -13,6 +13,7 @@ from typing_extensions import override
 
 from ..linalg import congruence_transform
 from ..operators import diag_like
+from ..operators.utils import lazify
 from ..policies import AbstractBatchLinearSolverPolicy
 from ..solvers import AbstractLinearSolver, AbstractLinearSolverMethod, Cholesky
 from ..typing import ScalarFloat
@@ -88,7 +89,7 @@ class ComputationAwareGP(AbstractComputationAwareGP):
         # Work around GPJax promoting dtype of mean to float64 (See JaxGaussianProcesses/GPJax#523)
         if isinstance(prior.mean_function, Constant):
             mean_prior = mean_prior.astype(prior.mean_function.constant.value.dtype)
-        cov_xx = prior.kernel.gram(x)
+        cov_xx = lazify(prior.kernel.gram(x))
         obs_cov = diag_like(cov_xx, likelihood.obs_stddev.value**2)
         cov_prior = cov_xx + obs_cov
 
@@ -145,7 +146,7 @@ class ComputationAwareGP(AbstractComputationAwareGP):
         # Work around GPJax promoting dtype of mean to float64 (See JaxGaussianProcesses/GPJax#523)
         if isinstance(prior.mean_function, Constant):
             mean_z = mean_z.astype(prior.mean_function.constant.value.dtype)
-        cov_zz = prior.kernel.gram(z)
+        cov_zz = lazify(prior.kernel.gram(z))
         cov_zx = cov_zz if test_inputs is None else prior.kernel.cross_covariance(z, x)
         cov_zx_proj = cov_zx @ actions
 
