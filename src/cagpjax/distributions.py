@@ -62,7 +62,7 @@ class GaussianDistribution(Distribution):
 
     def log_prob(self, value: Float[Array, " N"]) -> ScalarFloat:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Compute the log probability of the distribution at the given value.
-        
+
         Args:
             value: Value at which to compute the log probability.
 
@@ -83,7 +83,7 @@ class GaussianDistribution(Distribution):
         sample_shape: tuple[int, ...] = (),
     ) -> Float[Array, "*sample_shape N"]:
         """Sample from the distribution.
-        
+
         Args:
             key: Random key for sampling.
             sample_shape: Shape of the sample.
