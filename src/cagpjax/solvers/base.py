@@ -31,6 +31,11 @@ class AbstractLinearSolver(ABC):
         pass
 
     @abstractmethod
+    def unwhiten(self, z: Float[Array, "N #K"]) -> Float[Array, "N #K"]:
+        """Given an IID standard normal vector $z$, return $x$ with covariance $A$."""
+        pass
+
+    @abstractmethod
     def logdet(self) -> ScalarFloat:
         """Compute the logarithm of the (pseudo-)determinant of $A$."""
         pass
