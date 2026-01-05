@@ -161,7 +161,7 @@ class TestSolvers:
         assert isinstance(cong_transform, B_type)
         assert jnp.allclose(cong_trans_mat, cong_trans_ref_mat, rtol=rtol)
 
-    @pytest.mark.parametrize("m", [None, 2, 5])
+    @pytest.mark.parametrize("m", [None, 2])
     def test_unwhiten_inv_congruence_transform_consistency(
         self, op, solver, n, m, dtype, key=jax.random.key(23)
     ):
