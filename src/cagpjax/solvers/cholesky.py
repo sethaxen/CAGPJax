@@ -45,6 +45,10 @@ class CholeskySolver(AbstractLinearSolver):
         self.lchol = lower_cholesky(A, jitter)
 
     @override
+    def unwhiten(self, z: Float[Array, "N #K"]) -> Float[Array, "N #K"]:
+        return self.lchol @ z
+
+    @override
     def solve(self, b: Float[Array, "N #K"]) -> Float[Array, "N #K"]:
         Linv = cola.linalg.inv(self.lchol)
         return Linv.T @ (Linv @ b)
