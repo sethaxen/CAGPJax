@@ -84,9 +84,17 @@ class PseudoInverseSolver(AbstractLinearSolver):
         svdmax = jnp.max(jnp.abs(self.eigh_result.eigenvalues))
         cutoff = jnp.array(rtol_val * svdmax, dtype=svdmax.dtype)
         mask = self.eigh_result.eigenvalues >= cutoff
+        self.eigvals_mask = mask
         self.eigvals_safe = jnp.where(mask, self.eigh_result.eigenvalues, 1)
         self.eigvals_inv = jnp.where(mask, jnp.reciprocal(self.eigvals_safe), 0)
         self.A = A
+
+    @override
+    def unwhiten(self, z: Float[Array, "N #K"]) -> Float[Array, "N #K"]:
+        eigvals_sqrt = jnp.where(self.eigvals_mask, jnp.sqrt(self.eigvals_safe), 0)
+        x = (eigvals_sqrt * z.T).T
+        with jax.default_matmul_precision("highest"):
+            return self.eigh_result.eigenvectors @ x
 
     @override
     def solve(self, b: Float[Array, "N #K"]) -> Float[Array, "N #K"]:

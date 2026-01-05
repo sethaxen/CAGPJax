@@ -161,6 +161,20 @@ class TestSolvers:
         assert isinstance(cong_transform, B_type)
         assert jnp.allclose(cong_trans_mat, cong_trans_ref_mat, rtol=rtol)
 
+    @pytest.mark.parametrize("m", [None, 2])
+    def test_unwhiten_inv_congruence_transform_consistency(
+        self, op, solver, n, m, dtype, key=jax.random.key(23)
+    ):
+        """Test unwhiten is consistent with inv_congruence_transform."""
+        B_shape = (n, m) if m is not None else (n,)
+        # for this to succeed, the whitened B must be in a subspace of the same rank as the operator
+        rank = jnp.linalg.matrix_rank(op.to_dense())
+        B = jax.random.normal(key, B_shape, dtype=dtype)
+        B = B.at[:rank, ...].set(0)
+        X = solver.unwhiten(B)
+        with jax.default_matmul_precision("highest"):
+            assert jnp.allclose(solver.inv_congruence_transform(X), B.T @ B)
+
     def test_inv_quad_consistency(self, solver, n, dtype, key=jax.random.key(23)):
         """Test inv_quad is consistent with solve."""
         b = jax.random.normal(key, (n,), dtype=dtype)
