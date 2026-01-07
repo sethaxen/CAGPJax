@@ -1,6 +1,7 @@
 """Computation-aware Gaussian Process models."""
 
 from dataclasses import dataclass
+from typing import Optional
 
 import cola
 import jax.numpy as jnp
@@ -202,6 +203,49 @@ class ComputationAwareGP(AbstractComputationAwareGP):
         )
 
         return kl
+
+    def variational_expectation(
+        self, data: Optional[Dataset] = None
+    ) -> Float[Array, "K"]:
+        """Compute the variational expectation.
+
+        Compute the pointwise expected log-likelihood under the variational distribution.
+
+        Note:
+            This should be used instead of ``gpjax.objectives.variational_expectation``
+
+        Args:
+            data: If provided, a length ``K`` subset of the training data for which the expectation
+                  should be computed. If not provided, the expectation is computed for all
+                  training data.
+
+        Returns:
+            expectation: The pointwise expected log-likelihood under the variational distribution.
+        """
+
+        if not self.is_conditioned:
+            raise ValueError("Model is not yet conditioned. Call ``condition`` first.")
+
+        # Unpack data
+        if data is not None:
+            if data.X is None or data.y is None:
+                raise ValueError("Data must be supervised.")
+            x = jnp.atleast_2d(data.X)
+            y = data.y
+        else:
+            assert self._posterior_params is not None  # help out pyright
+            x = None
+            y = self._posterior_params.train_data.y
+
+        # Predict and compute expectation
+        qpred = self.predict(x)
+        mean = qpred.mean
+        variance = qpred.variance
+        expectation = self.posterior.likelihood.expected_log_likelihood(
+            y, mean[:, None], variance[:, None]
+        )
+
+        return expectation
 
 
 # Technically we need the projected mean and covariance of the prior, projected data, and
