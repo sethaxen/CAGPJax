@@ -1,10 +1,10 @@
 """Abstract base classes for models."""
 
 import abc
-from typing import override
 
 from gpjax.variational_families import AbstractVariationalFamily
 from jaxtyping import Array, Float
+from typing_extensions import override
 
 from ..distributions import GaussianDistribution
 
