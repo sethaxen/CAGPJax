@@ -52,7 +52,7 @@ cagp = cagpjax.models.ComputationAwareGP(posterior, policy)
 # Optimize hyperparameters (including actions)
 def negative_elbo(cagp, train_data):
     cagp.condition(train_data)  # update intermediates
-    return -gpx.objectives.elbo(cagp, train_data)  # WARNING: currently broken
+    return -cagp.elbo(cagp)
 
 cagp_optimized, history = gpx.fit(
     model=cagp,
