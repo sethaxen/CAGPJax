@@ -162,7 +162,7 @@ class ComputationAwareGP(AbstractComputationAwareGP):
         cov_pred = cov_zz - cov_prior_proj_solver.inv_congruence_transform(
             cov_zx_proj.T
         )
-        cov_pred = cola.PSD(cov_pred + diag_like(cov_pred, self.posterior.jitter))
+        cov_pred = cola.PSD(cov_pred)
 
         return GaussianDistribution(
             mean_pred, cov_pred, solver_method=self.solver_method
