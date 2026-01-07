@@ -57,13 +57,6 @@ class PseudoInputPolicy(AbstractBatchLinearSolverPolicy):
     def n_actions(self):
         return self.pseudo_inputs.shape[0]
 
-    @property
-    def _pseudo_inputs(self) -> Float[Array, "M D"]:
-        if isinstance(self.pseudo_inputs, Parameter):
-            return self.pseudo_inputs.value
-        else:
-            return self.pseudo_inputs
-
     def to_actions(self, A: LinearOperator) -> LinearOperator:
-        S = self.kernel.cross_covariance(self.train_inputs, self._pseudo_inputs)
+        S = self.kernel.cross_covariance(self.train_inputs, self.pseudo_inputs[...])
         return cola.lazify(S)
