@@ -9,7 +9,6 @@ from gpjax.gps import ConjugatePosterior
 from gpjax.kernels import RBF
 from gpjax.likelihoods import Gaussian
 from gpjax.mean_functions import Constant
-from gpjax.objectives import elbo
 from gpjax.parameters import Real
 
 import cagpjax
@@ -283,15 +282,12 @@ class TestComputationAwareGP:
         nz_values = jax.random.normal(key, (n_train,), dtype=dtype)
         jax.test_util.check_grads(kl_objective, (nz_values,), order=1, modes=["rev"])
 
-    @pytest.mark.xfail(
-        reason="GPJax's elbo expects its own GaussianDistribution class, not ours."
-    )
-    def test_integration_elbo(self, conditioned_cagp, posterior, train_data, dtype):
-        """Test that ``elbo`` objective from GPJax is computed correctly."""
+    def test_elbo(self, conditioned_cagp, posterior, train_data, dtype):
+        """Test that ``elbo`` objective is computed correctly."""
         if dtype == jnp.float32:
             pytest.skip("Skipping float32 test due to numerical precision limitations")
 
-        elbo_value = elbo(conditioned_cagp, train_data)
+        elbo_value = conditioned_cagp.elbo(train_data)
         assert isinstance(elbo_value, jnp.ndarray)
         assert elbo_value.dtype == dtype
         assert jnp.isscalar(elbo_value)
