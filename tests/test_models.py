@@ -170,10 +170,13 @@ class TestComputationAwareGP:
         )
         cagp.condition(train_data)
         assert cagp._posterior_params is not None  # help pyright
-        assert jnp.allclose(cagp._posterior_params.x, train_data.X)
+        assert cagp._posterior_params.train_data.X is not None  # help pyright
+        assert cagp._posterior_params.train_data.y is not None  # help pyright
+        assert jnp.allclose(cagp._posterior_params.train_data.X, train_data.X)
+        assert jnp.allclose(cagp._posterior_params.train_data.y, train_data.y)
         cagp.condition(train_data_alt)
-        assert cagp._posterior_params is not None  # help pyright
-        assert jnp.allclose(cagp._posterior_params.x, train_data_alt.X)
+        assert jnp.allclose(cagp._posterior_params.train_data.X, train_data_alt.X)
+        assert jnp.allclose(cagp._posterior_params.train_data.y, train_data_alt.y)
 
     def test_predict_test_inputs(self, conditioned_cagp, test_data, n_test, dtype):
         """Test that CAGP predict method with test inputs works."""

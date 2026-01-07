@@ -105,7 +105,7 @@ class ComputationAwareGP(AbstractComputationAwareGP):
         repr_weights_proj = cov_prior_proj_solver.solve(residual_proj)
 
         self._posterior_params = _ProjectedPosteriorParameters(
-            x=x,
+            train_data=train_data,
             actions=actions,
             obs_cov_proj=obs_cov_proj,
             cov_prior_proj_solver=cov_prior_proj_solver,
@@ -136,7 +136,9 @@ class ComputationAwareGP(AbstractComputationAwareGP):
         assert self._posterior_params is not None
 
         # Unpack posterior parameters
-        x = self._posterior_params.x
+        train_data = self._posterior_params.train_data
+        assert train_data.X is not None  # help out pyright
+        x = jnp.atleast_2d(train_data.X)
         actions = self._posterior_params.actions
         cov_prior_proj_solver = self._posterior_params.cov_prior_proj_solver
         repr_weights_proj = self._posterior_params.repr_weights_proj
@@ -209,7 +211,7 @@ class _ProjectedPosteriorParameters:
     """Projected quantities for computation-aware GP inference.
 
     Args:
-        x: N training inputs with D dimensions.
+        train_data: Training data with N inputs with D dimensions.
         actions: Actions operator; transpose of operator projecting from N-dimensional space
             to M-dimensional subspace.
         obs_cov_proj: Projected covariance of likelihood.
@@ -218,7 +220,7 @@ class _ProjectedPosteriorParameters:
         repr_weights_proj: Projected representer weights.
     """
 
-    x: Float[Array, "N D"]
+    train_data: Dataset
     actions: LinearOperator
     obs_cov_proj: LinearOperator
     cov_prior_proj_solver: AbstractLinearSolver
