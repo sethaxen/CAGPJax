@@ -247,6 +247,27 @@ class ComputationAwareGP(AbstractComputationAwareGP):
 
         return expectation
 
+    def elbo(self, data: Optional[Dataset] = None) -> ScalarFloat:
+        """Compute the evidence lower bound.
+
+        Computes the evidence lower bound (ELBO) under this model's variational distribution.
+
+        Note:
+            This should be used instead of ``gpjax.objectives.elbo``
+
+        Args:
+            data: If provided, a subset of the training data for which the ELBO should be computed.
+                  If not provided, the ELBO is computed for all training data.
+
+        Returns:
+            ELBO value (scalar).
+        """
+        kl = self.prior_kl()
+        var_exp = self.variational_expectation(data)
+        ntrain = self.posterior.likelihood.num_datapoints
+        ntest = data.n if data is not None else ntrain
+        return (jnp.sum(var_exp) * ntrain) / ntest - kl
+
 
 # Technically we need the projected mean and covariance of the prior, projected data, and
 # projected likelihood, but these intermediates are more computationally useful.
