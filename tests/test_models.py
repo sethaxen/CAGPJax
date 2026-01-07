@@ -5,7 +5,6 @@ import jax
 import jax.numpy as jnp
 import pytest
 from flax import nnx
-from gpjax.distributions import GaussianDistribution
 from gpjax.gps import ConjugatePosterior
 from gpjax.kernels import RBF
 from gpjax.likelihoods import Gaussian
@@ -14,6 +13,7 @@ from gpjax.objectives import elbo
 from gpjax.parameters import Real
 
 import cagpjax
+from cagpjax.distributions import GaussianDistribution
 from cagpjax.models import ComputationAwareGP
 from cagpjax.policies import BlockSparsePolicy, LanczosPolicy
 from cagpjax.solvers import Cholesky, PseudoInverse
@@ -243,9 +243,15 @@ class TestComputationAwareGP:
         assert kl >= 0.0
 
         # compare with KL computed explicitly from predictive distributions
+        jitter = conditioned_cagp.posterior.jitter
         q = conditioned_cagp.predict()
         p = conditioned_cagp.posterior.prior.predict(train_data.X)
-        kl_explicit = q.kl_divergence(p)
+        kl_explicit = gpjax.distributions.GaussianDistribution(
+            q.mean,
+            gpjax.linalg.operators.Dense(
+                q.scale.to_dense() + jnp.eye(q.scale.shape[0]) * jitter
+            ),
+        ).kl_divergence(p)
 
         assert jnp.allclose(kl, kl_explicit, rtol=1e-4)
 
