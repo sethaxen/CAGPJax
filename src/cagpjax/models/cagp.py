@@ -6,12 +6,12 @@ import cola
 import jax.numpy as jnp
 from cola.ops import LinearOperator
 from flax import nnx
-from gpjax.distributions import GaussianDistribution
 from gpjax.gps import ConjugatePosterior, Dataset
 from gpjax.mean_functions import Constant
 from jaxtyping import Array, Float
 from typing_extensions import override
 
+from ..distributions import GaussianDistribution
 from ..linalg import congruence_transform
 from ..operators import diag_like
 from ..operators.utils import lazify
@@ -158,9 +158,11 @@ class ComputationAwareGP(AbstractComputationAwareGP):
         cov_pred = cov_zz - cov_prior_proj_solver.inv_congruence_transform(
             cov_zx_proj.T
         )
-        cov_pred = cola.PSD(cov_pred + diag_like(cov_pred, self.posterior.jitter))
+        cov_pred = cola.PSD(cov_pred)
 
-        return GaussianDistribution(mean_pred, cov_pred)
+        return GaussianDistribution(
+            mean_pred, cov_pred, solver_method=self.solver_method
+        )
 
     def prior_kl(self) -> ScalarFloat:
         r"""Compute KL divergence between CaGP posterior and GP prior..
