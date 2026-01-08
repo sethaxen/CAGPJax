@@ -18,7 +18,7 @@ class AbstractLinearSolverState(ABC):
     system $Ax = b$ for $x$, where $A$ is a positive (semi-)definite (PSD)
     linear operator.
 
-    Solvers should always be constructed by a `AbstractLinearSolverMethod`.
+    Solvers should always be constructed by a `AbstractLinearSolver`.
     """
 
     @abstractmethod
@@ -73,7 +73,7 @@ class AbstractLinearSolverState(ABC):
         pass
 
 
-class AbstractLinearSolverMethod(nnx.Module):
+class AbstractLinearSolver(nnx.Module):
     """
     Base class for linear solver methods.
 

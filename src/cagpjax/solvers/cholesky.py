@@ -8,10 +8,10 @@ from typing_extensions import Self, override
 
 from ..linalg import lower_cholesky
 from ..typing import ScalarFloat
-from .base import AbstractLinearSolverMethod, AbstractLinearSolverState
+from .base import AbstractLinearSolver, AbstractLinearSolverState
 
 
-class Cholesky(AbstractLinearSolverMethod):
+class Cholesky(AbstractLinearSolver):
     """
     Solve a linear system using the Cholesky decomposition.
 

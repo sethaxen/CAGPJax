@@ -8,7 +8,7 @@ from jaxtyping import Array, Float, Key
 from numpyro.distributions import constraints
 from numpyro.distributions.distribution import Distribution
 
-from .solvers import AbstractLinearSolverMethod, Cholesky
+from .solvers import AbstractLinearSolver, Cholesky
 from .typing import ScalarFloat
 
 
@@ -18,13 +18,13 @@ class GaussianDistribution(Distribution):
     loc: Float[Array, " N"]
     scale: LinearOperator
     support = constraints.real_vector
-    solver_method: AbstractLinearSolverMethod
+    solver_method: AbstractLinearSolver
 
     def __init__(
         self,
         loc: Float[Array, " N"],
         scale: LinearOperator,
-        solver_method: AbstractLinearSolverMethod = Cholesky(1e-6),
+        solver_method: AbstractLinearSolver = Cholesky(1e-6),
         **kwargs,
     ):
         """Initialize the Gaussian distribution.

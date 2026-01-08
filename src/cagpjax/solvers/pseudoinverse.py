@@ -7,10 +7,10 @@ from typing_extensions import Self, override
 
 from ..linalg.eigh import Eigh, EighResult, eigh
 from ..typing import ScalarFloat
-from .base import AbstractLinearSolverMethod, AbstractLinearSolverState
+from .base import AbstractLinearSolver, AbstractLinearSolverState
 
 
-class PseudoInverse(AbstractLinearSolverMethod):
+class PseudoInverse(AbstractLinearSolver):
     """
     Solve a linear system using the Moore-Penrose pseudoinverse.
 

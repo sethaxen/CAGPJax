@@ -16,7 +16,7 @@ from ..linalg import congruence_transform
 from ..operators import diag_like
 from ..operators.utils import lazify
 from ..policies import AbstractBatchLinearSolverPolicy
-from ..solvers import AbstractLinearSolverMethod, AbstractLinearSolverState, Cholesky
+from ..solvers import AbstractLinearSolver, AbstractLinearSolverState, Cholesky
 from ..typing import ScalarFloat
 from .base import AbstractComputationAwareGP
 
@@ -40,13 +40,13 @@ class ComputationAwareGP(AbstractComputationAwareGP):
 
     posterior: ConjugatePosterior
     policy: AbstractBatchLinearSolverPolicy
-    solver_method: AbstractLinearSolverMethod
+    solver_method: AbstractLinearSolver
 
     def __init__(
         self,
         posterior: ConjugatePosterior,
         policy: AbstractBatchLinearSolverPolicy,
-        solver_method: AbstractLinearSolverMethod = Cholesky(1e-6),
+        solver_method: AbstractLinearSolver = Cholesky(1e-6),
     ):
         """Initialize the Computation-Aware GP model.
 
