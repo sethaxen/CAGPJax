@@ -10,7 +10,7 @@ from typing_extensions import Self
 from ..typing import ScalarFloat
 
 
-class AbstractLinearSolver(ABC):
+class AbstractLinearSolverState(ABC):
     """
     Base class for linear solvers.
 
@@ -67,7 +67,7 @@ class AbstractLinearSolver(ABC):
         r"""Compute $\mathrm{trace}(X)$ in $AX=B$ for PSD $B$.
 
         Arguments:
-            B: An `AbstractLinearSolver` of the same type as `self` representing
+            B: An `AbstractLinearSolverState` of the same type as `self` representing
                 the PSD linear operator $B$.
         """
         pass
@@ -77,10 +77,10 @@ class AbstractLinearSolverMethod(nnx.Module):
     """
     Base class for linear solver methods.
 
-    These methods are used to construct `AbstractLinearSolver` instances.
+    These methods are used to construct `AbstractLinearSolverState` instances.
     """
 
     @abstractmethod
-    def __call__(self, A: LinearOperator) -> AbstractLinearSolver:
+    def __call__(self, A: LinearOperator) -> AbstractLinearSolverState:
         """Construct a solver from the positive (semi-)definite linear operator."""
         pass

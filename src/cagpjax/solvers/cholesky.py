@@ -8,7 +8,7 @@ from typing_extensions import Self, override
 
 from ..linalg import lower_cholesky
 from ..typing import ScalarFloat
-from .base import AbstractLinearSolver, AbstractLinearSolverMethod
+from .base import AbstractLinearSolverMethod, AbstractLinearSolverState
 
 
 class Cholesky(AbstractLinearSolverMethod):
@@ -30,11 +30,11 @@ class Cholesky(AbstractLinearSolverMethod):
         self.jitter = jitter
 
     @override
-    def __call__(self, A: LinearOperator) -> AbstractLinearSolver:
+    def __call__(self, A: LinearOperator) -> AbstractLinearSolverState:
         return CholeskySolver(A, jitter=self.jitter)
 
 
-class CholeskySolver(AbstractLinearSolver):
+class CholeskySolver(AbstractLinearSolverState):
     """
     Solve a linear system by computing the Cholesky decomposition.
     """

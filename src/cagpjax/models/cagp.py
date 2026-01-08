@@ -16,7 +16,7 @@ from ..linalg import congruence_transform
 from ..operators import diag_like
 from ..operators.utils import lazify
 from ..policies import AbstractBatchLinearSolverPolicy
-from ..solvers import AbstractLinearSolver, AbstractLinearSolverMethod, Cholesky
+from ..solvers import AbstractLinearSolverMethod, AbstractLinearSolverState, Cholesky
 from ..typing import ScalarFloat
 from .base import AbstractComputationAwareGP
 
@@ -221,16 +221,16 @@ class _ProjectedPosteriorParameters:
     x: Float[Array, "N D"]
     actions: LinearOperator
     obs_cov_proj: LinearOperator
-    cov_prior_proj_solver: AbstractLinearSolver
+    cov_prior_proj_solver: AbstractLinearSolverState
     residual_proj: Float[Array, "M"]
     repr_weights_proj: Float[Array, "M"]
 
 
 def _kl_divergence_from_solvers(
     mean_q: Float[Array, "N"],
-    cov_q_solver: AbstractLinearSolver,
+    cov_q_solver: AbstractLinearSolverState,
     mean_p: Float[Array, "N"],
-    cov_p_solver: AbstractLinearSolver,
+    cov_p_solver: AbstractLinearSolverState,
 ) -> ScalarFloat:
     """Compute KL divergence between two Gaussian distributions."""
     n = mean_q.shape[0]

@@ -1,9 +1,9 @@
-from .base import AbstractLinearSolver, AbstractLinearSolverMethod
+from .base import AbstractLinearSolverState, AbstractLinearSolverMethod
 from .cholesky import Cholesky
 from .pseudoinverse import PseudoInverse
 
 __all__ = [
-    "AbstractLinearSolver",
+    "AbstractLinearSolverState",
     "AbstractLinearSolverMethod",
     "Cholesky",
     "PseudoInverse",

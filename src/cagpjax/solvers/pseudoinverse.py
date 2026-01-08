@@ -7,7 +7,7 @@ from typing_extensions import Self, override
 
 from ..linalg.eigh import Eigh, EighResult, eigh
 from ..typing import ScalarFloat
-from .base import AbstractLinearSolver, AbstractLinearSolverMethod
+from .base import AbstractLinearSolverMethod, AbstractLinearSolverState
 
 
 class PseudoInverse(AbstractLinearSolverMethod):
@@ -55,13 +55,13 @@ class PseudoInverse(AbstractLinearSolverMethod):
         self.alg = alg
 
     @override
-    def __call__(self, A: LinearOperator) -> AbstractLinearSolver:
+    def __call__(self, A: LinearOperator) -> AbstractLinearSolverState:
         return PseudoInverseSolver(
             A, rtol=self.rtol, grad_rtol=self.grad_rtol, alg=self.alg
         )
 
 
-class PseudoInverseSolver(AbstractLinearSolver):
+class PseudoInverseSolver(AbstractLinearSolverState):
     """
     Solve a linear system using the Moore-Penrose pseudoinverse.
     """
