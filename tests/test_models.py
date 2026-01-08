@@ -269,16 +269,24 @@ class TestComputationAwareGP:
         if dtype == jnp.float32:
             pytest.skip("Skipping float32 test due to numerical precision limitations")
 
-        def kl_objective(nz_values):
-            policy = BlockSparsePolicy(n_actions=n_train, nz_values=nz_values)
+        nz_values = jax.random.normal(key, (n_train,), dtype=dtype)
+        policy = BlockSparsePolicy(n_actions=n_train, nz_values=Real(nz_values))
+
+        # use nnx's utlities to split the policy into a graph definition and parameters
+        # this allows us to bypass gpjax.parameters.Parameter's check that the parameter is an
+        # ArrayLike (on jax > v0.8.1, GradTracer is not an ArrayLike) and mirrors how gpjax.fit
+        # computes gradients wrt parameters.
+        graphdef, params = nnx.split(policy, Real)
+
+        def kl_objective(params: nnx.State):
+            policy = nnx.merge(graphdef, params)
             cagp = ComputationAwareGP(
                 posterior=posterior, policy=policy, solver_method=solver_method
             )
             cagp.condition(train_data)
             return cagp.prior_kl()
 
-        nz_values = jax.random.normal(key, (n_train,), dtype=dtype)
-        jax.test_util.check_grads(kl_objective, (nz_values,), order=1, modes=["rev"])
+        jax.test_util.check_grads(kl_objective, (params,), order=1, modes=["rev"])
 
     @pytest.mark.xfail(
         reason="GPJax's elbo expects its own GaussianDistribution class, not ours."
