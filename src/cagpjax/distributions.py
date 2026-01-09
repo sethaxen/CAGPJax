@@ -18,13 +18,13 @@ class GaussianDistribution(Distribution):
     loc: Float[Array, " N"]
     scale: LinearOperator
     support = constraints.real_vector
-    solver_method: AbstractLinearSolver
+    solver: AbstractLinearSolver
 
     def __init__(
         self,
         loc: Float[Array, " N"],
         scale: LinearOperator,
-        solver_method: AbstractLinearSolver = Cholesky(1e-6),
+        solver: AbstractLinearSolver = Cholesky(1e-6),
         **kwargs,
     ):
         """Initialize the Gaussian distribution.
@@ -32,13 +32,13 @@ class GaussianDistribution(Distribution):
         Args:
             loc: Mean of the distribution.
             scale: Scale of the distribution.
-            solver_method: Method for solving the linear system of equations.
+            solver: Method for solving the linear system of equations.
         """
         self.loc = loc
         self.scale = scale
         batch_shape = ()
         event_shape = jnp.shape(self.loc)
-        self.solver_method = solver_method
+        self.solver = solver
         super().__init__(batch_shape, event_shape, **kwargs)
 
     @property
@@ -72,9 +72,11 @@ class GaussianDistribution(Distribution):
         mu = self.loc
         sigma = self.scale
         n = mu.shape[-1]
-        solver = self.solver_method(sigma)
+        solver_state = self.solver.init(sigma)
         return (
-            n * jnp.log(2 * jnp.pi) + solver.logdet() + solver.inv_quad(value - mu)
+            n * jnp.log(2 * jnp.pi)
+            + self.solver.logdet(solver_state)
+            + self.solver.inv_quad(solver_state, value - mu)
         ) / -2
 
     def sample(
@@ -94,7 +96,7 @@ class GaussianDistribution(Distribution):
         mu = self.loc
         sigma = self.scale
         n = mu.shape[-1]
-        solver = self.solver_method(sigma)
+        solver_state = self.solver.init(sigma)
         z = jax.random.normal(key, (n, math.prod(sample_shape)), dtype=mu.dtype)
-        x = solver.unwhiten(z)
+        x = self.solver.unwhiten(solver_state, z)
         return x.T.reshape(sample_shape + (n,)) + mu
