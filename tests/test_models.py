@@ -51,7 +51,7 @@ class TestComputationAwareGP:
             raise ValueError(f"Invalid policy class: {policy_class}")
 
     @pytest.fixture(params=[Cholesky, PseudoInverse])
-    def solver_method(self, request):
+    def solver(self, request):
         """Method for solving the linear system of equations."""
         if request.param is Cholesky:
             return request.param(1e-6)
@@ -106,30 +106,26 @@ class TestComputationAwareGP:
         return posterior
 
     @pytest.fixture
-    def conditioned_cagp(self, policy, posterior, train_data, solver_method):
+    def conditioned_cagp(self, policy, posterior, train_data, solver):
         """Create CAGP policy."""
-        cagp = ComputationAwareGP(
-            posterior=posterior, policy=policy, solver_method=solver_method
-        )
+        cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
         cagp.condition(train_data)
         return cagp
 
     @pytest.mark.skipif(constant_type is nnx.Variable, reason="Test is redundant")
-    def test_initialization(self, policy, posterior, solver_method):
+    def test_initialization(self, policy, posterior, solver):
         """Test that CAGP initializes correctly."""
-        cagp = ComputationAwareGP(
-            posterior=posterior, policy=policy, solver_method=solver_method
-        )
+        cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
         assert cagp.posterior is posterior
         assert cagp.policy is policy
-        assert isinstance(cagp.solver_method, solver_method.__class__)
-        if isinstance(solver_method, Cholesky):
-            assert cagp.solver_method.jitter == solver_method.jitter
-        elif isinstance(solver_method, PseudoInverse):
-            assert cagp.solver_method.rtol == solver_method.rtol
+        assert isinstance(cagp.solver, solver.__class__)
+        if isinstance(solver, Cholesky):
+            assert cagp.solver.jitter == solver.jitter
+        elif isinstance(solver, PseudoInverse):
+            assert cagp.solver.rtol == solver.rtol
         assert not cagp.is_conditioned
 
-    def test_condition(self, policy, posterior, train_data, solver_method):
+    def test_condition(self, policy, posterior, train_data, solver):
         """Test that CAGP can be conditioned on data."""
         import warnings
 
@@ -138,9 +134,7 @@ class TestComputationAwareGP:
             "error", message=".*scatter inputs have incompatible types.*"
         )
 
-        cagp = ComputationAwareGP(
-            posterior=posterior, policy=policy, solver_method=solver_method
-        )
+        cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
         cagp.condition(train_data)
         assert cagp.is_conditioned
         assert isinstance(
@@ -162,12 +156,10 @@ class TestComputationAwareGP:
             cagp.condition(train_data_new)
 
     def test_reconditioning_with_new_data(
-        self, policy, posterior, train_data, train_data_alt, solver_method
+        self, policy, posterior, train_data, train_data_alt, solver
     ):
         """Test that CAGP can be reconditioned with new data."""
-        cagp = ComputationAwareGP(
-            posterior=posterior, policy=policy, solver_method=solver_method
-        )
+        cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
         cagp.condition(train_data)
         assert cagp._posterior_params is not None  # help pyright
         assert jnp.allclose(cagp._posterior_params.x, train_data.X)
@@ -205,7 +197,7 @@ class TestComputationAwareGP:
         posterior,
         n_train,
         dtype,
-        solver_method,
+        solver,
         key=jax.random.key(42),
     ):
         """Test that when n_actions=N, CAGP produces the same mean and variance as exact GP."""
@@ -214,9 +206,7 @@ class TestComputationAwareGP:
 
         x_test = test_data.X
         policy = LanczosPolicy(n_actions=n_train, key=key)
-        cagp = ComputationAwareGP(
-            posterior=posterior, policy=policy, solver_method=solver_method
-        )
+        cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
         cagp.condition(train_data)
         pred = cagp.predict(x_test)
 
@@ -262,7 +252,7 @@ class TestComputationAwareGP:
         n_train,
         train_data,
         dtype,
-        solver_method,
+        solver,
         key=jax.random.key(42),
     ):
         """Test that ``prior_kl`` gradient wrt sparse action parameters is correct."""
@@ -280,9 +270,7 @@ class TestComputationAwareGP:
 
         def kl_objective(params: nnx.State):
             policy = nnx.merge(graphdef, params)
-            cagp = ComputationAwareGP(
-                posterior=posterior, policy=policy, solver_method=solver_method
-            )
+            cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
             cagp.condition(train_data)
             return cagp.prior_kl()
 

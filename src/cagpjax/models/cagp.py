@@ -9,19 +9,21 @@ from flax import nnx
 from gpjax.gps import ConjugatePosterior, Dataset
 from gpjax.mean_functions import Constant
 from jaxtyping import Array, Float
-from typing_extensions import override
+from typing_extensions import Generic, TypeVar, override
 
 from ..distributions import GaussianDistribution
 from ..linalg import congruence_transform
 from ..operators import diag_like
 from ..operators.utils import lazify
 from ..policies import AbstractBatchLinearSolverPolicy
-from ..solvers import AbstractLinearSolver, AbstractLinearSolverMethod, Cholesky
+from ..solvers import AbstractLinearSolver, Cholesky
 from ..typing import ScalarFloat
 from .base import AbstractComputationAwareGP
 
+_LinearSolverState = TypeVar("_LinearSolverState")
 
-class ComputationAwareGP(AbstractComputationAwareGP):
+
+class ComputationAwareGP(AbstractComputationAwareGP, Generic[_LinearSolverState]):
     """Computation-aware Gaussian Process model.
 
     This model implements scalable GP inference by using batch linear solver
@@ -31,7 +33,7 @@ class ComputationAwareGP(AbstractComputationAwareGP):
     Attributes:
         posterior: The original (exact) posterior.
         policy: The batch linear solver policy.
-        solver_method: The linear solver method to use for solving linear systems
+        solver: The linear solver method to use for solving linear systems
             with positive semi-definite operators.
 
     Notes:
@@ -40,13 +42,13 @@ class ComputationAwareGP(AbstractComputationAwareGP):
 
     posterior: ConjugatePosterior
     policy: AbstractBatchLinearSolverPolicy
-    solver_method: AbstractLinearSolverMethod
+    solver: AbstractLinearSolver[_LinearSolverState]
 
     def __init__(
         self,
         posterior: ConjugatePosterior,
         policy: AbstractBatchLinearSolverPolicy,
-        solver_method: AbstractLinearSolverMethod = Cholesky(1e-6),
+        solver: AbstractLinearSolver[_LinearSolverState] = Cholesky(1e-6),
     ):
         """Initialize the Computation-Aware GP model.
 
@@ -54,13 +56,15 @@ class ComputationAwareGP(AbstractComputationAwareGP):
             posterior: GPJax conjugate posterior.
             policy: The batch linear solver policy that defines the subspace into
                 which the data is projected.
-            solver_method: The linear solver method to use for solving linear systems with
+            solver: The linear solver method to use for solving linear systems with
                 positive semi-definite operators.
         """
         super().__init__(posterior)
         self.policy = policy
-        self.solver_method = solver_method
-        self._posterior_params: _ProjectedPosteriorParameters | None = None
+        self.solver = solver
+        self._posterior_params: (
+            _ProjectedPosteriorParameters[_LinearSolverState] | None
+        ) = None
 
     @property
     def is_conditioned(self) -> bool:
@@ -99,16 +103,16 @@ class ComputationAwareGP(AbstractComputationAwareGP):
         actions = self.policy.to_actions(cov_prior)
         obs_cov_proj = congruence_transform(actions, obs_cov)
         cov_prior_proj = congruence_transform(actions, cov_prior)
-        cov_prior_proj_solver = self.solver_method(cov_prior_proj)
+        cov_prior_proj_state = self.solver.init(cov_prior_proj)
 
         residual_proj = actions.T @ (y - mean_prior)
-        repr_weights_proj = cov_prior_proj_solver.solve(residual_proj)
+        repr_weights_proj = self.solver.solve(cov_prior_proj_state, residual_proj)
 
         self._posterior_params = _ProjectedPosteriorParameters(
             x=x,
             actions=actions,
             obs_cov_proj=obs_cov_proj,
-            cov_prior_proj_solver=cov_prior_proj_solver,
+            cov_prior_proj_state=cov_prior_proj_state,
             residual_proj=residual_proj,
             repr_weights_proj=repr_weights_proj,
         )
@@ -138,7 +142,7 @@ class ComputationAwareGP(AbstractComputationAwareGP):
         # Unpack posterior parameters
         x = self._posterior_params.x
         actions = self._posterior_params.actions
-        cov_prior_proj_solver = self._posterior_params.cov_prior_proj_solver
+        cov_prior_proj_state = self._posterior_params.cov_prior_proj_state
         repr_weights_proj = self._posterior_params.repr_weights_proj
 
         # Predictions at test points
@@ -155,14 +159,12 @@ class ComputationAwareGP(AbstractComputationAwareGP):
 
         # Posterior predictive distribution
         mean_pred = jnp.atleast_1d(mean_z + cov_zx_proj @ repr_weights_proj)
-        cov_pred = cov_zz - cov_prior_proj_solver.inv_congruence_transform(
-            cov_zx_proj.T
+        cov_pred = cov_zz - self.solver.inv_congruence_transform(
+            cov_prior_proj_state, cov_zx_proj.T
         )
         cov_pred = cola.PSD(cov_pred)
 
-        return GaussianDistribution(
-            mean_pred, cov_pred, solver_method=self.solver_method
-        )
+        return GaussianDistribution(mean_pred, cov_pred, solver=self.solver)
 
     def prior_kl(self) -> ScalarFloat:
         r"""Compute KL divergence between CaGP posterior and GP prior..
@@ -183,18 +185,19 @@ class ComputationAwareGP(AbstractComputationAwareGP):
 
         # Unpack posterior parameters
         obs_cov_proj = self._posterior_params.obs_cov_proj
-        cov_prior_proj_solver = self._posterior_params.cov_prior_proj_solver
+        cov_prior_proj_state = self._posterior_params.cov_prior_proj_state
         residual_proj = self._posterior_params.residual_proj
         repr_weights_proj = self._posterior_params.repr_weights_proj
 
-        obs_cov_proj_solver = self.solver_method(obs_cov_proj)
+        obs_cov_proj_state = self.solver.init(obs_cov_proj)
 
         kl = (
             _kl_divergence_from_solvers(
+                self.solver,
                 residual_proj,
-                obs_cov_proj_solver,
+                obs_cov_proj_state,
                 jnp.zeros_like(residual_proj),
-                cov_prior_proj_solver,
+                cov_prior_proj_state,
             )
             - 0.5 * congruence_transform(repr_weights_proj.T, obs_cov_proj).squeeze()
         )
@@ -205,7 +208,7 @@ class ComputationAwareGP(AbstractComputationAwareGP):
 # Technically we need the projected mean and covariance of the prior, projected data, and
 # projected likelihood, but these intermediates are more computationally useful.
 @dataclass
-class _ProjectedPosteriorParameters:
+class _ProjectedPosteriorParameters(Generic[_LinearSolverState]):
     """Projected quantities for computation-aware GP inference.
 
     Args:
@@ -213,7 +216,7 @@ class _ProjectedPosteriorParameters:
         actions: Actions operator; transpose of operator projecting from N-dimensional space
             to M-dimensional subspace.
         obs_cov_proj: Projected covariance of likelihood.
-        cov_prior_proj_solver: Linear solver for ``cov_prior_proj``.
+        cov_prior_proj_state: Linear solver state for ``cov_prior_proj``.
         residual_proj: Projected residuals between observations and prior mean.
         repr_weights_proj: Projected representer weights.
     """
@@ -221,27 +224,28 @@ class _ProjectedPosteriorParameters:
     x: Float[Array, "N D"]
     actions: LinearOperator
     obs_cov_proj: LinearOperator
-    cov_prior_proj_solver: AbstractLinearSolver
+    cov_prior_proj_state: _LinearSolverState
     residual_proj: Float[Array, "M"]
     repr_weights_proj: Float[Array, "M"]
 
 
 def _kl_divergence_from_solvers(
+    solver: AbstractLinearSolver[_LinearSolverState],
     mean_q: Float[Array, "N"],
-    cov_q_solver: AbstractLinearSolver,
+    cov_q_state: _LinearSolverState,
     mean_p: Float[Array, "N"],
-    cov_p_solver: AbstractLinearSolver,
+    cov_p_state: _LinearSolverState,
 ) -> ScalarFloat:
     """Compute KL divergence between two Gaussian distributions."""
     n = mean_q.shape[0]
     diff = mean_p - mean_q
 
     # tr(inv(cov_p) cov_q)
-    inner = cov_p_solver.trace_solve(cov_q_solver)
+    inner = solver.trace_solve(cov_p_state, cov_q_state)
 
     # (mean_p - mean_q)' inv(cov_p) (mean_p - mean_q)
-    mahalanobis = cov_p_solver.inv_quad(diff)
+    mahalanobis = solver.inv_quad(cov_p_state, diff)
 
-    logdet_ratio = cov_p_solver.logdet() - cov_q_solver.logdet()
+    logdet_ratio = solver.logdet(cov_p_state) - solver.logdet(cov_q_state)
 
     return 0.5 * (inner + logdet_ratio + mahalanobis - n)

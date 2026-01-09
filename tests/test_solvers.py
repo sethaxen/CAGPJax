@@ -9,8 +9,7 @@ from jaxtyping import Array, Float
 from cagpjax.linalg import congruence_transform
 from cagpjax.operators import diag_like
 from cagpjax.solvers import Cholesky, PseudoInverse
-from cagpjax.solvers.cholesky import CholeskySolver
-from cagpjax.solvers.pseudoinverse import PseudoInverseSolver
+from cagpjax.solvers.pseudoinverse import PseudoInverseState
 
 jax.config.update("jax_enable_x64", True)
 
@@ -65,7 +64,7 @@ class TestSolvers:
             return cola.PSD(A)
 
     @pytest.fixture(params=[PseudoInverse, Cholesky])
-    def solver_method(self, request, op_type, dtype):
+    def solver(self, request, op_type, dtype):
         """Return a solver method for the linear system of equations op @ x = b."""
         if request.param == PseudoInverse:
             return PseudoInverse(rtol=0.0 if op_type == "nonsingular" else None)
@@ -76,9 +75,9 @@ class TestSolvers:
             return Cholesky(jitter)
 
     @pytest.fixture
-    def solver(self, solver_method, op):
+    def state(self, solver, op):
         """Return a solver for the linear system of equations op @ x = b."""
-        return solver_method(op)
+        return solver.init(op)
 
     @pytest.fixture(params=[cola.ops.Dense, cola.ops.Diagonal])
     def other_op(
@@ -95,39 +94,36 @@ class TestSolvers:
             )
 
     @pytest.fixture
-    def other_solver(self, solver_method, other_op):
+    def other_state(self, solver, other_op):
         """Return a solver for the linear system of equations other_op @ x = b."""
-        if isinstance(solver_method, Cholesky):
+        if isinstance(solver, Cholesky):
             # Because the operator is PSD, we can set jitter to 0.0.
-            return Cholesky()(other_op)
-        return solver_method(other_op)
+            return Cholesky().init(other_op)
+        return solver.init(other_op)
 
-    def test_solver_construction(self, solver_method, op):
+    def test_solver_construction(self, solver, op):
         """Test the construction of the solver."""
-        solver = solver_method(op)
-        if isinstance(solver_method, Cholesky):
-            assert isinstance(solver, CholeskySolver)
-            jitter = solver_method.jitter
+        state = solver.init(op)
+        if isinstance(solver, Cholesky):
+            jitter = solver.jitter
             op_actual = op if jitter is None else op + diag_like(op, jitter)
-            assert jnp.allclose(
-                (solver.lchol @ solver.lchol.T).to_dense(), op_actual.to_dense()
-            )
-        elif isinstance(solver_method, PseudoInverse):
-            assert isinstance(solver, PseudoInverseSolver)
-            assert solver.A is op
+            assert jnp.allclose((state @ state.T).to_dense(), op_actual.to_dense())
+        elif isinstance(solver, PseudoInverse):
+            assert isinstance(state, PseudoInverseState)
+            assert state.A is op
 
     @pytest.mark.parametrize("tail_shape", [(), (2,)])
     def test_solve(
-        self, tail_shape, solver_method, solver, op, n, dtype, key=jax.random.key(90)
+        self, tail_shape, solver, state, op, n, dtype, key=jax.random.key(90)
     ):
         """Test the solve method of the solver."""
         b = jax.random.normal(key, (n, *tail_shape), dtype=dtype)
-        x = solver.solve(b)
+        x = solver.solve(state, b)
         assert x.shape == b.shape
         assert x.dtype == b.dtype
 
-        if isinstance(solver_method, Cholesky):
-            jitter = solver_method.jitter
+        if isinstance(solver, Cholesky):
+            jitter = solver.jitter
             op_actual = op if jitter is None else op + diag_like(op, jitter)
         else:
             op_actual = op
@@ -141,7 +137,7 @@ class TestSolvers:
     @pytest.mark.parametrize("m", [2, 5])
     @pytest.mark.parametrize("B_type", [jnp.ndarray, cola.ops.LinearOperator])
     def test_inv_congruence_transform_consistency(
-        self, solver, n, m, dtype, B_type, key=jax.random.key(23)
+        self, solver, state, n, m, dtype, B_type, key=jax.random.key(23)
     ):
         """Test inv_congruence_transform is consistent with solve and congruence_transform."""
         B = jax.random.normal(key, (n, m), dtype=dtype)
@@ -149,8 +145,8 @@ class TestSolvers:
             B = cola.lazify(B)
 
         with jax.default_matmul_precision("highest"):
-            cong_transform = solver.inv_congruence_transform(B)
-            op_mat_inv = solver.solve(jnp.eye(n, dtype=dtype))
+            cong_transform = solver.inv_congruence_transform(state, B)
+            op_mat_inv = solver.solve(state, jnp.eye(n, dtype=dtype))
             cong_transform_ref = congruence_transform(B, op_mat_inv)
             cong_trans_mat = cola.densify(cong_transform)
             cong_trans_ref_mat = cola.densify(cong_transform_ref)
@@ -163,7 +159,7 @@ class TestSolvers:
 
     @pytest.mark.parametrize("m", [None, 2])
     def test_unwhiten_inv_congruence_transform_consistency(
-        self, op, solver, n, m, dtype, key=jax.random.key(23)
+        self, op, solver, state, n, m, dtype, key=jax.random.key(23)
     ):
         """Test unwhiten is consistent with inv_congruence_transform."""
         B_shape = (n, m) if m is not None else (n,)
@@ -171,25 +167,29 @@ class TestSolvers:
         rank = jnp.linalg.matrix_rank(op.to_dense())
         B = jax.random.normal(key, B_shape, dtype=dtype)
         B = B.at[:rank, ...].set(0)
-        X = solver.unwhiten(B)
+        X = solver.unwhiten(state, B)
         with jax.default_matmul_precision("highest"):
-            assert jnp.allclose(solver.inv_congruence_transform(X), B.T @ B)
+            assert jnp.allclose(solver.inv_congruence_transform(state, X), B.T @ B)
 
-    def test_inv_quad_consistency(self, solver, n, dtype, key=jax.random.key(23)):
+    def test_inv_quad_consistency(
+        self, solver, state, n, dtype, key=jax.random.key(23)
+    ):
         """Test inv_quad is consistent with solve."""
         b = jax.random.normal(key, (n,), dtype=dtype)
 
-        inv_quad = solver.inv_quad(b)
+        inv_quad = solver.inv_quad(state, b)
         assert jnp.isscalar(inv_quad)
         assert inv_quad.dtype == dtype
-        assert jnp.isclose(inv_quad, jnp.dot(b, solver.solve(b)))
+        assert jnp.isclose(inv_quad, jnp.dot(b, solver.solve(state, b)))
 
-    def test_trace_solve_consistency(self, solver, other_solver, other_op, n, dtype):
+    def test_trace_solve_consistency(
+        self, solver, state, other_state, other_op, n, dtype
+    ):
         """Test trace_solve is consistent with solve."""
-        trace_solve = solver.trace_solve(other_solver)
+        trace_solve = solver.trace_solve(state, other_state)
         assert jnp.isscalar(trace_solve)
         assert trace_solve.dtype == dtype
-        trace_solve_solve = jnp.trace(solver.solve(other_op.to_dense()))
+        trace_solve_solve = jnp.trace(solver.solve(state, other_op.to_dense()))
         rtol = (1e-4 if dtype == jnp.float32 else 1e-12) * n
         assert jnp.isclose(trace_solve, trace_solve_solve, rtol=rtol)
 
@@ -197,12 +197,13 @@ class TestSolvers:
     def test_pseudoinverse_gradient_degenerate(self, n, dtype, grad_rtol):
         """Test gradient computation with degenerate operators."""
         A = cola.ops.Dense(jnp.eye(n, dtype=dtype))
+        solver = PseudoInverse(grad_rtol=grad_rtol)
 
         def loss_fn(A_matrix):
             A_op = cola.ops.Dense(A_matrix)
-            solver = PseudoInverse(grad_rtol=grad_rtol)(A_op)
+            state = solver.init(A_op)
             b = jnp.ones(n, dtype=dtype)
-            x = solver.solve(b)
+            x = solver.solve(state, b)
             return jnp.sum(x**2)
 
         grad_fn = jax.grad(loss_fn)
