@@ -23,6 +23,30 @@ from .base import AbstractComputationAwareGP
 _LinearSolverState = TypeVar("_LinearSolverState")
 
 
+# Technically we need the projected mean and covariance of the prior, projected data, and
+# projected likelihood, but these intermediates are more computationally useful.
+@dataclass
+class ComputationAwareGPState(Generic[_LinearSolverState]):
+    """Projected quantities for computation-aware GP inference.
+
+    Args:
+        x: N training inputs with D dimensions.
+        actions: Actions operator; transpose of operator projecting from N-dimensional space
+            to M-dimensional subspace.
+        obs_cov_proj: Projected covariance of likelihood.
+        cov_prior_proj_state: Linear solver state for ``cov_prior_proj``.
+        residual_proj: Projected residuals between observations and prior mean.
+        repr_weights_proj: Projected representer weights.
+    """
+
+    x: Float[Array, "N D"]
+    actions: LinearOperator
+    obs_cov_proj: LinearOperator
+    cov_prior_proj_state: _LinearSolverState
+    residual_proj: Float[Array, "M"]
+    repr_weights_proj: Float[Array, "M"]
+
+
 class ComputationAwareGP(AbstractComputationAwareGP, Generic[_LinearSolverState]):
     """Computation-aware Gaussian Process model.
 
@@ -203,30 +227,6 @@ class ComputationAwareGP(AbstractComputationAwareGP, Generic[_LinearSolverState]
         )
 
         return kl
-
-
-# Technically we need the projected mean and covariance of the prior, projected data, and
-# projected likelihood, but these intermediates are more computationally useful.
-@dataclass
-class ComputationAwareGPState(Generic[_LinearSolverState]):
-    """Projected quantities for computation-aware GP inference.
-
-    Args:
-        x: N training inputs with D dimensions.
-        actions: Actions operator; transpose of operator projecting from N-dimensional space
-            to M-dimensional subspace.
-        obs_cov_proj: Projected covariance of likelihood.
-        cov_prior_proj_state: Linear solver state for ``cov_prior_proj``.
-        residual_proj: Projected residuals between observations and prior mean.
-        repr_weights_proj: Projected representer weights.
-    """
-
-    x: Float[Array, "N D"]
-    actions: LinearOperator
-    obs_cov_proj: LinearOperator
-    cov_prior_proj_state: _LinearSolverState
-    residual_proj: Float[Array, "M"]
-    repr_weights_proj: Float[Array, "M"]
 
 
 def _kl_divergence_from_solvers(
