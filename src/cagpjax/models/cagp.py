@@ -62,9 +62,9 @@ class ComputationAwareGP(AbstractComputationAwareGP, Generic[_LinearSolverState]
         super().__init__(posterior)
         self.policy = policy
         self.solver = solver
-        self._posterior_params: (
-            _ProjectedPosteriorParameters[_LinearSolverState] | None
-        ) = None
+        self._posterior_params: ComputationAwareGPState[_LinearSolverState] | None = (
+            None
+        )
 
     @property
     def is_conditioned(self) -> bool:
@@ -108,7 +108,7 @@ class ComputationAwareGP(AbstractComputationAwareGP, Generic[_LinearSolverState]
         residual_proj = actions.T @ (y - mean_prior)
         repr_weights_proj = self.solver.solve(cov_prior_proj_state, residual_proj)
 
-        self._posterior_params = _ProjectedPosteriorParameters(
+        self._posterior_params = ComputationAwareGPState(
             x=x,
             actions=actions,
             obs_cov_proj=obs_cov_proj,
@@ -208,7 +208,7 @@ class ComputationAwareGP(AbstractComputationAwareGP, Generic[_LinearSolverState]
 # Technically we need the projected mean and covariance of the prior, projected data, and
 # projected likelihood, but these intermediates are more computationally useful.
 @dataclass
-class _ProjectedPosteriorParameters(Generic[_LinearSolverState]):
+class ComputationAwareGPState(Generic[_LinearSolverState]):
     """Projected quantities for computation-aware GP inference.
 
     Args:
