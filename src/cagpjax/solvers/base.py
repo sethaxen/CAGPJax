@@ -40,7 +40,7 @@ class AbstractLinearSolver(nnx.Module, Generic[_LinearSolverState]):
         """Compute a solution to the linear system $Ax = b$.
 
         Arguments:
-            state: State of the linear solver returned by `init`.
+            state: State of the linear solver returned by [`init`][..init].
             b: Right-hand side of the linear system.
         """
         pass
@@ -52,7 +52,7 @@ class AbstractLinearSolver(nnx.Module, Generic[_LinearSolverState]):
         """Given an IID standard normal vector $z$, return $x$ with covariance $A$.
 
         Arguments:
-            state: State of the linear solver returned by `init`.
+            state: State of the linear solver returned by [`init`][..init].
             z: IID standard normal vector.
         """
         pass
@@ -62,7 +62,7 @@ class AbstractLinearSolver(nnx.Module, Generic[_LinearSolverState]):
         """Compute the logarithm of the (pseudo-)determinant of $A$.
 
         Arguments:
-            state: State of the linear solver returned by `init`.
+            state: State of the linear solver returned by [`init`][..init].
         """
         pass
 
@@ -73,7 +73,7 @@ class AbstractLinearSolver(nnx.Module, Generic[_LinearSolverState]):
         """Compute the inverse congruence transform $B^T x$ for $x$ in $Ax = B$.
 
         Arguments:
-            state: State of the linear solver returned by `init`.
+            state: State of the linear solver returned by [`init`][..init].
             B: Linear operator or array to be applied.
 
         Returns:
@@ -87,7 +87,7 @@ class AbstractLinearSolver(nnx.Module, Generic[_LinearSolverState]):
         """Compute the inverse quadratic form $b^T x$, for $x$ in $Ax = b$.
 
         Arguments:
-            state: State of the linear solver returned by `init`.
+            state: State of the linear solver returned by [`init`][..init].
             b: Right-hand side of the linear system.
         """
         return self.inv_congruence_transform(state, b[:, None]).squeeze()
@@ -96,12 +96,11 @@ class AbstractLinearSolver(nnx.Module, Generic[_LinearSolverState]):
     def trace_solve(
         self, state: _LinearSolverState, state_other: _LinearSolverState
     ) -> ScalarFloat:
-        r"""Compute $\mathrm{trace}(X)$ in $AX=B$ for PSD $B$.
+        r"""Compute $\mathrm{trace}(X)$ in $AX=B$ for PSD $A$ and $B$.
 
         Arguments:
-            state: State of the linear solver returned by applying `init` to the PSD linear operator
-                $A$.
-            state_other: Another state obtained by applying `init` to the PSD linear operator
-                $B$.
+            state: State of the linear solver obtained by applying [`init`][..init] to an operator
+                representing $A$
+            state_other: Another state obtained by applying `init` to an operator representing $B$.
         """
         pass
