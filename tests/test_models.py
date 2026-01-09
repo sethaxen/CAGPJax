@@ -138,7 +138,7 @@ class TestComputationAwareGP:
         cagp.condition(train_data)
         assert cagp.is_conditioned
         assert isinstance(
-            cagp._posterior_params, cagpjax.models.cagp._ProjectedPosteriorParameters
+            cagp._posterior_params, cagpjax.models.cagp.ComputationAwareGPState
         )
 
     @pytest.mark.parametrize(
