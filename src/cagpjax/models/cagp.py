@@ -18,7 +18,6 @@ from ..operators.utils import lazify
 from ..policies import AbstractBatchLinearSolverPolicy
 from ..solvers import AbstractLinearSolver, Cholesky
 from ..typing import ScalarFloat
-from .base import AbstractComputationAwareGP
 
 _LinearSolverState = TypeVar("_LinearSolverState")
 
@@ -47,7 +46,7 @@ class ComputationAwareGPState(Generic[_LinearSolverState]):
     repr_weights_proj: Float[Array, "M"]
 
 
-class ComputationAwareGP(AbstractComputationAwareGP, Generic[_LinearSolverState]):
+class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
     """Computation-aware Gaussian Process model.
 
     This model implements scalable GP inference by using batch linear solver
@@ -83,7 +82,7 @@ class ComputationAwareGP(AbstractComputationAwareGP, Generic[_LinearSolverState]
             solver: The linear solver method to use for solving linear systems with
                 positive semi-definite operators.
         """
-        super().__init__(posterior)
+        self.posterior = posterior
         self.policy = policy
         self.solver = solver
         self._posterior_params: ComputationAwareGPState[_LinearSolverState] | None = (
@@ -141,7 +140,6 @@ class ComputationAwareGP(AbstractComputationAwareGP, Generic[_LinearSolverState]
             repr_weights_proj=repr_weights_proj,
         )
 
-    @override
     def predict(
         self, test_inputs: Float[Array, "N D"] | None = None
     ) -> GaussianDistribution:
