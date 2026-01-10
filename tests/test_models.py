@@ -255,7 +255,7 @@ class TestComputationAwareGP:
         graphdef, params = nnx.split(policy, Real)
 
         def kl_objective(params: nnx.State):
-            # policy = nnx.merge(graphdef, params)
+            policy = nnx.merge(graphdef, params)
             cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
             cagp_state = cagp.init(train_data)
             return cagp.prior_kl(cagp_state)
