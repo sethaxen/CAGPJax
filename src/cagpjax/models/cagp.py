@@ -9,7 +9,7 @@ from flax import nnx
 from gpjax.gps import ConjugatePosterior, Dataset
 from gpjax.mean_functions import Constant
 from jaxtyping import Array, Float
-from typing_extensions import Generic, TypeVar, override
+from typing_extensions import Generic, TypeVar
 
 from ..distributions import GaussianDistribution
 from ..linalg import congruence_transform
@@ -18,12 +18,33 @@ from ..operators.utils import lazify
 from ..policies import AbstractBatchLinearSolverPolicy
 from ..solvers import AbstractLinearSolver, Cholesky
 from ..typing import ScalarFloat
-from .base import AbstractComputationAwareGP
 
 _LinearSolverState = TypeVar("_LinearSolverState")
 
 
-class ComputationAwareGP(AbstractComputationAwareGP, Generic[_LinearSolverState]):
+@dataclass
+class ComputationAwareGPState(Generic[_LinearSolverState]):
+    """Projected quantities for computation-aware GP inference.
+
+    Args:
+        x: N training inputs with D dimensions.
+        actions: Actions operator; transpose of operator projecting from N-dimensional space
+            to M-dimensional subspace.
+        obs_cov_proj: Projected covariance of likelihood.
+        cov_prior_proj_state: Linear solver state for ``cov_prior_proj``.
+        residual_proj: Projected residuals between observations and prior mean.
+        repr_weights_proj: Projected representer weights.
+    """
+
+    x: Float[Array, "N D"]
+    actions: LinearOperator
+    obs_cov_proj: LinearOperator
+    cov_prior_proj_state: _LinearSolverState
+    residual_proj: Float[Array, "M"]
+    repr_weights_proj: Float[Array, "M"]
+
+
+class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
     """Computation-aware Gaussian Process model.
 
     This model implements scalable GP inference by using batch linear solver
@@ -59,23 +80,19 @@ class ComputationAwareGP(AbstractComputationAwareGP, Generic[_LinearSolverState]
             solver: The linear solver method to use for solving linear systems with
                 positive semi-definite operators.
         """
-        super().__init__(posterior)
+        self.posterior = posterior
         self.policy = policy
         self.solver = solver
-        self._posterior_params: (
-            _ProjectedPosteriorParameters[_LinearSolverState] | None
-        ) = None
 
-    @property
-    def is_conditioned(self) -> bool:
-        """Whether the model has been conditioned on training data."""
-        return self._posterior_params is not None
-
-    def condition(self, train_data: Dataset) -> None:
-        """Compute and store the projected quantities of the conditioned GP posterior.
+    def init(self, train_data: Dataset) -> ComputationAwareGPState[_LinearSolverState]:
+        """Compute the state of the conditioned GP posterior.
 
         Args:
             train_data: The training data used to fit the GP.
+
+        Returns:
+            state: State of the conditioned CaGP posterior, which stores any necessary
+                intermediate values for prediction and computing objectives.
         """
         # Ensure we have supervised training data
         if train_data.X is None or train_data.y is None:
@@ -108,7 +125,7 @@ class ComputationAwareGP(AbstractComputationAwareGP, Generic[_LinearSolverState]
         residual_proj = actions.T @ (y - mean_prior)
         repr_weights_proj = self.solver.solve(cov_prior_proj_state, residual_proj)
 
-        self._posterior_params = _ProjectedPosteriorParameters(
+        return ComputationAwareGPState(
             x=x,
             actions=actions,
             obs_cov_proj=obs_cov_proj,
@@ -117,15 +134,15 @@ class ComputationAwareGP(AbstractComputationAwareGP, Generic[_LinearSolverState]
             repr_weights_proj=repr_weights_proj,
         )
 
-    @override
     def predict(
-        self, test_inputs: Float[Array, "N D"] | None = None
+        self,
+        state: ComputationAwareGPState[_LinearSolverState],
+        test_inputs: Float[Array, "N D"] | None = None,
     ) -> GaussianDistribution:
         """Compute the predictive distribution of the GP at the test inputs.
 
-        ``condition`` must be called before this method can be used.
-
         Args:
+            state: State of the conditioned GP computed by [`init`][..init]
             test_inputs: The test inputs at which to make predictions. If not provided,
                 predictions are made at the training inputs.
 
@@ -133,20 +150,8 @@ class ComputationAwareGP(AbstractComputationAwareGP, Generic[_LinearSolverState]
             GaussianDistribution: The predictive distribution of the GP at the
                 test inputs.
         """
-        if not self.is_conditioned:
-            raise ValueError("Model is not yet conditioned. Call ``condition`` first.")
-
-        # help out pyright
-        assert self._posterior_params is not None
-
-        # Unpack posterior parameters
-        x = self._posterior_params.x
-        actions = self._posterior_params.actions
-        cov_prior_proj_state = self._posterior_params.cov_prior_proj_state
-        repr_weights_proj = self._posterior_params.repr_weights_proj
-
         # Predictions at test points
-        z = test_inputs if test_inputs is not None else x
+        z = test_inputs if test_inputs is not None else state.x
         prior = self.posterior.prior
         mean_z = prior.mean_function(z).squeeze()
         # Work around GPJax promoting dtype of mean to float64 (See JaxGaussianProcesses/GPJax#523)
@@ -154,79 +159,51 @@ class ComputationAwareGP(AbstractComputationAwareGP, Generic[_LinearSolverState]
             constant = prior.mean_function.constant[...]
             mean_z = mean_z.astype(constant.dtype)
         cov_zz = lazify(prior.kernel.gram(z))
-        cov_zx = cov_zz if test_inputs is None else prior.kernel.cross_covariance(z, x)
-        cov_zx_proj = cov_zx @ actions
+        cov_zx = (
+            cov_zz if test_inputs is None else prior.kernel.cross_covariance(z, state.x)
+        )
+        cov_zx_proj = cov_zx @ state.actions
 
         # Posterior predictive distribution
-        mean_pred = jnp.atleast_1d(mean_z + cov_zx_proj @ repr_weights_proj)
+        mean_pred = jnp.atleast_1d(mean_z + cov_zx_proj @ state.repr_weights_proj)
         cov_pred = cov_zz - self.solver.inv_congruence_transform(
-            cov_prior_proj_state, cov_zx_proj.T
+            state.cov_prior_proj_state, cov_zx_proj.T
         )
         cov_pred = cola.PSD(cov_pred)
 
         return GaussianDistribution(mean_pred, cov_pred, solver=self.solver)
 
-    def prior_kl(self) -> ScalarFloat:
+    def prior_kl(
+        self, state: ComputationAwareGPState[_LinearSolverState]
+    ) -> ScalarFloat:
         r"""Compute KL divergence between CaGP posterior and GP prior..
 
         Calculates $\mathrm{KL}[q(f) || p(f)]$, where $q(f)$ is the CaGP
         posterior approximation and $p(f)$ is the GP prior.
 
-        ``condition`` must be called before this method can be used.
+        Args:
+            state: State of the conditioned GP computed by [`init`][..init]
 
         Returns:
             KL divergence value (scalar).
         """
-        if not self.is_conditioned:
-            raise ValueError("Model is not yet conditioned. Call ``condition`` first.")
-
-        # help out pyright
-        assert self._posterior_params is not None
-
-        # Unpack posterior parameters
-        obs_cov_proj = self._posterior_params.obs_cov_proj
-        cov_prior_proj_state = self._posterior_params.cov_prior_proj_state
-        residual_proj = self._posterior_params.residual_proj
-        repr_weights_proj = self._posterior_params.repr_weights_proj
-
-        obs_cov_proj_state = self.solver.init(obs_cov_proj)
+        obs_cov_proj_solver_state = self.solver.init(state.obs_cov_proj)
 
         kl = (
             _kl_divergence_from_solvers(
                 self.solver,
-                residual_proj,
-                obs_cov_proj_state,
-                jnp.zeros_like(residual_proj),
-                cov_prior_proj_state,
+                state.residual_proj,
+                obs_cov_proj_solver_state,
+                jnp.zeros_like(state.residual_proj),
+                state.cov_prior_proj_state,
             )
-            - 0.5 * congruence_transform(repr_weights_proj.T, obs_cov_proj).squeeze()
+            - 0.5
+            * congruence_transform(
+                state.repr_weights_proj.T, state.obs_cov_proj
+            ).squeeze()
         )
 
         return kl
-
-
-# Technically we need the projected mean and covariance of the prior, projected data, and
-# projected likelihood, but these intermediates are more computationally useful.
-@dataclass
-class _ProjectedPosteriorParameters(Generic[_LinearSolverState]):
-    """Projected quantities for computation-aware GP inference.
-
-    Args:
-        x: N training inputs with D dimensions.
-        actions: Actions operator; transpose of operator projecting from N-dimensional space
-            to M-dimensional subspace.
-        obs_cov_proj: Projected covariance of likelihood.
-        cov_prior_proj_state: Linear solver state for ``cov_prior_proj``.
-        residual_proj: Projected residuals between observations and prior mean.
-        repr_weights_proj: Projected representer weights.
-    """
-
-    x: Float[Array, "N D"]
-    actions: LinearOperator
-    obs_cov_proj: LinearOperator
-    cov_prior_proj_state: _LinearSolverState
-    residual_proj: Float[Array, "M"]
-    repr_weights_proj: Float[Array, "M"]
 
 
 def _kl_divergence_from_solvers(
