@@ -106,11 +106,15 @@ class TestComputationAwareGP:
         return posterior
 
     @pytest.fixture
-    def conditioned_cagp(self, policy, posterior, train_data, solver):
-        """Create CAGP policy."""
+    def cagp(self, policy, posterior, solver):
+        """Create CAGP."""
         cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
-        cagp.condition(train_data)
         return cagp
+
+    @pytest.fixture
+    def cagp_state(self, cagp, train_data):
+        """Create CAGP state."""
+        return cagp.init(train_data)
 
     @pytest.mark.skipif(constant_type is nnx.Variable, reason="Test is redundant")
     def test_initialization(self, policy, posterior, solver):
@@ -123,10 +127,9 @@ class TestComputationAwareGP:
             assert cagp.solver.jitter == solver.jitter
         elif isinstance(solver, PseudoInverse):
             assert cagp.solver.rtol == solver.rtol
-        assert not cagp.is_conditioned
 
-    def test_condition(self, policy, posterior, train_data, solver):
-        """Test that CAGP can be conditioned on data."""
+    def test_init(self, cagp, train_data):
+        """Test that CAGP state can be initialized on data."""
         import warnings
 
         # Convert the JAX dtype warning to an error so test fails if it occurs
@@ -134,57 +137,40 @@ class TestComputationAwareGP:
             "error", message=".*scatter inputs have incompatible types.*"
         )
 
-        cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
-        cagp.condition(train_data)
-        assert cagp.is_conditioned
-        assert isinstance(
-            cagp._posterior_params, cagpjax.models.cagp.ComputationAwareGPState
-        )
+        state = cagp.init(train_data)
+        assert isinstance(state, cagpjax.models.cagp.ComputationAwareGPState)
 
     @pytest.mark.parametrize(
         "dataset_replacements", [{"X": None}, {"y": None}, {"X": None, "y": None}]
     )
-    def test_condition_requires_supervised_data(
-        self, policy, posterior, train_data, dataset_replacements
+    def test_init_requires_supervised_data(
+        self, cagp, train_data, dataset_replacements
     ):
-        """Test that CAGP raises an error if conditioned on unsupervised data."""
-        cagp = ComputationAwareGP(posterior=posterior, policy=policy)
+        """Test that CAGP raises an error if init provided unsupervised data."""
         train_data_entries = {"X": train_data.X, "y": train_data.y}
         train_data_entries.update(dataset_replacements)
         train_data_new = gpjax.Dataset(**train_data_entries)
         with pytest.raises(ValueError, match="Training data must be supervised"):
-            cagp.condition(train_data_new)
+            cagp.init(train_data_new)
 
-    def test_reconditioning_with_new_data(
-        self, policy, posterior, train_data, train_data_alt, solver
-    ):
-        """Test that CAGP can be reconditioned with new data."""
-        cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
-        cagp.condition(train_data)
-        assert cagp._posterior_params is not None  # help pyright
-        assert jnp.allclose(cagp._posterior_params.x, train_data.X)
-        cagp.condition(train_data_alt)
-        assert cagp._posterior_params is not None  # help pyright
-        assert jnp.allclose(cagp._posterior_params.x, train_data_alt.X)
-
-    def test_predict_test_inputs(self, conditioned_cagp, test_data, n_test, dtype):
+    def test_predict_test_inputs(self, cagp, cagp_state, test_data, n_test, dtype):
         """Test that CAGP predict method with test inputs works."""
         x_test = test_data.X
-        pred = conditioned_cagp.predict(x_test)
+        pred = cagp.predict(cagp_state, x_test)
         assert isinstance(pred, GaussianDistribution)
         assert pred.mean.shape == (n_test,)
         assert pred.mean.dtype == dtype
         assert pred.scale.shape == (n_test, n_test)
         assert pred.scale.dtype == dtype
 
-    def test_predict_no_inputs(self, conditioned_cagp, train_data, dtype):
+    def test_predict_no_inputs(self, cagp, cagp_state, train_data, dtype):
         """Test that CAGP predict method with no inputs evaluates at training inputs."""
         if dtype == jnp.float32:
             pytest.skip("Skipping float32 test due to numerical precision limitations")
 
         x_train = train_data.X
-        pred = conditioned_cagp.predict()
-        pred2 = conditioned_cagp.predict(x_train)
+        pred = cagp.predict(cagp_state)
+        pred2 = cagp.predict(cagp_state, x_train)
 
         # Use tight tolerance for float64 where numerical precision is sufficient
         assert jnp.allclose(pred.mean, pred2.mean)
@@ -207,8 +193,8 @@ class TestComputationAwareGP:
         x_test = test_data.X
         policy = LanczosPolicy(n_actions=n_train, key=key)
         cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
-        cagp.condition(train_data)
-        pred = cagp.predict(x_test)
+        cagp_state = cagp.init(train_data)
+        pred = cagp.predict(cagp_state, x_test)
 
         pred_exact = posterior.predict(x_test, train_data)
 
@@ -220,12 +206,12 @@ class TestComputationAwareGP:
         )
 
     @pytest.mark.skipif(constant_type is nnx.Variable, reason="Test is redundant")
-    def test_prior_kl_consistency(self, conditioned_cagp, train_data, dtype):
+    def test_prior_kl_consistency(self, cagp, cagp_state, train_data, dtype):
         """Test that custom ``prior_kl`` matches KL computed from result of ``predict``."""
         if dtype == jnp.float32:
             pytest.skip("Skipping float32 test due to numerical precision limitations")
 
-        kl = conditioned_cagp.prior_kl()
+        kl = cagp.prior_kl(cagp_state)
         assert isinstance(kl, jnp.ndarray)
         assert kl.dtype == dtype
         assert jnp.isscalar(kl)
@@ -233,9 +219,9 @@ class TestComputationAwareGP:
         assert kl >= 0.0
 
         # compare with KL computed explicitly from predictive distributions
-        jitter = conditioned_cagp.posterior.jitter
-        q = conditioned_cagp.predict()
-        p = conditioned_cagp.posterior.prior.predict(train_data.X)
+        jitter = cagp.posterior.jitter
+        q = cagp.predict(cagp_state)
+        p = cagp.posterior.prior.predict(train_data.X)
         kl_explicit = gpjax.distributions.GaussianDistribution(
             q.mean,
             gpjax.linalg.operators.Dense(
@@ -269,29 +255,29 @@ class TestComputationAwareGP:
         graphdef, params = nnx.split(policy, Real)
 
         def kl_objective(params: nnx.State):
-            policy = nnx.merge(graphdef, params)
+            # policy = nnx.merge(graphdef, params)
             cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
-            cagp.condition(train_data)
-            return cagp.prior_kl()
+            cagp_state = cagp.init(train_data)
+            return cagp.prior_kl(cagp_state)
 
         jax.test_util.check_grads(kl_objective, (params,), order=1, modes=["rev"])
 
     @pytest.mark.xfail(
         reason="GPJax's elbo expects its own GaussianDistribution class, not ours."
     )
-    def test_integration_elbo(self, conditioned_cagp, posterior, train_data, dtype):
+    def test_integration_elbo(self, cagp, cagp_state, posterior, train_data, dtype):
         """Test that ``elbo`` objective from GPJax is computed correctly."""
         if dtype == jnp.float32:
             pytest.skip("Skipping float32 test due to numerical precision limitations")
 
-        elbo_value = elbo(conditioned_cagp, train_data)
+        elbo_value = elbo(cagp, train_data)
         assert isinstance(elbo_value, jnp.ndarray)
         assert elbo_value.dtype == dtype
         assert jnp.isscalar(elbo_value)
         assert jnp.isfinite(elbo_value)
 
         # compute CaGP posterior mean and variance
-        q = conditioned_cagp.predict()
+        q = cagp.predict(cagp_state)
         mean_q = q.mean
         var_q = q.variance
 
@@ -299,6 +285,7 @@ class TestComputationAwareGP:
         var_exp = posterior.likelihood.expected_log_likelihood(
             train_data.y, mean_q[:, None], var_q[:, None]
         )
-        elbo_value_explicit = var_exp.sum() - conditioned_cagp.prior_kl()
+        kl = cagp.prior_kl(cagp_state)
+        elbo_value_explicit = var_exp.sum() - kl
 
         assert jnp.allclose(elbo_value, elbo_value_explicit)

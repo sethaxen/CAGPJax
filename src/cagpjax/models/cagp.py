@@ -85,16 +85,8 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
         self.posterior = posterior
         self.policy = policy
         self.solver = solver
-        self._posterior_params: ComputationAwareGPState[_LinearSolverState] | None = (
-            None
-        )
 
-    @property
-    def is_conditioned(self) -> bool:
-        """Whether the model has been conditioned on training data."""
-        return self._posterior_params is not None
-
-    def condition(self, train_data: Dataset) -> None:
+    def init(self, train_data: Dataset) -> ComputationAwareGPState[_LinearSolverState]:
         """Compute and store the projected quantities of the conditioned GP posterior.
 
         Args:
@@ -131,7 +123,7 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
         residual_proj = actions.T @ (y - mean_prior)
         repr_weights_proj = self.solver.solve(cov_prior_proj_state, residual_proj)
 
-        self._posterior_params = ComputationAwareGPState(
+        return ComputationAwareGPState(
             x=x,
             actions=actions,
             obs_cov_proj=obs_cov_proj,
@@ -141,11 +133,11 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
         )
 
     def predict(
-        self, test_inputs: Float[Array, "N D"] | None = None
+        self,
+        state: ComputationAwareGPState[_LinearSolverState],
+        test_inputs: Float[Array, "N D"] | None = None,
     ) -> GaussianDistribution:
         """Compute the predictive distribution of the GP at the test inputs.
-
-        ``condition`` must be called before this method can be used.
 
         Args:
             test_inputs: The test inputs at which to make predictions. If not provided,
@@ -155,17 +147,11 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
             GaussianDistribution: The predictive distribution of the GP at the
                 test inputs.
         """
-        if not self.is_conditioned:
-            raise ValueError("Model is not yet conditioned. Call ``condition`` first.")
-
-        # help out pyright
-        assert self._posterior_params is not None
-
         # Unpack posterior parameters
-        x = self._posterior_params.x
-        actions = self._posterior_params.actions
-        cov_prior_proj_state = self._posterior_params.cov_prior_proj_state
-        repr_weights_proj = self._posterior_params.repr_weights_proj
+        x = state.x
+        actions = state.actions
+        cov_prior_proj_state = state.cov_prior_proj_state
+        repr_weights_proj = state.repr_weights_proj
 
         # Predictions at test points
         z = test_inputs if test_inputs is not None else x
@@ -188,28 +174,22 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
 
         return GaussianDistribution(mean_pred, cov_pred, solver=self.solver)
 
-    def prior_kl(self) -> ScalarFloat:
+    def prior_kl(
+        self, state: ComputationAwareGPState[_LinearSolverState]
+    ) -> ScalarFloat:
         r"""Compute KL divergence between CaGP posterior and GP prior..
 
         Calculates $\mathrm{KL}[q(f) || p(f)]$, where $q(f)$ is the CaGP
         posterior approximation and $p(f)$ is the GP prior.
 
-        ``condition`` must be called before this method can be used.
-
         Returns:
             KL divergence value (scalar).
         """
-        if not self.is_conditioned:
-            raise ValueError("Model is not yet conditioned. Call ``condition`` first.")
-
-        # help out pyright
-        assert self._posterior_params is not None
-
         # Unpack posterior parameters
-        obs_cov_proj = self._posterior_params.obs_cov_proj
-        cov_prior_proj_state = self._posterior_params.cov_prior_proj_state
-        residual_proj = self._posterior_params.residual_proj
-        repr_weights_proj = self._posterior_params.repr_weights_proj
+        obs_cov_proj = state.obs_cov_proj
+        cov_prior_proj_state = state.cov_prior_proj_state
+        residual_proj = state.residual_proj
+        repr_weights_proj = state.repr_weights_proj
 
         obs_cov_proj_state = self.solver.init(obs_cov_proj)
 
