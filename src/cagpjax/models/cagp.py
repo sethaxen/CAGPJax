@@ -9,7 +9,7 @@ from flax import nnx
 from gpjax.gps import ConjugatePosterior, Dataset
 from gpjax.mean_functions import Constant
 from jaxtyping import Array, Float
-from typing_extensions import Generic, TypeVar, override
+from typing_extensions import Generic, TypeVar
 
 from ..distributions import GaussianDistribution
 from ..linalg import congruence_transform
