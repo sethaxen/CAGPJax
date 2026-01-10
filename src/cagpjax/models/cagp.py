@@ -22,8 +22,6 @@ from ..typing import ScalarFloat
 _LinearSolverState = TypeVar("_LinearSolverState")
 
 
-# Technically we need the projected mean and covariance of the prior, projected data, and
-# projected likelihood, but these intermediates are more computationally useful.
 @dataclass
 class ComputationAwareGPState(Generic[_LinearSolverState]):
     """Projected quantities for computation-aware GP inference.
@@ -87,10 +85,14 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
         self.solver = solver
 
     def init(self, train_data: Dataset) -> ComputationAwareGPState[_LinearSolverState]:
-        """Compute and store the projected quantities of the conditioned GP posterior.
+        """Compute the state of the conditioned GP posterior.
 
         Args:
             train_data: The training data used to fit the GP.
+
+        Returns:
+            state: State of the conditioned CaGP posterior, which stores any necessary
+                intermediate values for prediction and computing objectives.
         """
         # Ensure we have supervised training data
         if train_data.X is None or train_data.y is None:
@@ -140,6 +142,7 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
         """Compute the predictive distribution of the GP at the test inputs.
 
         Args:
+            state: State of the conditioned GP computed by [`init`][..init]
             test_inputs: The test inputs at which to make predictions. If not provided,
                 predictions are made at the training inputs.
 
@@ -147,14 +150,8 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
             GaussianDistribution: The predictive distribution of the GP at the
                 test inputs.
         """
-        # Unpack posterior parameters
-        x = state.x
-        actions = state.actions
-        cov_prior_proj_state = state.cov_prior_proj_state
-        repr_weights_proj = state.repr_weights_proj
-
         # Predictions at test points
-        z = test_inputs if test_inputs is not None else x
+        z = test_inputs if test_inputs is not None else state.x
         prior = self.posterior.prior
         mean_z = prior.mean_function(z).squeeze()
         # Work around GPJax promoting dtype of mean to float64 (See JaxGaussianProcesses/GPJax#523)
@@ -162,13 +159,15 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
             constant = prior.mean_function.constant[...]
             mean_z = mean_z.astype(constant.dtype)
         cov_zz = lazify(prior.kernel.gram(z))
-        cov_zx = cov_zz if test_inputs is None else prior.kernel.cross_covariance(z, x)
-        cov_zx_proj = cov_zx @ actions
+        cov_zx = (
+            cov_zz if test_inputs is None else prior.kernel.cross_covariance(z, state.x)
+        )
+        cov_zx_proj = cov_zx @ state.actions
 
         # Posterior predictive distribution
-        mean_pred = jnp.atleast_1d(mean_z + cov_zx_proj @ repr_weights_proj)
+        mean_pred = jnp.atleast_1d(mean_z + cov_zx_proj @ state.repr_weights_proj)
         cov_pred = cov_zz - self.solver.inv_congruence_transform(
-            cov_prior_proj_state, cov_zx_proj.T
+            state.cov_prior_proj_state, cov_zx_proj.T
         )
         cov_pred = cola.PSD(cov_pred)
 
@@ -182,26 +181,26 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
         Calculates $\mathrm{KL}[q(f) || p(f)]$, where $q(f)$ is the CaGP
         posterior approximation and $p(f)$ is the GP prior.
 
+        Args:
+            state: State of the conditioned GP computed by [`init`][..init]
+
         Returns:
             KL divergence value (scalar).
         """
-        # Unpack posterior parameters
-        obs_cov_proj = state.obs_cov_proj
-        cov_prior_proj_state = state.cov_prior_proj_state
-        residual_proj = state.residual_proj
-        repr_weights_proj = state.repr_weights_proj
-
-        obs_cov_proj_state = self.solver.init(obs_cov_proj)
+        obs_cov_proj_solver_state = self.solver.init(state.obs_cov_proj)
 
         kl = (
             _kl_divergence_from_solvers(
                 self.solver,
-                residual_proj,
-                obs_cov_proj_state,
-                jnp.zeros_like(residual_proj),
-                cov_prior_proj_state,
+                state.residual_proj,
+                obs_cov_proj_solver_state,
+                jnp.zeros_like(state.residual_proj),
+                state.cov_prior_proj_state,
             )
-            - 0.5 * congruence_transform(repr_weights_proj.T, obs_cov_proj).squeeze()
+            - 0.5
+            * congruence_transform(
+                state.repr_weights_proj.T, state.obs_cov_proj
+            ).squeeze()
         )
 
         return kl
