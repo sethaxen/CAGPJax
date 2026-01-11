@@ -210,7 +210,9 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
 
         return kl
 
-    def variational_expectation(self) -> Float[Array, "N"]:
+    def variational_expectation(
+        self, state: ComputationAwareGPState[_LinearSolverState]
+    ) -> Float[Array, "N"]:
         """Compute the variational expectation.
 
         Compute the pointwise expected log-likelihood under the variational distribution.
@@ -218,21 +220,18 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
         Note:
             This should be used instead of ``gpjax.objectives.variational_expectation``
 
+        Args:
+            state: State of the conditioned GP computed by [`init`][..init]
+
         Returns:
             expectation: The pointwise expected log-likelihood under the variational distribution.
         """
 
-        if not self.is_conditioned:
-            raise ValueError("Model is not yet conditioned. Call ``condition`` first.")
-
-        # help out pyright
-        assert self._posterior_params is not None
-
         # Unpack data
-        y = self._posterior_params.train_data.y
+        y = state.train_data.y
 
         # Predict and compute expectation
-        qpred = self.predict()
+        qpred = self.predict(state)
         mean = qpred.mean
         variance = qpred.variance
         expectation = self.posterior.likelihood.expected_log_likelihood(
@@ -241,7 +240,7 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
 
         return expectation
 
-    def elbo(self) -> ScalarFloat:
+    def elbo(self, state: ComputationAwareGPState[_LinearSolverState]) -> ScalarFloat:
         """Compute the evidence lower bound.
 
         Computes the evidence lower bound (ELBO) under this model's variational distribution.
@@ -249,11 +248,14 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
         Note:
             This should be used instead of ``gpjax.objectives.elbo``
 
+        Args:
+            state: State of the conditioned GP computed by [`init`][..init]
+
         Returns:
             ELBO value (scalar).
         """
-        var_exp = self.variational_expectation()
-        kl = self.prior_kl()
+        var_exp = self.variational_expectation(state)
+        kl = self.prior_kl(state)
         return jnp.sum(var_exp) - kl
 
 

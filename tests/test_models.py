@@ -266,7 +266,7 @@ class TestComputationAwareGP:
         if dtype == jnp.float32:
             pytest.skip("Skipping float32 test due to numerical precision limitations")
 
-        elbo_value = elbo(cagp, train_data)
+        elbo_value = cagp.elbo(cagp_state)
         assert isinstance(elbo_value, jnp.ndarray)
         assert elbo_value.dtype == dtype
         assert jnp.isscalar(elbo_value)
