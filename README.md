@@ -52,7 +52,7 @@ cagp = cagpjax.models.ComputationAwareGP(posterior, policy)
 # Optimize hyperparameters (including actions)
 def negative_elbo(cagp, train_data):
     cagp_state = cagp.init(train_data)  # compute state conditioned on data
-    return -cagp.elbo(cagp_state, train_data)  # WARNING: currently broken
+    return -cagp.elbo(cagp_state)
 
 cagp_optimized, history = gpx.fit(
     model=cagp,

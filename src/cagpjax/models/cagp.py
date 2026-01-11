@@ -1,6 +1,7 @@
 """Computation-aware Gaussian Process models."""
 
 from dataclasses import dataclass
+from typing import Optional
 
 import cola
 import jax.numpy as jnp
@@ -27,7 +28,7 @@ class ComputationAwareGPState(Generic[_LinearSolverState]):
     """Projected quantities for computation-aware GP inference.
 
     Args:
-        x: N training inputs with D dimensions.
+        train_data: Training data with N inputs with D dimensions.
         actions: Actions operator; transpose of operator projecting from N-dimensional space
             to M-dimensional subspace.
         obs_cov_proj: Projected covariance of likelihood.
@@ -36,7 +37,7 @@ class ComputationAwareGPState(Generic[_LinearSolverState]):
         repr_weights_proj: Projected representer weights.
     """
 
-    x: Float[Array, "N D"]
+    train_data: Dataset
     actions: LinearOperator
     obs_cov_proj: LinearOperator
     cov_prior_proj_state: _LinearSolverState
@@ -126,7 +127,7 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
         repr_weights_proj = self.solver.solve(cov_prior_proj_state, residual_proj)
 
         return ComputationAwareGPState(
-            x=x,
+            train_data=train_data,
             actions=actions,
             obs_cov_proj=obs_cov_proj,
             cov_prior_proj_state=cov_prior_proj_state,
@@ -150,8 +151,12 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
             GaussianDistribution: The predictive distribution of the GP at the
                 test inputs.
         """
+        train_data = state.train_data
+        assert train_data.X is not None  # help out pyright
+        x = train_data.X
+
         # Predictions at test points
-        z = test_inputs if test_inputs is not None else state.x
+        z = test_inputs if test_inputs is not None else x
         prior = self.posterior.prior
         mean_z = prior.mean_function(z).squeeze()
         # Work around GPJax promoting dtype of mean to float64 (See JaxGaussianProcesses/GPJax#523)
@@ -159,9 +164,7 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
             constant = prior.mean_function.constant[...]
             mean_z = mean_z.astype(constant.dtype)
         cov_zz = lazify(prior.kernel.gram(z))
-        cov_zx = (
-            cov_zz if test_inputs is None else prior.kernel.cross_covariance(z, state.x)
-        )
+        cov_zx = cov_zz if test_inputs is None else prior.kernel.cross_covariance(z, x)
         cov_zx_proj = cov_zx @ state.actions
 
         # Posterior predictive distribution
@@ -204,6 +207,54 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
         )
 
         return kl
+
+    def variational_expectation(
+        self, state: ComputationAwareGPState[_LinearSolverState]
+    ) -> Float[Array, "N"]:
+        """Compute the variational expectation.
+
+        Compute the pointwise expected log-likelihood under the variational distribution.
+
+        Note:
+            This should be used instead of ``gpjax.objectives.variational_expectation``
+
+        Args:
+            state: State of the conditioned GP computed by [`init`][..init]
+
+        Returns:
+            expectation: The pointwise expected log-likelihood under the variational distribution.
+        """
+
+        # Unpack data
+        y = state.train_data.y
+
+        # Predict and compute expectation
+        qpred = self.predict(state)
+        mean = qpred.mean
+        variance = qpred.variance
+        expectation = self.posterior.likelihood.expected_log_likelihood(
+            y, mean[:, None], variance[:, None]
+        )
+
+        return expectation
+
+    def elbo(self, state: ComputationAwareGPState[_LinearSolverState]) -> ScalarFloat:
+        """Compute the evidence lower bound.
+
+        Computes the evidence lower bound (ELBO) under this model's variational distribution.
+
+        Note:
+            This should be used instead of ``gpjax.objectives.elbo``
+
+        Args:
+            state: State of the conditioned GP computed by [`init`][..init]
+
+        Returns:
+            ELBO value (scalar).
+        """
+        var_exp = self.variational_expectation(state)
+        kl = self.prior_kl(state)
+        return jnp.sum(var_exp) - kl
 
 
 def _kl_divergence_from_solvers(
