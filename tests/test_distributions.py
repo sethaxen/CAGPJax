@@ -37,7 +37,7 @@ class TestGaussianDistribution:
         return lazify(A @ A.T)
 
     @pytest.fixture(params=[Cholesky, PseudoInverse])
-    def solver_method(self, request):
+    def solver(self, request):
         """Method for solving the linear system of equations."""
         if request.param is Cholesky:
             return request.param(1e-6)
@@ -46,14 +46,14 @@ class TestGaussianDistribution:
         else:
             raise ValueError(f"Invalid solver method class: {request.param}")
 
-    def test_construction(self, loc, scale, solver_method):
+    def test_construction(self, loc, scale, solver):
         """Test construction of GaussianDistribution."""
-        dist = GaussianDistribution(loc, scale, solver_method)
+        dist = GaussianDistribution(loc, scale, solver)
         assert isinstance(dist, GaussianDistribution)
         assert isinstance(dist, numpyro.distributions.Distribution)
         assert dist.loc is loc
         assert dist.scale is scale
-        assert dist.solver_method is solver_method
+        assert dist.solver is solver
 
     def test_numpyro_compatibility(self, dtype, n, loc, scale):
         """Test basic properties of GaussianDistribution."""
@@ -77,11 +77,11 @@ class TestGaussianDistribution:
         assert jnp.allclose(dist.stddev, jnp.sqrt(cola.diag(scale)))
 
     def test_log_prob_consistency_with_numpyro(
-        self, dtype, loc, scale, solver_method, key=jax.random.key(76)
+        self, dtype, loc, scale, solver, key=jax.random.key(76)
     ):
         """Test log_prob of GaussianDistribution matches numpyro's MultivariateNormal."""
         y = jax.random.normal(key, loc.shape, dtype=dtype)
-        dist = GaussianDistribution(loc, scale, solver_method)
+        dist = GaussianDistribution(loc, scale, solver)
         lp = dist.log_prob(y)
         assert lp.dtype == dtype
         scale_dense = cola.densify(scale)
@@ -93,10 +93,10 @@ class TestGaussianDistribution:
         [(), (100_000,), (100_000, 3), (100_000, 3, 4)],
     )
     def test_sample(
-        self, sample_shape, dtype, loc, scale, solver_method, key=jax.random.key(92)
+        self, sample_shape, dtype, loc, scale, solver, key=jax.random.key(92)
     ):
         """Test sample of GaussianDistribution."""
-        dist = GaussianDistribution(loc, scale, solver_method)
+        dist = GaussianDistribution(loc, scale, solver)
         x = dist.sample(key, sample_shape)
         assert x.shape == sample_shape + loc.shape
         assert x.dtype == dtype

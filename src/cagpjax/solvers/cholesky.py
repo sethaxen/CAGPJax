@@ -4,14 +4,16 @@ import cola
 import jax.numpy as jnp
 from cola.ops import LinearOperator
 from jaxtyping import Array, Float
-from typing_extensions import Self, override
+from typing_extensions import TypeAlias, override
 
 from ..linalg import lower_cholesky
 from ..typing import ScalarFloat
-from .base import AbstractLinearSolver, AbstractLinearSolverMethod
+from .base import AbstractLinearSolver
+
+CholeskyState: TypeAlias = LinearOperator
 
 
-class Cholesky(AbstractLinearSolverMethod):
+class Cholesky(AbstractLinearSolver[CholeskyState]):
     """
     Solve a linear system using the Cholesky decomposition.
 
@@ -30,42 +32,37 @@ class Cholesky(AbstractLinearSolverMethod):
         self.jitter = jitter
 
     @override
-    def __call__(self, A: LinearOperator) -> AbstractLinearSolver:
-        return CholeskySolver(A, jitter=self.jitter)
-
-
-class CholeskySolver(AbstractLinearSolver):
-    """
-    Solve a linear system by computing the Cholesky decomposition.
-    """
-
-    lchol: LinearOperator
-
-    def __init__(self, A: LinearOperator, jitter: ScalarFloat | None = None):
-        self.lchol = lower_cholesky(A, jitter)
+    def init(self, A: LinearOperator) -> CholeskyState:
+        return lower_cholesky(A, self.jitter)
 
     @override
-    def unwhiten(self, z: Float[Array, "N #K"]) -> Float[Array, "N #K"]:
-        return self.lchol @ z
+    def unwhiten(
+        self, state: CholeskyState, z: Float[Array, "N #K"]
+    ) -> Float[Array, "N #K"]:
+        return state @ z
 
     @override
-    def solve(self, b: Float[Array, "N #K"]) -> Float[Array, "N #K"]:
-        Linv = cola.linalg.inv(self.lchol)
+    def solve(
+        self, state: CholeskyState, b: Float[Array, "N #K"]
+    ) -> Float[Array, "N #K"]:
+        Linv = cola.linalg.inv(state)
         return Linv.T @ (Linv @ b)
 
     @override
-    def logdet(self) -> ScalarFloat:
-        return 2 * jnp.sum(jnp.log(cola.linalg.diag(self.lchol)))
+    def logdet(self, state: CholeskyState) -> ScalarFloat:
+        return 2 * jnp.sum(jnp.log(cola.linalg.diag(state)))
 
     @override
     def inv_congruence_transform(
-        self, B: LinearOperator | Float[Array, "K N"]
+        self, state: CholeskyState, B: LinearOperator | Float[Array, "K N"]
     ) -> LinearOperator | Float[Array, "K K"]:
-        Linv = cola.linalg.inv(self.lchol)
+        Linv = cola.linalg.inv(state)
         right_term = Linv @ B
         return right_term.T @ right_term
 
     @override
-    def trace_solve(self, B: Self) -> ScalarFloat:
-        L = cola.linalg.inv(self.lchol) @ B.lchol.to_dense()
+    def trace_solve(
+        self, state: CholeskyState, state_other: CholeskyState
+    ) -> ScalarFloat:
+        L = cola.linalg.inv(state) @ state_other.to_dense()
         return jnp.sum(jnp.square(L))
