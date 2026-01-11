@@ -1,16 +1,26 @@
+from typing import NamedTuple
+
 import cola
 import jax
 from cola.ops import LinearOperator
 from jax import numpy as jnp
-from jaxtyping import Array, Float
-from typing_extensions import Self, override
+from jaxtyping import Array, Bool, Float
+from typing_extensions import override
 
 from ..linalg.eigh import Eigh, EighResult, eigh
 from ..typing import ScalarFloat
-from .base import AbstractLinearSolver, AbstractLinearSolverMethod
+from .base import AbstractLinearSolver
 
 
-class PseudoInverse(AbstractLinearSolverMethod):
+class PseudoInverseState(NamedTuple):
+    A: LinearOperator
+    eigh_result: EighResult
+    eigvals_mask: Bool[Array, "N"]
+    eigvals_safe: Float[Array, "N"]
+    eigvals_inv: Float[Array, "N"]
+
+
+class PseudoInverse(AbstractLinearSolver[PseudoInverseState]):
     """
     Solve a linear system using the Moore-Penrose pseudoinverse.
 
@@ -55,83 +65,83 @@ class PseudoInverse(AbstractLinearSolverMethod):
         self.alg = alg
 
     @override
-    def __call__(self, A: LinearOperator) -> AbstractLinearSolver:
-        return PseudoInverseSolver(
-            A, rtol=self.rtol, grad_rtol=self.grad_rtol, alg=self.alg
-        )
-
-
-class PseudoInverseSolver(AbstractLinearSolver):
-    """
-    Solve a linear system using the Moore-Penrose pseudoinverse.
-    """
-
-    A: LinearOperator
-    eigh_result: EighResult
-    eigenvalues_safe: Float[Array, "N"]
-
-    def __init__(
-        self,
-        A: LinearOperator,
-        rtol: ScalarFloat | None = None,
-        grad_rtol: float | None = None,
-        alg: cola.linalg.Algorithm = Eigh(),
-    ):
+    def init(self, A: LinearOperator) -> PseudoInverseState:
         n = A.shape[0]
         # select rtol using same heuristic as jax.numpy.linalg.lstsq
-        rtol_val = rtol if rtol is not None else float(jnp.finfo(A.dtype).eps) * n
-        self.eigh_result = eigh(A, alg=alg, grad_rtol=grad_rtol)
-        svdmax = jnp.max(jnp.abs(self.eigh_result.eigenvalues))
+        rtol_val = (
+            self.rtol if self.rtol is not None else float(jnp.finfo(A.dtype).eps) * n
+        )
+        eigh_result = eigh(A, alg=self.alg, grad_rtol=self.grad_rtol)
+        svdmax = jnp.max(jnp.abs(eigh_result.eigenvalues))
         cutoff = jnp.array(rtol_val * svdmax, dtype=svdmax.dtype)
-        mask = self.eigh_result.eigenvalues >= cutoff
-        self.eigvals_safe = jnp.where(mask, self.eigh_result.eigenvalues, 1)
-        self.eigvals_inv = jnp.where(mask, jnp.reciprocal(self.eigvals_safe), 0)
-        self.A = A
+        eigvals_mask = eigh_result.eigenvalues >= cutoff
+        eigvals_safe = jnp.where(eigvals_mask, eigh_result.eigenvalues, 1)
+        eigvals_inv = jnp.where(eigvals_mask, jnp.reciprocal(eigvals_safe), 0)
+        return PseudoInverseState(
+            A, eigh_result, eigvals_mask, eigvals_safe, eigvals_inv
+        )
 
     @override
-    def solve(self, b: Float[Array, "N #K"]) -> Float[Array, "N #K"]:
-        # return jnp.linalg.lstsq(self.A.to_dense(), b)[0]
+    def unwhiten(
+        self, state: PseudoInverseState, z: Float[Array, "N #K"]
+    ) -> Float[Array, "N #K"]:
+        eigvals_sqrt = jnp.where(state.eigvals_mask, jnp.sqrt(state.eigvals_safe), 0)
+        x = (eigvals_sqrt * z.T).T
+        with jax.default_matmul_precision("highest"):
+            return state.eigh_result.eigenvectors @ x
+
+    @override
+    def solve(
+        self, state: PseudoInverseState, b: Float[Array, "N #K"]
+    ) -> Float[Array, "N #K"]:
         b_ndim = b.ndim
         b = b if b_ndim == 2 else b[:, None]
         with jax.default_matmul_precision("highest"):
-            x = self.eigh_result.eigenvectors.T @ b
-        x = x * self.eigvals_inv[:, None]
+            x = state.eigh_result.eigenvectors.T @ b
+        x = x * state.eigvals_inv[:, None]
         with jax.default_matmul_precision("highest"):
-            x = self.eigh_result.eigenvectors @ x
+            x = state.eigh_result.eigenvectors @ x
         x = x if b_ndim == 2 else x.squeeze(axis=1)
         return x
 
     @override
-    def logdet(self) -> ScalarFloat:
-        return jnp.sum(jnp.log(self.eigvals_safe))
+    def logdet(self, state: PseudoInverseState) -> ScalarFloat:
+        return jnp.sum(jnp.log(state.eigvals_safe))
 
     @override
-    def inv_quad(self, b: Float[Array, "N #1"]) -> ScalarFloat:
-        z = self.eigh_result.eigenvectors.T @ b
-        return jnp.dot(jnp.square(z), self.eigvals_inv).squeeze()
+    def inv_quad(
+        self, state: PseudoInverseState, b: Float[Array, "N #1"]
+    ) -> ScalarFloat:
+        z = state.eigh_result.eigenvectors.T @ b
+        return jnp.dot(jnp.square(z), state.eigvals_inv).squeeze()
 
     @override
     def inv_congruence_transform(
-        self, B: LinearOperator | Float[Array, "K N"]
+        self, state: PseudoInverseState, B: LinearOperator | Float[Array, "K N"]
     ) -> LinearOperator | Float[Array, "K K"]:
-        eigenvectors = self.eigh_result.eigenvectors
+        eigenvectors = state.eigh_result.eigenvectors
         z = eigenvectors.T @ B
-        z = z.T @ cola.ops.Diagonal(self.eigvals_inv) @ z
+        z = z.T @ cola.ops.Diagonal(state.eigvals_inv) @ z
         return z
 
     @override
-    def trace_solve(self, B: Self) -> ScalarFloat:
-        if isinstance(B.eigh_result.eigenvectors, cola.ops.Dense):
-            vectors_mat = self.eigh_result.eigenvectors.to_dense()
+    def trace_solve(
+        self, state: PseudoInverseState, state_other: PseudoInverseState
+    ) -> ScalarFloat:
+        if isinstance(state_other.eigh_result.eigenvectors, cola.ops.Dense):
+            vectors_mat = state.eigh_result.eigenvectors.to_dense()
             return jnp.einsum(
                 "ij,j,kj,ik",
                 vectors_mat,
-                self.eigvals_inv,
+                state.eigvals_inv,
                 vectors_mat,
-                B.A.to_dense(),
+                state_other.A.to_dense(),
             )
         else:
-            W = B.eigh_result.eigenvectors.T @ self.eigh_result.eigenvectors.to_dense()
+            W = (
+                state_other.eigh_result.eigenvectors.T
+                @ state.eigh_result.eigenvectors.to_dense()
+            )
             return jnp.einsum(
-                "ij,j,ij,i", W, self.eigvals_inv, W, B.eigh_result.eigenvalues
+                "ij,j,ij,i", W, state.eigvals_inv, W, state_other.eigvals_safe
             )

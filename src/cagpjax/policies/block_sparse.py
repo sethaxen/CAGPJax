@@ -84,4 +84,4 @@ class BlockSparsePolicy(AbstractBatchLinearSolverPolicy):
         Returns:
             BlockDiagonalSparse: Sparse action structure representing the blocks.
         """
-        return BlockDiagonalSparse(self.nz_values.value, self.n_actions)
+        return BlockDiagonalSparse(self.nz_values[...], self.n_actions)
