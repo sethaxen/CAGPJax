@@ -76,7 +76,7 @@ class LazyKernelComputation(AbstractKernelComputation):
         *,
         batch_size: int | None = None,
         max_memory_mb: int = 2**10,  # 1GB
-        checkpoint: bool = False,
+        checkpoint: bool = True,
     ):
         """Initialize the lazy kernel computation."""
         self.batch_size = batch_size
