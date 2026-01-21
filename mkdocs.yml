@@ -23,9 +23,6 @@ theme:
 
 plugins:
   - search
-  - gen-files:
-      scripts:
-        - docs/gen_ref_pages.py
   - literate-nav:
       nav_file: SUMMARY.md
   - section-index
@@ -39,14 +36,25 @@ plugins:
             show_root_heading: true
             show_root_toc_entry: true
             heading_level: 1
+            docstring_section_style: list
+            merge_init_into_class: true
+            parameter_headings: true
+            separate_signature: true
+            show_signature_annotations: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            summary: true
           inventories:
             - https://docs.jax.dev/en/latest/objects.inv
             - https://docs.jaxgaussianprocesses.com/objects.inv
             - https://cola.readthedocs.io/en/stable/objects.inv
+  - api-autonav:
+      modules: ['src/cagpjax']
+      nav_section_title: "Reference"
+      nav_item_prefix: ""
 
 nav:
   - Home: index.md
-  - Reference: reference/
 
 markdown_extensions:
   - footnotes

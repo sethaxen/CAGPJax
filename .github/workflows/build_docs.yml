@@ -3,8 +3,7 @@ name: Build docs
 on:
   push:
     branches: [main]
-    tags:
-      - "**"
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -27,5 +26,10 @@ jobs:
     - name: Install dependencies
       run: uv sync --extra docs --python ${{ matrix.python-version }}
 
+    - name: Build Documentation (PR Check)
+      if: github.event_name == 'pull_request'
+      run: uv run mkdocs build --clean --verbose
+
     - name: Build and deploy docs
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
       run: uv run mkdocs gh-deploy --force --clean --verbose
