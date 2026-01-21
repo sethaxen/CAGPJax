@@ -1,0 +1,3151 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../../operators/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>cagp - CAGPJax</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="green" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#cagpjax.models.cagp" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../../.." title="CAGPJax" class="md-header__button md-logo" aria-label="CAGPJax" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            CAGPJax
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              cagp
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="green" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="green" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sethaxen/CAGPJax" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../../.." title="CAGPJax" class="md-nav__button md-logo" aria-label="CAGPJax" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    CAGPJax
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sethaxen/CAGPJax" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cagpjax
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_1" id="__nav_2_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_1_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    cagpjax
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../computations/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    computations
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_1_1" id="__nav_2_1_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_1_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_1_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    computations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../computations/lazy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lazy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../distributions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    distributions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../linalg/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    linalg
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_1_3" id="__nav_2_1_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_1_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_1_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    linalg
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../linalg/congruence/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    congruence
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../linalg/eigh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    eigh
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../linalg/lower_cholesky/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lower_cholesky
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../linalg/orthogonalize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    orthogonalize
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../linalg/utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    utils
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_4" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    models
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_1_4" id="__nav_2_1_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_1_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_1_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cagp
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cagp
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ComputationAwareGP
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" ComputationAwareGP">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP(posterior)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;posterior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP(policy)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP(solver)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;solver
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.elbo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;elbo
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" elbo">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.elbo(state)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;state
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.init" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;init
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" init">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.init(train_data)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;train_data
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.predict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;predict
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" predict">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.predict(state)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;state
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.predict(test_inputs)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;test_inputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.prior_kl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;prior_kl
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" prior_kl">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.prior_kl(state)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;state
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.variational_expectation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;variational_expectation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" variational_expectation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.variational_expectation(state)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;state
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGPState" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ComputationAwareGPState
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" ComputationAwareGPState">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGPState(train_data)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;train_data
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGPState(actions)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;actions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGPState(obs_cov_proj)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;obs_cov_proj
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGPState(cov_prior_proj_state)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;cov_prior_proj_state
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGPState(residual_proj)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;residual_proj
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGPState(repr_weights_proj)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;repr_weights_proj
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../operators/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    operators
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_1_5" id="__nav_2_1_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_1_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_1_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    operators
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operators/annotations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    annotations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operators/block_diagonal_sparse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    block_diagonal_sparse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operators/diag_like/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    diag_like
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operators/lazy_kernel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lazy_kernel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operators/utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    utils
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../policies/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    policies
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_1_6" id="__nav_2_1_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_1_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_1_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    policies
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../policies/base/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    base
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../policies/block_sparse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    block_sparse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../policies/lanczos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lanczos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../policies/orthogonalization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    orthogonalization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../policies/pseudoinput/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pseudoinput
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../solvers/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    solvers
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_1_7" id="__nav_2_1_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_1_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_1_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    solvers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../solvers/base/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    base
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../solvers/cholesky/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cholesky
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../solvers/pseudoinverse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pseudoinverse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../typing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    typing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ComputationAwareGP
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" ComputationAwareGP">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP(posterior)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;posterior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP(policy)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP(solver)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;solver
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.elbo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;elbo
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" elbo">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.elbo(state)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;state
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.init" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;init
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" init">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.init(train_data)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;train_data
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.predict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;predict
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" predict">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.predict(state)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;state
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.predict(test_inputs)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;test_inputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.prior_kl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;prior_kl
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" prior_kl">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.prior_kl(state)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;state
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.variational_expectation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;variational_expectation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" variational_expectation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGP.variational_expectation(state)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;state
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGPState" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ComputationAwareGPState
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" ComputationAwareGPState">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGPState(train_data)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;train_data
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGPState(actions)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;actions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGPState(obs_cov_proj)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;obs_cov_proj
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGPState(cov_prior_proj_state)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;cov_prior_proj_state
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGPState(residual_proj)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;residual_proj
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cagpjax.models.cagp.ComputationAwareGPState(repr_weights_proj)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;repr_weights_proj
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<div class="doc doc-object doc-module">
+
+
+
+<h1 id="cagpjax.models.cagp" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <span class="doc doc-object-name doc-module-name">cagpjax.models.cagp</span>
+
+
+</h1>
+
+    <div class="doc doc-contents first">
+
+        <p>Computation-aware Gaussian Process models.</p>
+
+
+
+
+
+
+
+
+
+
+<p><span class="doc-section-title">Classes:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+          <b><code><a class="autorefs autorefs-internal" title="            ComputationAwareGP (cagpjax.models.cagp.ComputationAwareGP)" href="#cagpjax.models.cagp.ComputationAwareGP">ComputationAwareGP</a></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Computation-aware Gaussian Process model.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><a class="autorefs autorefs-internal" title="            ComputationAwareGPState
+
+
+  
+      dataclass
+   (cagpjax.models.cagp.ComputationAwareGPState)" href="#cagpjax.models.cagp.ComputationAwareGPState">ComputationAwareGPState</a></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Projected quantities for computation-aware GP inference.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="cagpjax.models.cagp.ComputationAwareGP" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">ComputationAwareGP</span>
+
+
+</h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ComputationAwareGP</span><span class="p">(</span><span class="n">posterior</span><span class="p">:</span> <span class="n">ConjugatePosterior</span><span class="p">,</span> <span class="n">policy</span><span class="p">:</span> <span class="n">AbstractBatchLinearSolverPolicy</span><span class="p">,</span> <span class="n">solver</span><span class="p">:</span> <span class="n">AbstractLinearSolver</span><span class="p">[</span><span class="n">_LinearSolverState</span><span class="p">]</span> <span class="o">=</span> <span class="n">Cholesky</span><span class="p">(</span><span class="mf">1e-06</span><span class="p">))</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="flax.nnx.Module">Module</span></code>, <code><span title="typing_extensions.Generic">Generic</span>[<span title="cagpjax.models.cagp._LinearSolverState">_LinearSolverState</span>]</code></p>
+
+
+
+        <p>Computation-aware Gaussian Process model.</p>
+<p>This model implements scalable GP inference by using batch linear solver
+policies to project the kernel and data to a lower-dimensional subspace, while
+accounting for the extra uncertainty imposed by observing only this subspace.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+          <b><code><span title="cagpjax.models.cagp.ComputationAwareGP.posterior">posterior</span></code></b>
+              (<code><a class="autorefs autorefs-external" title="gpjax.gps.ConjugatePosterior" href="https://docs.jaxgaussianprocesses.com/api/gps/#gpjax.gps.ConjugatePosterior">ConjugatePosterior</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>The original (exact) posterior.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="cagpjax.models.cagp.ComputationAwareGP.policy">policy</span></code></b>
+              (<code><a class="autorefs autorefs-internal" title="            AbstractBatchLinearSolverPolicy (cagpjax.policies.AbstractBatchLinearSolverPolicy)" href="../../policies/#cagpjax.policies.AbstractBatchLinearSolverPolicy">AbstractBatchLinearSolverPolicy</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>The batch linear solver policy.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="cagpjax.models.cagp.ComputationAwareGP.solver">solver</span></code></b>
+              (<code><a class="autorefs autorefs-internal" title="            AbstractLinearSolver (cagpjax.solvers.AbstractLinearSolver)" href="../../solvers/#cagpjax.solvers.AbstractLinearSolver">AbstractLinearSolver</a>[<span title="cagpjax.models.cagp._LinearSolverState">_LinearSolverState</span>]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The linear solver method to use for solving linear systems
+with positive semi-definite operators.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<details class="notes" open>
+  <summary>Notes</summary>
+  <ul>
+<li>Only single-output models are currently supported.</li>
+</ul>
+</details>
+        <p>Initialize the Computation-Aware GP model.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+<h3 id="cagpjax.models.cagp.ComputationAwareGP(posterior)" class="doc doc-heading doc-heading-parameter">              <b><code>posterior</code></b>
+</h3>              (<code><a class="autorefs autorefs-external" title="gpjax.gps.ConjugatePosterior" href="https://docs.jaxgaussianprocesses.com/api/gps/#gpjax.gps.ConjugatePosterior">ConjugatePosterior</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>GPJax conjugate posterior.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+<h3 id="cagpjax.models.cagp.ComputationAwareGP(policy)" class="doc doc-heading doc-heading-parameter">              <b><code>policy</code></b>
+</h3>              (<code><a class="autorefs autorefs-internal" title="            AbstractBatchLinearSolverPolicy (cagpjax.policies.AbstractBatchLinearSolverPolicy)" href="../../policies/#cagpjax.policies.AbstractBatchLinearSolverPolicy">AbstractBatchLinearSolverPolicy</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>The batch linear solver policy that defines the subspace into
+which the data is projected.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+<h3 id="cagpjax.models.cagp.ComputationAwareGP(solver)" class="doc doc-heading doc-heading-parameter">              <b><code>solver</code></b>
+</h3>              (<code><a class="autorefs autorefs-internal" title="            AbstractLinearSolver (cagpjax.solvers.AbstractLinearSolver)" href="../../solvers/#cagpjax.solvers.AbstractLinearSolver">AbstractLinearSolver</a>[<span title="cagpjax.models.cagp._LinearSolverState">_LinearSolverState</span>]</code>, default:
+                  <code><a class="autorefs autorefs-internal" title="            Cholesky (cagpjax.solvers.Cholesky)" href="../../solvers/#cagpjax.solvers.Cholesky">Cholesky</a>(1e-06)</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>The linear solver method to use for solving linear systems with
+positive semi-definite operators.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+<p><span class="doc-section-title">Methods:</span></p>
+    <ul>
+          <li class="doc-section-item field-body">
+            <b><code><a class="autorefs autorefs-internal" title="            elbo (cagpjax.models.cagp.ComputationAwareGP.elbo)" href="#cagpjax.models.cagp.ComputationAwareGP.elbo">elbo</a></code></b>
+            –
+            <div class="doc-md-description">
+              <p>Compute the evidence lower bound.</p>
+            </div>
+          </li>
+          <li class="doc-section-item field-body">
+            <b><code><a class="autorefs autorefs-internal" title="            init (cagpjax.models.cagp.ComputationAwareGP.init)" href="#cagpjax.models.cagp.ComputationAwareGP.init">init</a></code></b>
+            –
+            <div class="doc-md-description">
+              <p>Compute the state of the conditioned GP posterior.</p>
+            </div>
+          </li>
+          <li class="doc-section-item field-body">
+            <b><code><a class="autorefs autorefs-internal" title="            predict (cagpjax.models.cagp.ComputationAwareGP.predict)" href="#cagpjax.models.cagp.ComputationAwareGP.predict">predict</a></code></b>
+            –
+            <div class="doc-md-description">
+              <p>Compute the predictive distribution of the GP at the test inputs.</p>
+            </div>
+          </li>
+          <li class="doc-section-item field-body">
+            <b><code><a class="autorefs autorefs-internal" title="            prior_kl (cagpjax.models.cagp.ComputationAwareGP.prior_kl)" href="#cagpjax.models.cagp.ComputationAwareGP.prior_kl">prior_kl</a></code></b>
+            –
+            <div class="doc-md-description">
+              <p>Compute KL divergence between CaGP posterior and GP prior..</p>
+            </div>
+          </li>
+          <li class="doc-section-item field-body">
+            <b><code><a class="autorefs autorefs-internal" title="            variational_expectation (cagpjax.models.cagp.ComputationAwareGP.variational_expectation)" href="#cagpjax.models.cagp.ComputationAwareGP.variational_expectation">variational_expectation</a></code></b>
+            –
+            <div class="doc-md-description">
+              <p>Compute the variational expectation.</p>
+            </div>
+          </li>
+    </ul>
+
+
+
+                  <details class="mkdocstrings-source">
+                    <summary>Source code in <code>src/cagpjax/models/cagp.py</code></summary>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-69">69</a></span>
+<span class="normal"><a href="#__codelineno-0-70">70</a></span>
+<span class="normal"><a href="#__codelineno-0-71">71</a></span>
+<span class="normal"><a href="#__codelineno-0-72">72</a></span>
+<span class="normal"><a href="#__codelineno-0-73">73</a></span>
+<span class="normal"><a href="#__codelineno-0-74">74</a></span>
+<span class="normal"><a href="#__codelineno-0-75">75</a></span>
+<span class="normal"><a href="#__codelineno-0-76">76</a></span>
+<span class="normal"><a href="#__codelineno-0-77">77</a></span>
+<span class="normal"><a href="#__codelineno-0-78">78</a></span>
+<span class="normal"><a href="#__codelineno-0-79">79</a></span>
+<span class="normal"><a href="#__codelineno-0-80">80</a></span>
+<span class="normal"><a href="#__codelineno-0-81">81</a></span>
+<span class="normal"><a href="#__codelineno-0-82">82</a></span>
+<span class="normal"><a href="#__codelineno-0-83">83</a></span>
+<span class="normal"><a href="#__codelineno-0-84">84</a></span>
+<span class="normal"><a href="#__codelineno-0-85">85</a></span>
+<span class="normal"><a href="#__codelineno-0-86">86</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-69" name="__codelineno-0-69"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<a id="__codelineno-0-70" name="__codelineno-0-70"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-71" name="__codelineno-0-71"></a>    <span class="n">posterior</span><span class="p">:</span> <span class="n">ConjugatePosterior</span><span class="p">,</span>
+<a id="__codelineno-0-72" name="__codelineno-0-72"></a>    <span class="n">policy</span><span class="p">:</span> <span class="n">AbstractBatchLinearSolverPolicy</span><span class="p">,</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73"></a>    <span class="n">solver</span><span class="p">:</span> <span class="n">AbstractLinearSolver</span><span class="p">[</span><span class="n">_LinearSolverState</span><span class="p">]</span> <span class="o">=</span> <span class="n">Cholesky</span><span class="p">(</span><span class="mf">1e-6</span><span class="p">),</span>
+<a id="__codelineno-0-74" name="__codelineno-0-74"></a><span class="p">):</span>
+<a id="__codelineno-0-75" name="__codelineno-0-75"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Initialize the Computation-Aware GP model.</span>
+<a id="__codelineno-0-76" name="__codelineno-0-76"></a>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a><span class="sd">        posterior: GPJax conjugate posterior.</span>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="sd">        policy: The batch linear solver policy that defines the subspace into</span>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a><span class="sd">            which the data is projected.</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="sd">        solver: The linear solver method to use for solving linear systems with</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="sd">            positive semi-definite operators.</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">posterior</span> <span class="o">=</span> <span class="n">posterior</span>
+<a id="__codelineno-0-85" name="__codelineno-0-85"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">policy</span> <span class="o">=</span> <span class="n">policy</span>
+<a id="__codelineno-0-86" name="__codelineno-0-86"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">solver</span> <span class="o">=</span> <span class="n">solver</span>
+</code></pre></div></td></tr></table></div>
+                  </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="cagpjax.models.cagp.ComputationAwareGP.elbo" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">elbo</span>
+
+
+</h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">elbo</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">ComputationAwareGPState</span><span class="p">[</span><span class="n">_LinearSolverState</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">ScalarFloat</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Compute the evidence lower bound.</p>
+<p>Computes the evidence lower bound (ELBO) under this model's variational distribution.</p>
+
+
+<details class="note" open>
+  <summary>Note</summary>
+  <p>This should be used instead of <code>gpjax.objectives.elbo</code></p>
+</details>
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+<h4 id="cagpjax.models.cagp.ComputationAwareGP.elbo(state)" class="doc doc-heading doc-heading-parameter">              <b><code>state</code></b>
+</h4>              (<code><a class="autorefs autorefs-internal" title="            ComputationAwareGPState
+
+
+  
+      dataclass
+   (cagpjax.models.cagp.ComputationAwareGPState)" href="#cagpjax.models.cagp.ComputationAwareGPState">ComputationAwareGPState</a>[<span title="cagpjax.models.cagp._LinearSolverState">_LinearSolverState</span>]</code>)
+          –
+          <div class="doc-md-description">
+            <p>State of the conditioned GP computed by <a class="autorefs autorefs-internal" title="            init" href="#cagpjax.models.cagp.ComputationAwareGP.init"><code>init</code></a></p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="cagpjax.typing.ScalarFloat">ScalarFloat</span></code>
+          –
+          <div class="doc-md-description">
+            <p>ELBO value (scalar).</p>
+          </div>
+        </li>
+    </ul>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/cagpjax/models/cagp.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-241">241</a></span>
+<span class="normal"><a href="#__codelineno-0-242">242</a></span>
+<span class="normal"><a href="#__codelineno-0-243">243</a></span>
+<span class="normal"><a href="#__codelineno-0-244">244</a></span>
+<span class="normal"><a href="#__codelineno-0-245">245</a></span>
+<span class="normal"><a href="#__codelineno-0-246">246</a></span>
+<span class="normal"><a href="#__codelineno-0-247">247</a></span>
+<span class="normal"><a href="#__codelineno-0-248">248</a></span>
+<span class="normal"><a href="#__codelineno-0-249">249</a></span>
+<span class="normal"><a href="#__codelineno-0-250">250</a></span>
+<span class="normal"><a href="#__codelineno-0-251">251</a></span>
+<span class="normal"><a href="#__codelineno-0-252">252</a></span>
+<span class="normal"><a href="#__codelineno-0-253">253</a></span>
+<span class="normal"><a href="#__codelineno-0-254">254</a></span>
+<span class="normal"><a href="#__codelineno-0-255">255</a></span>
+<span class="normal"><a href="#__codelineno-0-256">256</a></span>
+<span class="normal"><a href="#__codelineno-0-257">257</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-241" name="__codelineno-0-241"></a><span class="k">def</span><span class="w"> </span><span class="nf">elbo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">ComputationAwareGPState</span><span class="p">[</span><span class="n">_LinearSolverState</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">ScalarFloat</span><span class="p">:</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the evidence lower bound.</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a><span class="sd">    Computes the evidence lower bound (ELBO) under this model&#39;s variational distribution.</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a><span class="sd">    Note:</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a><span class="sd">        This should be used instead of ``gpjax.objectives.elbo``</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a><span class="sd">        state: State of the conditioned GP computed by [`init`][..init]</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a><span class="sd">        ELBO value (scalar).</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a>    <span class="n">var_exp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">variational_expectation</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>    <span class="n">kl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prior_kl</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a>    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">var_exp</span><span class="p">)</span> <span class="o">-</span> <span class="n">kl</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="cagpjax.models.cagp.ComputationAwareGP.init" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">init</span>
+
+
+</h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">init</span><span class="p">(</span><span class="n">train_data</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComputationAwareGPState</span><span class="p">[</span><span class="n">_LinearSolverState</span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Compute the state of the conditioned GP posterior.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+<h4 id="cagpjax.models.cagp.ComputationAwareGP.init(train_data)" class="doc doc-heading doc-heading-parameter">              <b><code>train_data</code></b>
+</h4>              (<code><a class="autorefs autorefs-external" title="gpjax.gps.Dataset" href="https://docs.jaxgaussianprocesses.com/api/dataset/#gpjax.dataset.Dataset">Dataset</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>The training data used to fit the GP.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+<b><code>state</code></b> (              <code><a class="autorefs autorefs-internal" title="            ComputationAwareGPState
+
+
+  
+      dataclass
+   (cagpjax.models.cagp.ComputationAwareGPState)" href="#cagpjax.models.cagp.ComputationAwareGPState">ComputationAwareGPState</a>[<span title="cagpjax.models.cagp._LinearSolverState">_LinearSolverState</span>]</code>
+)          –
+          <div class="doc-md-description">
+            <p>State of the conditioned CaGP posterior, which stores any necessary
+intermediate values for prediction and computing objectives.</p>
+          </div>
+        </li>
+    </ul>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/cagpjax/models/cagp.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-88"> 88</a></span>
+<span class="normal"><a href="#__codelineno-0-89"> 89</a></span>
+<span class="normal"><a href="#__codelineno-0-90"> 90</a></span>
+<span class="normal"><a href="#__codelineno-0-91"> 91</a></span>
+<span class="normal"><a href="#__codelineno-0-92"> 92</a></span>
+<span class="normal"><a href="#__codelineno-0-93"> 93</a></span>
+<span class="normal"><a href="#__codelineno-0-94"> 94</a></span>
+<span class="normal"><a href="#__codelineno-0-95"> 95</a></span>
+<span class="normal"><a href="#__codelineno-0-96"> 96</a></span>
+<span class="normal"><a href="#__codelineno-0-97"> 97</a></span>
+<span class="normal"><a href="#__codelineno-0-98"> 98</a></span>
+<span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
+<span class="normal"><a href="#__codelineno-0-100">100</a></span>
+<span class="normal"><a href="#__codelineno-0-101">101</a></span>
+<span class="normal"><a href="#__codelineno-0-102">102</a></span>
+<span class="normal"><a href="#__codelineno-0-103">103</a></span>
+<span class="normal"><a href="#__codelineno-0-104">104</a></span>
+<span class="normal"><a href="#__codelineno-0-105">105</a></span>
+<span class="normal"><a href="#__codelineno-0-106">106</a></span>
+<span class="normal"><a href="#__codelineno-0-107">107</a></span>
+<span class="normal"><a href="#__codelineno-0-108">108</a></span>
+<span class="normal"><a href="#__codelineno-0-109">109</a></span>
+<span class="normal"><a href="#__codelineno-0-110">110</a></span>
+<span class="normal"><a href="#__codelineno-0-111">111</a></span>
+<span class="normal"><a href="#__codelineno-0-112">112</a></span>
+<span class="normal"><a href="#__codelineno-0-113">113</a></span>
+<span class="normal"><a href="#__codelineno-0-114">114</a></span>
+<span class="normal"><a href="#__codelineno-0-115">115</a></span>
+<span class="normal"><a href="#__codelineno-0-116">116</a></span>
+<span class="normal"><a href="#__codelineno-0-117">117</a></span>
+<span class="normal"><a href="#__codelineno-0-118">118</a></span>
+<span class="normal"><a href="#__codelineno-0-119">119</a></span>
+<span class="normal"><a href="#__codelineno-0-120">120</a></span>
+<span class="normal"><a href="#__codelineno-0-121">121</a></span>
+<span class="normal"><a href="#__codelineno-0-122">122</a></span>
+<span class="normal"><a href="#__codelineno-0-123">123</a></span>
+<span class="normal"><a href="#__codelineno-0-124">124</a></span>
+<span class="normal"><a href="#__codelineno-0-125">125</a></span>
+<span class="normal"><a href="#__codelineno-0-126">126</a></span>
+<span class="normal"><a href="#__codelineno-0-127">127</a></span>
+<span class="normal"><a href="#__codelineno-0-128">128</a></span>
+<span class="normal"><a href="#__codelineno-0-129">129</a></span>
+<span class="normal"><a href="#__codelineno-0-130">130</a></span>
+<span class="normal"><a href="#__codelineno-0-131">131</a></span>
+<span class="normal"><a href="#__codelineno-0-132">132</a></span>
+<span class="normal"><a href="#__codelineno-0-133">133</a></span>
+<span class="normal"><a href="#__codelineno-0-134">134</a></span>
+<span class="normal"><a href="#__codelineno-0-135">135</a></span>
+<span class="normal"><a href="#__codelineno-0-136">136</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-88" name="__codelineno-0-88"></a><span class="k">def</span><span class="w"> </span><span class="nf">init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">train_data</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComputationAwareGPState</span><span class="p">[</span><span class="n">_LinearSolverState</span><span class="p">]:</span>
+<a id="__codelineno-0-89" name="__codelineno-0-89"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the state of the conditioned GP posterior.</span>
+<a id="__codelineno-0-90" name="__codelineno-0-90"></a>
+<a id="__codelineno-0-91" name="__codelineno-0-91"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-92" name="__codelineno-0-92"></a><span class="sd">        train_data: The training data used to fit the GP.</span>
+<a id="__codelineno-0-93" name="__codelineno-0-93"></a>
+<a id="__codelineno-0-94" name="__codelineno-0-94"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-95" name="__codelineno-0-95"></a><span class="sd">        state: State of the conditioned CaGP posterior, which stores any necessary</span>
+<a id="__codelineno-0-96" name="__codelineno-0-96"></a><span class="sd">            intermediate values for prediction and computing objectives.</span>
+<a id="__codelineno-0-97" name="__codelineno-0-97"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-98" name="__codelineno-0-98"></a>    <span class="c1"># Ensure we have supervised training data</span>
+<a id="__codelineno-0-99" name="__codelineno-0-99"></a>    <span class="k">if</span> <span class="n">train_data</span><span class="o">.</span><span class="n">X</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">train_data</span><span class="o">.</span><span class="n">y</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-100" name="__codelineno-0-100"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Training data must be supervised.&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-101" name="__codelineno-0-101"></a>
+<a id="__codelineno-0-102" name="__codelineno-0-102"></a>    <span class="c1"># Unpack training data</span>
+<a id="__codelineno-0-103" name="__codelineno-0-103"></a>    <span class="n">x</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">train_data</span><span class="o">.</span><span class="n">X</span><span class="p">)</span>
+<a id="__codelineno-0-104" name="__codelineno-0-104"></a>    <span class="n">y</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">train_data</span><span class="o">.</span><span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
+<a id="__codelineno-0-105" name="__codelineno-0-105"></a>
+<a id="__codelineno-0-106" name="__codelineno-0-106"></a>    <span class="c1"># Unpack prior and likelihood</span>
+<a id="__codelineno-0-107" name="__codelineno-0-107"></a>    <span class="n">prior</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">posterior</span><span class="o">.</span><span class="n">prior</span>
+<a id="__codelineno-0-108" name="__codelineno-0-108"></a>    <span class="n">likelihood</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">posterior</span><span class="o">.</span><span class="n">likelihood</span>
+<a id="__codelineno-0-109" name="__codelineno-0-109"></a>
+<a id="__codelineno-0-110" name="__codelineno-0-110"></a>    <span class="c1"># Mean and covariance of prior-predictive distribution</span>
+<a id="__codelineno-0-111" name="__codelineno-0-111"></a>    <span class="n">mean_prior</span> <span class="o">=</span> <span class="n">prior</span><span class="o">.</span><span class="n">mean_function</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
+<a id="__codelineno-0-112" name="__codelineno-0-112"></a>    <span class="c1"># Work around GPJax promoting dtype of mean to float64 (See JaxGaussianProcesses/GPJax#523)</span>
+<a id="__codelineno-0-113" name="__codelineno-0-113"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">prior</span><span class="o">.</span><span class="n">mean_function</span><span class="p">,</span> <span class="n">Constant</span><span class="p">):</span>
+<a id="__codelineno-0-114" name="__codelineno-0-114"></a>        <span class="n">constant</span> <span class="o">=</span> <span class="n">prior</span><span class="o">.</span><span class="n">mean_function</span><span class="o">.</span><span class="n">constant</span><span class="p">[</span><span class="o">...</span><span class="p">]</span>
+<a id="__codelineno-0-115" name="__codelineno-0-115"></a>        <span class="n">mean_prior</span> <span class="o">=</span> <span class="n">mean_prior</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">constant</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+<a id="__codelineno-0-116" name="__codelineno-0-116"></a>    <span class="n">cov_xx</span> <span class="o">=</span> <span class="n">lazify</span><span class="p">(</span><span class="n">prior</span><span class="o">.</span><span class="n">kernel</span><span class="o">.</span><span class="n">gram</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+<a id="__codelineno-0-117" name="__codelineno-0-117"></a>    <span class="n">obs_cov</span> <span class="o">=</span> <span class="n">diag_like</span><span class="p">(</span><span class="n">cov_xx</span><span class="p">,</span> <span class="n">likelihood</span><span class="o">.</span><span class="n">obs_stddev</span><span class="p">[</span><span class="o">...</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-0-118" name="__codelineno-0-118"></a>    <span class="n">cov_prior</span> <span class="o">=</span> <span class="n">cov_xx</span> <span class="o">+</span> <span class="n">obs_cov</span>
+<a id="__codelineno-0-119" name="__codelineno-0-119"></a>
+<a id="__codelineno-0-120" name="__codelineno-0-120"></a>    <span class="c1"># Project quantities to subspace</span>
+<a id="__codelineno-0-121" name="__codelineno-0-121"></a>    <span class="n">actions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">policy</span><span class="o">.</span><span class="n">to_actions</span><span class="p">(</span><span class="n">cov_prior</span><span class="p">)</span>
+<a id="__codelineno-0-122" name="__codelineno-0-122"></a>    <span class="n">obs_cov_proj</span> <span class="o">=</span> <span class="n">congruence_transform</span><span class="p">(</span><span class="n">actions</span><span class="p">,</span> <span class="n">obs_cov</span><span class="p">)</span>
+<a id="__codelineno-0-123" name="__codelineno-0-123"></a>    <span class="n">cov_prior_proj</span> <span class="o">=</span> <span class="n">congruence_transform</span><span class="p">(</span><span class="n">actions</span><span class="p">,</span> <span class="n">cov_prior</span><span class="p">)</span>
+<a id="__codelineno-0-124" name="__codelineno-0-124"></a>    <span class="n">cov_prior_proj_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="n">cov_prior_proj</span><span class="p">)</span>
+<a id="__codelineno-0-125" name="__codelineno-0-125"></a>
+<a id="__codelineno-0-126" name="__codelineno-0-126"></a>    <span class="n">residual_proj</span> <span class="o">=</span> <span class="n">actions</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">mean_prior</span><span class="p">)</span>
+<a id="__codelineno-0-127" name="__codelineno-0-127"></a>    <span class="n">repr_weights_proj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">cov_prior_proj_state</span><span class="p">,</span> <span class="n">residual_proj</span><span class="p">)</span>
+<a id="__codelineno-0-128" name="__codelineno-0-128"></a>
+<a id="__codelineno-0-129" name="__codelineno-0-129"></a>    <span class="k">return</span> <span class="n">ComputationAwareGPState</span><span class="p">(</span>
+<a id="__codelineno-0-130" name="__codelineno-0-130"></a>        <span class="n">train_data</span><span class="o">=</span><span class="n">train_data</span><span class="p">,</span>
+<a id="__codelineno-0-131" name="__codelineno-0-131"></a>        <span class="n">actions</span><span class="o">=</span><span class="n">actions</span><span class="p">,</span>
+<a id="__codelineno-0-132" name="__codelineno-0-132"></a>        <span class="n">obs_cov_proj</span><span class="o">=</span><span class="n">obs_cov_proj</span><span class="p">,</span>
+<a id="__codelineno-0-133" name="__codelineno-0-133"></a>        <span class="n">cov_prior_proj_state</span><span class="o">=</span><span class="n">cov_prior_proj_state</span><span class="p">,</span>
+<a id="__codelineno-0-134" name="__codelineno-0-134"></a>        <span class="n">residual_proj</span><span class="o">=</span><span class="n">residual_proj</span><span class="p">,</span>
+<a id="__codelineno-0-135" name="__codelineno-0-135"></a>        <span class="n">repr_weights_proj</span><span class="o">=</span><span class="n">repr_weights_proj</span><span class="p">,</span>
+<a id="__codelineno-0-136" name="__codelineno-0-136"></a>    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="cagpjax.models.cagp.ComputationAwareGP.predict" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">predict</span>
+
+
+</h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">predict</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">ComputationAwareGPState</span><span class="p">[</span><span class="n">_LinearSolverState</span><span class="p">],</span> <span class="n">test_inputs</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;N D&#39;</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GaussianDistribution</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Compute the predictive distribution of the GP at the test inputs.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+<h4 id="cagpjax.models.cagp.ComputationAwareGP.predict(state)" class="doc doc-heading doc-heading-parameter">              <b><code>state</code></b>
+</h4>              (<code><a class="autorefs autorefs-internal" title="            ComputationAwareGPState
+
+
+  
+      dataclass
+   (cagpjax.models.cagp.ComputationAwareGPState)" href="#cagpjax.models.cagp.ComputationAwareGPState">ComputationAwareGPState</a>[<span title="cagpjax.models.cagp._LinearSolverState">_LinearSolverState</span>]</code>)
+          –
+          <div class="doc-md-description">
+            <p>State of the conditioned GP computed by <a class="autorefs autorefs-internal" title="            init" href="#cagpjax.models.cagp.ComputationAwareGP.init"><code>init</code></a></p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+<h4 id="cagpjax.models.cagp.ComputationAwareGP.predict(test_inputs)" class="doc doc-heading doc-heading-parameter">              <b><code>test_inputs</code></b>
+</h4>              (<code><span title="jaxtyping.Float">Float</span>[<span title="jaxtyping.Array">Array</span>, &#39;N D&#39;] | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>The test inputs at which to make predictions. If not provided,
+predictions are made at the training inputs.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+<b><code>GaussianDistribution</code></b> (              <code><a class="autorefs autorefs-internal" title="            GaussianDistribution (cagpjax.distributions.GaussianDistribution)" href="../../distributions/#cagpjax.distributions.GaussianDistribution">GaussianDistribution</a></code>
+)          –
+          <div class="doc-md-description">
+            <p>The predictive distribution of the GP at the
+test inputs.</p>
+          </div>
+        </li>
+    </ul>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/cagpjax/models/cagp.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-138">138</a></span>
+<span class="normal"><a href="#__codelineno-0-139">139</a></span>
+<span class="normal"><a href="#__codelineno-0-140">140</a></span>
+<span class="normal"><a href="#__codelineno-0-141">141</a></span>
+<span class="normal"><a href="#__codelineno-0-142">142</a></span>
+<span class="normal"><a href="#__codelineno-0-143">143</a></span>
+<span class="normal"><a href="#__codelineno-0-144">144</a></span>
+<span class="normal"><a href="#__codelineno-0-145">145</a></span>
+<span class="normal"><a href="#__codelineno-0-146">146</a></span>
+<span class="normal"><a href="#__codelineno-0-147">147</a></span>
+<span class="normal"><a href="#__codelineno-0-148">148</a></span>
+<span class="normal"><a href="#__codelineno-0-149">149</a></span>
+<span class="normal"><a href="#__codelineno-0-150">150</a></span>
+<span class="normal"><a href="#__codelineno-0-151">151</a></span>
+<span class="normal"><a href="#__codelineno-0-152">152</a></span>
+<span class="normal"><a href="#__codelineno-0-153">153</a></span>
+<span class="normal"><a href="#__codelineno-0-154">154</a></span>
+<span class="normal"><a href="#__codelineno-0-155">155</a></span>
+<span class="normal"><a href="#__codelineno-0-156">156</a></span>
+<span class="normal"><a href="#__codelineno-0-157">157</a></span>
+<span class="normal"><a href="#__codelineno-0-158">158</a></span>
+<span class="normal"><a href="#__codelineno-0-159">159</a></span>
+<span class="normal"><a href="#__codelineno-0-160">160</a></span>
+<span class="normal"><a href="#__codelineno-0-161">161</a></span>
+<span class="normal"><a href="#__codelineno-0-162">162</a></span>
+<span class="normal"><a href="#__codelineno-0-163">163</a></span>
+<span class="normal"><a href="#__codelineno-0-164">164</a></span>
+<span class="normal"><a href="#__codelineno-0-165">165</a></span>
+<span class="normal"><a href="#__codelineno-0-166">166</a></span>
+<span class="normal"><a href="#__codelineno-0-167">167</a></span>
+<span class="normal"><a href="#__codelineno-0-168">168</a></span>
+<span class="normal"><a href="#__codelineno-0-169">169</a></span>
+<span class="normal"><a href="#__codelineno-0-170">170</a></span>
+<span class="normal"><a href="#__codelineno-0-171">171</a></span>
+<span class="normal"><a href="#__codelineno-0-172">172</a></span>
+<span class="normal"><a href="#__codelineno-0-173">173</a></span>
+<span class="normal"><a href="#__codelineno-0-174">174</a></span>
+<span class="normal"><a href="#__codelineno-0-175">175</a></span>
+<span class="normal"><a href="#__codelineno-0-176">176</a></span>
+<span class="normal"><a href="#__codelineno-0-177">177</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-138" name="__codelineno-0-138"></a><span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span>
+<a id="__codelineno-0-139" name="__codelineno-0-139"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-140" name="__codelineno-0-140"></a>    <span class="n">state</span><span class="p">:</span> <span class="n">ComputationAwareGPState</span><span class="p">[</span><span class="n">_LinearSolverState</span><span class="p">],</span>
+<a id="__codelineno-0-141" name="__codelineno-0-141"></a>    <span class="n">test_inputs</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot;N D&quot;</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-142" name="__codelineno-0-142"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GaussianDistribution</span><span class="p">:</span>
+<a id="__codelineno-0-143" name="__codelineno-0-143"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the predictive distribution of the GP at the test inputs.</span>
+<a id="__codelineno-0-144" name="__codelineno-0-144"></a>
+<a id="__codelineno-0-145" name="__codelineno-0-145"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-146" name="__codelineno-0-146"></a><span class="sd">        state: State of the conditioned GP computed by [`init`][..init]</span>
+<a id="__codelineno-0-147" name="__codelineno-0-147"></a><span class="sd">        test_inputs: The test inputs at which to make predictions. If not provided,</span>
+<a id="__codelineno-0-148" name="__codelineno-0-148"></a><span class="sd">            predictions are made at the training inputs.</span>
+<a id="__codelineno-0-149" name="__codelineno-0-149"></a>
+<a id="__codelineno-0-150" name="__codelineno-0-150"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-151" name="__codelineno-0-151"></a><span class="sd">        GaussianDistribution: The predictive distribution of the GP at the</span>
+<a id="__codelineno-0-152" name="__codelineno-0-152"></a><span class="sd">            test inputs.</span>
+<a id="__codelineno-0-153" name="__codelineno-0-153"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-154" name="__codelineno-0-154"></a>    <span class="n">train_data</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">train_data</span>
+<a id="__codelineno-0-155" name="__codelineno-0-155"></a>    <span class="k">assert</span> <span class="n">train_data</span><span class="o">.</span><span class="n">X</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>  <span class="c1"># help out pyright</span>
+<a id="__codelineno-0-156" name="__codelineno-0-156"></a>    <span class="n">x</span> <span class="o">=</span> <span class="n">train_data</span><span class="o">.</span><span class="n">X</span>
+<a id="__codelineno-0-157" name="__codelineno-0-157"></a>
+<a id="__codelineno-0-158" name="__codelineno-0-158"></a>    <span class="c1"># Predictions at test points</span>
+<a id="__codelineno-0-159" name="__codelineno-0-159"></a>    <span class="n">z</span> <span class="o">=</span> <span class="n">test_inputs</span> <span class="k">if</span> <span class="n">test_inputs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">x</span>
+<a id="__codelineno-0-160" name="__codelineno-0-160"></a>    <span class="n">prior</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">posterior</span><span class="o">.</span><span class="n">prior</span>
+<a id="__codelineno-0-161" name="__codelineno-0-161"></a>    <span class="n">mean_z</span> <span class="o">=</span> <span class="n">prior</span><span class="o">.</span><span class="n">mean_function</span><span class="p">(</span><span class="n">z</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
+<a id="__codelineno-0-162" name="__codelineno-0-162"></a>    <span class="c1"># Work around GPJax promoting dtype of mean to float64 (See JaxGaussianProcesses/GPJax#523)</span>
+<a id="__codelineno-0-163" name="__codelineno-0-163"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">prior</span><span class="o">.</span><span class="n">mean_function</span><span class="p">,</span> <span class="n">Constant</span><span class="p">):</span>
+<a id="__codelineno-0-164" name="__codelineno-0-164"></a>        <span class="n">constant</span> <span class="o">=</span> <span class="n">prior</span><span class="o">.</span><span class="n">mean_function</span><span class="o">.</span><span class="n">constant</span><span class="p">[</span><span class="o">...</span><span class="p">]</span>
+<a id="__codelineno-0-165" name="__codelineno-0-165"></a>        <span class="n">mean_z</span> <span class="o">=</span> <span class="n">mean_z</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">constant</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+<a id="__codelineno-0-166" name="__codelineno-0-166"></a>    <span class="n">cov_zz</span> <span class="o">=</span> <span class="n">lazify</span><span class="p">(</span><span class="n">prior</span><span class="o">.</span><span class="n">kernel</span><span class="o">.</span><span class="n">gram</span><span class="p">(</span><span class="n">z</span><span class="p">))</span>
+<a id="__codelineno-0-167" name="__codelineno-0-167"></a>    <span class="n">cov_zx</span> <span class="o">=</span> <span class="n">cov_zz</span> <span class="k">if</span> <span class="n">test_inputs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">prior</span><span class="o">.</span><span class="n">kernel</span><span class="o">.</span><span class="n">cross_covariance</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+<a id="__codelineno-0-168" name="__codelineno-0-168"></a>    <span class="n">cov_zx_proj</span> <span class="o">=</span> <span class="n">cov_zx</span> <span class="o">@</span> <span class="n">state</span><span class="o">.</span><span class="n">actions</span>
+<a id="__codelineno-0-169" name="__codelineno-0-169"></a>
+<a id="__codelineno-0-170" name="__codelineno-0-170"></a>    <span class="c1"># Posterior predictive distribution</span>
+<a id="__codelineno-0-171" name="__codelineno-0-171"></a>    <span class="n">mean_pred</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">mean_z</span> <span class="o">+</span> <span class="n">cov_zx_proj</span> <span class="o">@</span> <span class="n">state</span><span class="o">.</span><span class="n">repr_weights_proj</span><span class="p">)</span>
+<a id="__codelineno-0-172" name="__codelineno-0-172"></a>    <span class="n">cov_pred</span> <span class="o">=</span> <span class="n">cov_zz</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">inv_congruence_transform</span><span class="p">(</span>
+<a id="__codelineno-0-173" name="__codelineno-0-173"></a>        <span class="n">state</span><span class="o">.</span><span class="n">cov_prior_proj_state</span><span class="p">,</span> <span class="n">cov_zx_proj</span><span class="o">.</span><span class="n">T</span>
+<a id="__codelineno-0-174" name="__codelineno-0-174"></a>    <span class="p">)</span>
+<a id="__codelineno-0-175" name="__codelineno-0-175"></a>    <span class="n">cov_pred</span> <span class="o">=</span> <span class="n">cola</span><span class="o">.</span><span class="n">PSD</span><span class="p">(</span><span class="n">cov_pred</span><span class="p">)</span>
+<a id="__codelineno-0-176" name="__codelineno-0-176"></a>
+<a id="__codelineno-0-177" name="__codelineno-0-177"></a>    <span class="k">return</span> <span class="n">GaussianDistribution</span><span class="p">(</span><span class="n">mean_pred</span><span class="p">,</span> <span class="n">cov_pred</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="cagpjax.models.cagp.ComputationAwareGP.prior_kl" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">prior_kl</span>
+
+
+</h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">prior_kl</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">ComputationAwareGPState</span><span class="p">[</span><span class="n">_LinearSolverState</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">ScalarFloat</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Compute KL divergence between CaGP posterior and GP prior..</p>
+<p>Calculates <span class="arithmatex">\(\mathrm{KL}[q(f) || p(f)]\)</span>, where <span class="arithmatex">\(q(f)\)</span> is the CaGP
+posterior approximation and <span class="arithmatex">\(p(f)\)</span> is the GP prior.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+<h4 id="cagpjax.models.cagp.ComputationAwareGP.prior_kl(state)" class="doc doc-heading doc-heading-parameter">              <b><code>state</code></b>
+</h4>              (<code><a class="autorefs autorefs-internal" title="            ComputationAwareGPState
+
+
+  
+      dataclass
+   (cagpjax.models.cagp.ComputationAwareGPState)" href="#cagpjax.models.cagp.ComputationAwareGPState">ComputationAwareGPState</a>[<span title="cagpjax.models.cagp._LinearSolverState">_LinearSolverState</span>]</code>)
+          –
+          <div class="doc-md-description">
+            <p>State of the conditioned GP computed by <a class="autorefs autorefs-internal" title="            init" href="#cagpjax.models.cagp.ComputationAwareGP.init"><code>init</code></a></p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="cagpjax.typing.ScalarFloat">ScalarFloat</span></code>
+          –
+          <div class="doc-md-description">
+            <p>KL divergence value (scalar).</p>
+          </div>
+        </li>
+    </ul>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/cagpjax/models/cagp.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-179">179</a></span>
+<span class="normal"><a href="#__codelineno-0-180">180</a></span>
+<span class="normal"><a href="#__codelineno-0-181">181</a></span>
+<span class="normal"><a href="#__codelineno-0-182">182</a></span>
+<span class="normal"><a href="#__codelineno-0-183">183</a></span>
+<span class="normal"><a href="#__codelineno-0-184">184</a></span>
+<span class="normal"><a href="#__codelineno-0-185">185</a></span>
+<span class="normal"><a href="#__codelineno-0-186">186</a></span>
+<span class="normal"><a href="#__codelineno-0-187">187</a></span>
+<span class="normal"><a href="#__codelineno-0-188">188</a></span>
+<span class="normal"><a href="#__codelineno-0-189">189</a></span>
+<span class="normal"><a href="#__codelineno-0-190">190</a></span>
+<span class="normal"><a href="#__codelineno-0-191">191</a></span>
+<span class="normal"><a href="#__codelineno-0-192">192</a></span>
+<span class="normal"><a href="#__codelineno-0-193">193</a></span>
+<span class="normal"><a href="#__codelineno-0-194">194</a></span>
+<span class="normal"><a href="#__codelineno-0-195">195</a></span>
+<span class="normal"><a href="#__codelineno-0-196">196</a></span>
+<span class="normal"><a href="#__codelineno-0-197">197</a></span>
+<span class="normal"><a href="#__codelineno-0-198">198</a></span>
+<span class="normal"><a href="#__codelineno-0-199">199</a></span>
+<span class="normal"><a href="#__codelineno-0-200">200</a></span>
+<span class="normal"><a href="#__codelineno-0-201">201</a></span>
+<span class="normal"><a href="#__codelineno-0-202">202</a></span>
+<span class="normal"><a href="#__codelineno-0-203">203</a></span>
+<span class="normal"><a href="#__codelineno-0-204">204</a></span>
+<span class="normal"><a href="#__codelineno-0-205">205</a></span>
+<span class="normal"><a href="#__codelineno-0-206">206</a></span>
+<span class="normal"><a href="#__codelineno-0-207">207</a></span>
+<span class="normal"><a href="#__codelineno-0-208">208</a></span>
+<span class="normal"><a href="#__codelineno-0-209">209</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-179" name="__codelineno-0-179"></a><span class="k">def</span><span class="w"> </span><span class="nf">prior_kl</span><span class="p">(</span>
+<a id="__codelineno-0-180" name="__codelineno-0-180"></a>    <span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">ComputationAwareGPState</span><span class="p">[</span><span class="n">_LinearSolverState</span><span class="p">]</span>
+<a id="__codelineno-0-181" name="__codelineno-0-181"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ScalarFloat</span><span class="p">:</span>
+<a id="__codelineno-0-182" name="__codelineno-0-182"></a><span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Compute KL divergence between CaGP posterior and GP prior..</span>
+<a id="__codelineno-0-183" name="__codelineno-0-183"></a>
+<a id="__codelineno-0-184" name="__codelineno-0-184"></a><span class="sd">    Calculates $\mathrm{KL}[q(f) || p(f)]$, where $q(f)$ is the CaGP</span>
+<a id="__codelineno-0-185" name="__codelineno-0-185"></a><span class="sd">    posterior approximation and $p(f)$ is the GP prior.</span>
+<a id="__codelineno-0-186" name="__codelineno-0-186"></a>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-188" name="__codelineno-0-188"></a><span class="sd">        state: State of the conditioned GP computed by [`init`][..init]</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a>
+<a id="__codelineno-0-190" name="__codelineno-0-190"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-191" name="__codelineno-0-191"></a><span class="sd">        KL divergence value (scalar).</span>
+<a id="__codelineno-0-192" name="__codelineno-0-192"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-193" name="__codelineno-0-193"></a>    <span class="n">obs_cov_proj_solver_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">obs_cov_proj</span><span class="p">)</span>
+<a id="__codelineno-0-194" name="__codelineno-0-194"></a>
+<a id="__codelineno-0-195" name="__codelineno-0-195"></a>    <span class="n">kl</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-196" name="__codelineno-0-196"></a>        <span class="n">_kl_divergence_from_solvers</span><span class="p">(</span>
+<a id="__codelineno-0-197" name="__codelineno-0-197"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="p">,</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a>            <span class="n">state</span><span class="o">.</span><span class="n">residual_proj</span><span class="p">,</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a>            <span class="n">obs_cov_proj_solver_state</span><span class="p">,</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a>            <span class="n">jnp</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">residual_proj</span><span class="p">),</span>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a>            <span class="n">state</span><span class="o">.</span><span class="n">cov_prior_proj_state</span><span class="p">,</span>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a>        <span class="p">)</span>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a>        <span class="o">-</span> <span class="mf">0.5</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a>        <span class="o">*</span> <span class="n">congruence_transform</span><span class="p">(</span>
+<a id="__codelineno-0-205" name="__codelineno-0-205"></a>            <span class="n">state</span><span class="o">.</span><span class="n">repr_weights_proj</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">obs_cov_proj</span>
+<a id="__codelineno-0-206" name="__codelineno-0-206"></a>        <span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
+<a id="__codelineno-0-207" name="__codelineno-0-207"></a>    <span class="p">)</span>
+<a id="__codelineno-0-208" name="__codelineno-0-208"></a>
+<a id="__codelineno-0-209" name="__codelineno-0-209"></a>    <span class="k">return</span> <span class="n">kl</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="cagpjax.models.cagp.ComputationAwareGP.variational_expectation" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">variational_expectation</span>
+
+
+</h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">variational_expectation</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">ComputationAwareGPState</span><span class="p">[</span><span class="n">_LinearSolverState</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="n">N</span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Compute the variational expectation.</p>
+<p>Compute the pointwise expected log-likelihood under the variational distribution.</p>
+
+
+<details class="note" open>
+  <summary>Note</summary>
+  <p>This should be used instead of <code>gpjax.objectives.variational_expectation</code></p>
+</details>
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+<h4 id="cagpjax.models.cagp.ComputationAwareGP.variational_expectation(state)" class="doc doc-heading doc-heading-parameter">              <b><code>state</code></b>
+</h4>              (<code><a class="autorefs autorefs-internal" title="            ComputationAwareGPState
+
+
+  
+      dataclass
+   (cagpjax.models.cagp.ComputationAwareGPState)" href="#cagpjax.models.cagp.ComputationAwareGPState">ComputationAwareGPState</a>[<span title="cagpjax.models.cagp._LinearSolverState">_LinearSolverState</span>]</code>)
+          –
+          <div class="doc-md-description">
+            <p>State of the conditioned GP computed by <a class="autorefs autorefs-internal" title="            init" href="#cagpjax.models.cagp.ComputationAwareGP.init"><code>init</code></a></p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+<b><code>expectation</code></b> (              <code><span title="jaxtyping.Float">Float</span>[<span title="jaxtyping.Array">Array</span>, <span title="N">N</span>]</code>
+)          –
+          <div class="doc-md-description">
+            <p>The pointwise expected log-likelihood under the variational distribution.</p>
+          </div>
+        </li>
+    </ul>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/cagpjax/models/cagp.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-211">211</a></span>
+<span class="normal"><a href="#__codelineno-0-212">212</a></span>
+<span class="normal"><a href="#__codelineno-0-213">213</a></span>
+<span class="normal"><a href="#__codelineno-0-214">214</a></span>
+<span class="normal"><a href="#__codelineno-0-215">215</a></span>
+<span class="normal"><a href="#__codelineno-0-216">216</a></span>
+<span class="normal"><a href="#__codelineno-0-217">217</a></span>
+<span class="normal"><a href="#__codelineno-0-218">218</a></span>
+<span class="normal"><a href="#__codelineno-0-219">219</a></span>
+<span class="normal"><a href="#__codelineno-0-220">220</a></span>
+<span class="normal"><a href="#__codelineno-0-221">221</a></span>
+<span class="normal"><a href="#__codelineno-0-222">222</a></span>
+<span class="normal"><a href="#__codelineno-0-223">223</a></span>
+<span class="normal"><a href="#__codelineno-0-224">224</a></span>
+<span class="normal"><a href="#__codelineno-0-225">225</a></span>
+<span class="normal"><a href="#__codelineno-0-226">226</a></span>
+<span class="normal"><a href="#__codelineno-0-227">227</a></span>
+<span class="normal"><a href="#__codelineno-0-228">228</a></span>
+<span class="normal"><a href="#__codelineno-0-229">229</a></span>
+<span class="normal"><a href="#__codelineno-0-230">230</a></span>
+<span class="normal"><a href="#__codelineno-0-231">231</a></span>
+<span class="normal"><a href="#__codelineno-0-232">232</a></span>
+<span class="normal"><a href="#__codelineno-0-233">233</a></span>
+<span class="normal"><a href="#__codelineno-0-234">234</a></span>
+<span class="normal"><a href="#__codelineno-0-235">235</a></span>
+<span class="normal"><a href="#__codelineno-0-236">236</a></span>
+<span class="normal"><a href="#__codelineno-0-237">237</a></span>
+<span class="normal"><a href="#__codelineno-0-238">238</a></span>
+<span class="normal"><a href="#__codelineno-0-239">239</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-211" name="__codelineno-0-211"></a><span class="k">def</span><span class="w"> </span><span class="nf">variational_expectation</span><span class="p">(</span>
+<a id="__codelineno-0-212" name="__codelineno-0-212"></a>    <span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">ComputationAwareGPState</span><span class="p">[</span><span class="n">_LinearSolverState</span><span class="p">]</span>
+<a id="__codelineno-0-213" name="__codelineno-0-213"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot;N&quot;</span><span class="p">]:</span>
+<a id="__codelineno-0-214" name="__codelineno-0-214"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the variational expectation.</span>
+<a id="__codelineno-0-215" name="__codelineno-0-215"></a>
+<a id="__codelineno-0-216" name="__codelineno-0-216"></a><span class="sd">    Compute the pointwise expected log-likelihood under the variational distribution.</span>
+<a id="__codelineno-0-217" name="__codelineno-0-217"></a>
+<a id="__codelineno-0-218" name="__codelineno-0-218"></a><span class="sd">    Note:</span>
+<a id="__codelineno-0-219" name="__codelineno-0-219"></a><span class="sd">        This should be used instead of ``gpjax.objectives.variational_expectation``</span>
+<a id="__codelineno-0-220" name="__codelineno-0-220"></a>
+<a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-222" name="__codelineno-0-222"></a><span class="sd">        state: State of the conditioned GP computed by [`init`][..init]</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a><span class="sd">        expectation: The pointwise expected log-likelihood under the variational distribution.</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a>
+<a id="__codelineno-0-228" name="__codelineno-0-228"></a>    <span class="c1"># Unpack data</span>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a>    <span class="n">y</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">train_data</span><span class="o">.</span><span class="n">y</span>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a>    <span class="c1"># Predict and compute expectation</span>
+<a id="__codelineno-0-232" name="__codelineno-0-232"></a>    <span class="n">qpred</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a>    <span class="n">mean</span> <span class="o">=</span> <span class="n">qpred</span><span class="o">.</span><span class="n">mean</span>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a>    <span class="n">variance</span> <span class="o">=</span> <span class="n">qpred</span><span class="o">.</span><span class="n">variance</span>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a>    <span class="n">expectation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">posterior</span><span class="o">.</span><span class="n">likelihood</span><span class="o">.</span><span class="n">expected_log_likelihood</span><span class="p">(</span>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a>        <span class="n">y</span><span class="p">,</span> <span class="n">mean</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">variance</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a>    <span class="p">)</span>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a>    <span class="k">return</span> <span class="n">expectation</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="cagpjax.models.cagp.ComputationAwareGPState" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">ComputationAwareGPState</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+</h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ComputationAwareGPState</span><span class="p">(</span><span class="n">train_data</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span> <span class="n">actions</span><span class="p">:</span> <span class="n">LinearOperator</span><span class="p">,</span> <span class="n">obs_cov_proj</span><span class="p">:</span> <span class="n">LinearOperator</span><span class="p">,</span> <span class="n">cov_prior_proj_state</span><span class="p">:</span> <span class="n">_LinearSolverState</span><span class="p">,</span> <span class="n">residual_proj</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="n">M</span><span class="p">],</span> <span class="n">repr_weights_proj</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="n">M</span><span class="p">])</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="typing_extensions.Generic">Generic</span>[<span title="cagpjax.models.cagp._LinearSolverState">_LinearSolverState</span>]</code></p>
+
+
+
+        <p>Projected quantities for computation-aware GP inference.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+<h3 id="cagpjax.models.cagp.ComputationAwareGPState(train_data)" class="doc doc-heading doc-heading-parameter">              <b><code>train_data</code></b>
+</h3>              (<code><a class="autorefs autorefs-external" title="gpjax.gps.Dataset" href="https://docs.jaxgaussianprocesses.com/api/dataset/#gpjax.dataset.Dataset">Dataset</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Training data with N inputs with D dimensions.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+<h3 id="cagpjax.models.cagp.ComputationAwareGPState(actions)" class="doc doc-heading doc-heading-parameter">              <b><code>actions</code></b>
+</h3>              (<code><a class="autorefs autorefs-external" title="cola.ops.LinearOperator" href="https://cola.readthedocs.io/en/stable/package/cola.linear_operators.html#cola.ops.LinearOperator">LinearOperator</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Actions operator; transpose of operator projecting from N-dimensional space
+to M-dimensional subspace.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+<h3 id="cagpjax.models.cagp.ComputationAwareGPState(obs_cov_proj)" class="doc doc-heading doc-heading-parameter">              <b><code>obs_cov_proj</code></b>
+</h3>              (<code><a class="autorefs autorefs-external" title="cola.ops.LinearOperator" href="https://cola.readthedocs.io/en/stable/package/cola.linear_operators.html#cola.ops.LinearOperator">LinearOperator</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Projected covariance of likelihood.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+<h3 id="cagpjax.models.cagp.ComputationAwareGPState(cov_prior_proj_state)" class="doc doc-heading doc-heading-parameter">              <b><code>cov_prior_proj_state</code></b>
+</h3>              (<code><span title="cagpjax.models.cagp._LinearSolverState">_LinearSolverState</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Linear solver state for <code>cov_prior_proj</code>.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+<h3 id="cagpjax.models.cagp.ComputationAwareGPState(residual_proj)" class="doc doc-heading doc-heading-parameter">              <b><code>residual_proj</code></b>
+</h3>              (<code><span title="jaxtyping.Float">Float</span>[<span title="jaxtyping.Array">Array</span>, <span title="M">M</span>]</code>)
+          –
+          <div class="doc-md-description">
+            <p>Projected residuals between observations and prior mean.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+<h3 id="cagpjax.models.cagp.ComputationAwareGPState(repr_weights_proj)" class="doc doc-heading doc-heading-parameter">              <b><code>repr_weights_proj</code></b>
+</h3>              (<code><span title="jaxtyping.Float">Float</span>[<span title="jaxtyping.Array">Array</span>, <span title="M">M</span>]</code>)
+          –
+          <div class="doc-md-description">
+            <p>Projected representer weights.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../../..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.top", "content.code.copy"], "search": "../../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>
