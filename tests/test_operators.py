@@ -288,7 +288,7 @@ class TestLazyKernel:
 
     @pytest.mark.parametrize("grad,checkpoint", [(False, False), (True, True)])
     @pytest.mark.parametrize("n,dtype", [(20_000, jnp.float64), (40_000, jnp.float32)])
-    def test_large_kernel_matrix_grad(
+    def test_large_kernel_matrix_with_grad(
         self,
         grad,
         checkpoint,
@@ -297,7 +297,7 @@ class TestLazyKernel:
         max_memory_mb=2**8,  # 256MB
         key=jax.random.key(42),
     ):
-        """Test gradient computation for large kernel matrix."""
+        """Test finite loss and (optional) gradient computation."""
 
         (*subkeys,) = jax.random.split(key, 4)
         x1 = jax.random.normal(subkeys[0], (n, 2), dtype=dtype)
@@ -305,16 +305,17 @@ class TestLazyKernel:
         v = jax.random.normal(subkeys[2], (n,), dtype=dtype)
 
         def loss(params):
-            kernel = RBF(lengthscale=params[0], variance=params[1])
+            kernel = RBF(
+                lengthscale=jnp.array(params[0]), variance=jnp.array(params[1])
+            )
             op = LazyKernel(
                 kernel, x1, x2, max_memory_mb=max_memory_mb, checkpoint=checkpoint
             )
-            return jnp.vdot(v, op @ v)
+            with jax.default_matmul_precision("highest"):
+                return jnp.vdot(v, op @ v)
 
         params = jax.random.uniform(subkeys[3], (2,), dtype=dtype)
-        if not grad:
-            assert jnp.isfinite(loss(params))
-        else:
-            grads = jax.grad(loss)(params)
-            assert grads.dtype == dtype
-            assert jnp.isfinite(grads).all()
+        assert jnp.isfinite(loss(params))
+        if grad:
+            rtol = 1e-3 if dtype == jnp.float32 else 1e-8
+            jax.test_util.check_grads(loss, (params,), order=1, rtol=rtol)
