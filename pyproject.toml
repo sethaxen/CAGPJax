@@ -46,7 +46,7 @@ docs = [
     "mkdocs",
     "mkdocs-material",
     "mkdocstrings[python]",
-    "mkdocs-gen-files",
+    "mkdocs-api-autonav",
     "mkdocs-literate-nav",
     "mkdocs-bibtex",
     "mkdocs-section-index",
