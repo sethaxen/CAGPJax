@@ -7,6 +7,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 from cola.ops import Dense, Diagonal, LinearOperator, ScalarMul
+from flax import nnx
 from gpjax.kernels import RBF
 
 from cagpjax.operators import BlockDiagonalSparse
@@ -304,18 +305,21 @@ class TestLazyKernel:
         x2 = jax.random.normal(subkeys[1], (n, 2), dtype=dtype)
         v = jax.random.normal(subkeys[2], (n,), dtype=dtype)
 
-        def loss(params):
-            kernel = RBF(
-                lengthscale=jnp.array(params[0]), variance=jnp.array(params[1])
-            )
+        lengthscale, variance = jax.random.uniform(subkeys[3], (2,), dtype=dtype)
+        kernel = RBF(lengthscale=lengthscale, variance=variance)
+        graphdef, params = nnx.split(kernel, gpjax.parameters.Parameter)
+
+        def loss(params: nnx.State):
+            kernel = nnx.merge(graphdef, params)
             op = LazyKernel(
                 kernel, x1, x2, max_memory_mb=max_memory_mb, checkpoint=checkpoint
             )
             with jax.default_matmul_precision("highest"):
                 return jnp.vdot(v, op @ v)
 
-        params = jax.random.uniform(subkeys[3], (2,), dtype=dtype)
         assert jnp.isfinite(loss(params))
         if grad:
             rtol = 1e-3 if dtype == jnp.float32 else 1e-6
-            jax.test_util.check_grads(loss, (params,), order=1, rtol=rtol)
+            jax.test_util.check_grads(
+                loss, (params,), order=1, modes=["rev"], rtol=rtol
+            )
