@@ -244,13 +244,24 @@ class TestLazyKernel:
             kernel, *inputs, batch_size=batch_size, max_memory_mb=max_memory_mb
         )
 
-    def test_initialization(self, op, inputs, kernel, batch_size, max_memory_mb):
+    @pytest.mark.parametrize("checkpoint", [True, False])
+    def test_initialization(
+        self, inputs, kernel, batch_size, max_memory_mb, checkpoint
+    ):
         """Test initialization for all parameter combinations."""
+        op = LazyKernel(
+            kernel,
+            *inputs,
+            batch_size=batch_size,
+            max_memory_mb=max_memory_mb,
+            checkpoint=checkpoint,
+        )
         x1, x2 = inputs
         assert op.dtype == x1.dtype
         assert op.kernel is kernel
         assert op.x1 is x1
         assert op.x2 is x2
+        assert op.checkpoint is checkpoint
         if batch_size is None:
             if max_memory_mb == 0.0:
                 assert op.batch_size_row == 1
