@@ -43,10 +43,10 @@ test = [
     "pytest-cov",
 ]
 docs = [
-    "mkdocs-api-autonav",
     "mkdocs",
     "mkdocs-material",
     "mkdocstrings[python]",
+    "mkdocs-api-autonav",
     "mkdocs-literate-nav",
     "mkdocs-bibtex",
     "mkdocs-section-index",
