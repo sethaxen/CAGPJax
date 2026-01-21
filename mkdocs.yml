@@ -36,6 +36,14 @@ plugins:
             show_root_heading: true
             show_root_toc_entry: true
             heading_level: 1
+            docstring_section_style: list
+            merge_init_into_class: true
+            parameter_headings: true
+            separate_signature: true
+            show_signature_annotations: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            summary: true
           inventories:
             - https://docs.jax.dev/en/latest/objects.inv
             - https://docs.jaxgaussianprocesses.com/objects.inv
