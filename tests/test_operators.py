@@ -7,30 +7,33 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 from cola.ops import Dense, Diagonal, LinearOperator, ScalarMul
+from flax import nnx
+from gpjax.kernels import RBF
 
 from cagpjax.operators import BlockDiagonalSparse
 from cagpjax.operators.annotations import ScaledOrthogonal
 from cagpjax.operators.diag_like import diag_like
+from cagpjax.operators.lazy_kernel import LazyKernel
 from cagpjax.operators.utils import lazify
 
 jax.config.update("jax_enable_x64", True)
 
 
-def _test_mul_consistency(op: LinearOperator):
+def _test_mul_consistency(op: LinearOperator, **kwargs):
     """Test that the linear operator is consistent with multiplication by identity."""
     mat = op.to_dense()
-    np.testing.assert_allclose(jnp.eye(op.shape[0]) @ op, mat)
-    np.testing.assert_allclose(op @ jnp.eye(op.shape[1]), mat)
+    np.testing.assert_allclose(jnp.eye(op.shape[0]) @ op, mat, **kwargs)
+    np.testing.assert_allclose(op @ jnp.eye(op.shape[1]), mat, **kwargs)
 
 
-def _test_transpose_consistency(op: LinearOperator):
+def _test_transpose_consistency(op: LinearOperator, **kwargs):
     """Test that the transpose is consistent."""
     op_transpose = op.T
     assert op_transpose.shape == op.shape[::-1]
-    np.testing.assert_allclose(op_transpose.to_dense(), op.to_dense().T)
+    np.testing.assert_allclose(op_transpose.to_dense(), op.to_dense().T, **kwargs)
 
 
-def _test_dtype_consistency(op: LinearOperator):
+def _test_dtype_consistency(op: LinearOperator, **kwargs):
     """Test that the linear operator has the correct dtype."""
     assert op.dtype == op.to_dense().dtype
     x = jnp.ones(op.shape[1], dtype=op.dtype)
@@ -39,11 +42,11 @@ def _test_dtype_consistency(op: LinearOperator):
     assert (op.T @ y).dtype == op.dtype
 
 
-def _test_linear_operator_consistency(op: LinearOperator):
+def _test_linear_operator_consistency(op: LinearOperator, **kwargs):
     """Test that the linear operator is self-consistent."""
-    _test_mul_consistency(op)
-    _test_transpose_consistency(op)
-    _test_dtype_consistency(op)
+    _test_mul_consistency(op, **kwargs)
+    _test_transpose_consistency(op, **kwargs)
+    _test_dtype_consistency(op, **kwargs)
 
 
 class TestUtils:
@@ -191,3 +194,132 @@ class TestDiagLike:
         else:
             assert isinstance(diag_op, ScalarMul)
             np.testing.assert_allclose(diag_op.to_dense(), jnp.diag(jnp.full(n, vals)))
+
+
+class TestLazyKernel:
+    """Test cases for LazyKernel."""
+
+    @pytest.fixture(params=[jnp.float32, jnp.float64])
+    def dtype(self, request):
+        return request.param
+
+    @pytest.fixture
+    def n_dims(self):
+        return 2
+
+    @pytest.fixture(params=[(9, 5), (7, 10)], ids=["(9, 5)", "(7, 10)"])
+    def shape(self, request):
+        return request.param
+
+    @pytest.fixture(params=[1, 3, None])
+    def batch_size(self, request, shape):
+        if request.param is None:
+            return None
+        num_elements = request.param
+        return num_elements * max(*shape)
+
+    @pytest.fixture(params=[0.0, 2**5])
+    def max_memory_mb(self, request):
+        return request.param
+
+    @pytest.fixture
+    def kernel(self, dtype):
+        """Create RBF kernel for testing."""
+        return RBF(
+            lengthscale=jnp.array(1.0, dtype=dtype),
+            variance=jnp.array(1.0, dtype=dtype),
+        )
+
+    @pytest.fixture
+    def inputs(self, shape, n_dims, dtype, key=jax.random.key(42)):
+        """Create first set of input points."""
+        _, subkey1, subkey2 = jax.random.split(key, 3)
+        x1 = jax.random.normal(subkey1, (shape[0], n_dims), dtype=dtype)
+        x2 = jax.random.normal(subkey2, (shape[1], n_dims), dtype=dtype)
+        return x1, x2
+
+    @pytest.fixture
+    def op(self, kernel, inputs, batch_size, max_memory_mb):
+        """Create LazyKernel with all valid parameter combinations."""
+        return LazyKernel(
+            kernel, *inputs, batch_size=batch_size, max_memory_mb=max_memory_mb
+        )
+
+    @pytest.mark.parametrize("checkpoint", [True, False])
+    def test_initialization(
+        self, inputs, kernel, batch_size, max_memory_mb, checkpoint
+    ):
+        """Test initialization for all parameter combinations."""
+        op = LazyKernel(
+            kernel,
+            *inputs,
+            batch_size=batch_size,
+            max_memory_mb=max_memory_mb,
+            checkpoint=checkpoint,
+        )
+        x1, x2 = inputs
+        assert op.dtype == x1.dtype
+        assert op.kernel is kernel
+        assert op.x1 is x1
+        assert op.x2 is x2
+        assert op.checkpoint is checkpoint
+        if batch_size is None:
+            if max_memory_mb == 0.0:
+                assert op.batch_size_row == 1
+                assert op.batch_size_col == 1
+            else:
+                assert op.batch_size_row > 1
+                assert op.batch_size_col > 1
+        else:
+            assert op.batch_size_row == batch_size
+            assert op.batch_size_col == batch_size
+
+    @jax.default_matmul_precision("highest")
+    def test_linear_operator_consistency(self, op, atol=1e-6):
+        """Test LinearOperator consistency for all parameter combinations."""
+        _test_linear_operator_consistency(op, atol=atol)
+
+    @jax.default_matmul_precision("highest")
+    def test_consistency_with_dense(self, op, kernel, inputs):
+        """Test consistency with dense kernel matrix."""
+        x1, x2 = inputs
+        assert jnp.allclose(
+            cola.densify(op), cola.densify(kernel.cross_covariance(x1, x2))
+        )
+
+    @pytest.mark.parametrize("grad,checkpoint", [(False, False), (True, True)])
+    @pytest.mark.parametrize("n,dtype", [(20_000, jnp.float64), (40_000, jnp.float32)])
+    def test_large_kernel_matrix_with_grad(
+        self,
+        grad,
+        checkpoint,
+        n,
+        dtype,
+        max_memory_mb=2**8,  # 256MB
+        key=jax.random.key(42),
+    ):
+        """Test finite loss and (optional) gradient computation."""
+
+        (*subkeys,) = jax.random.split(key, 4)
+        x1 = jax.random.normal(subkeys[0], (n, 2), dtype=dtype)
+        x2 = jax.random.normal(subkeys[1], (n, 2), dtype=dtype)
+        v = jax.random.normal(subkeys[2], (n,), dtype=dtype)
+
+        lengthscale, variance = jax.random.uniform(subkeys[3], (2,), dtype=dtype)
+        kernel = RBF(lengthscale=lengthscale, variance=variance)
+        graphdef, params = nnx.split(kernel, gpjax.parameters.Parameter)
+
+        def loss(params):
+            kernel = nnx.merge(graphdef, params)
+            op = LazyKernel(
+                kernel, x1, x2, max_memory_mb=max_memory_mb, checkpoint=checkpoint
+            )
+            with jax.default_matmul_precision("highest"):
+                return jnp.vdot(v, op @ v)
+
+        assert jnp.isfinite(loss(params))
+        if grad:
+            rtol = 1e-2 if dtype == jnp.float32 else 1e-6
+            jax.test_util.check_grads(
+                loss, (params,), order=1, modes=["rev"], rtol=rtol
+            )
