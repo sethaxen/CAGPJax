@@ -309,7 +309,7 @@ class TestLazyKernel:
         kernel = RBF(lengthscale=lengthscale, variance=variance)
         graphdef, params = nnx.split(kernel, gpjax.parameters.Parameter)
 
-        def loss(params: nnx.State):
+        def loss(params):
             kernel = nnx.merge(graphdef, params)
             op = LazyKernel(
                 kernel, x1, x2, max_memory_mb=max_memory_mb, checkpoint=checkpoint
