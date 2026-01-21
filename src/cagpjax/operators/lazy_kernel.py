@@ -30,8 +30,8 @@ class LazyKernel(LinearOperator):
     kernel: AbstractKernel
     x1: Float[Array, "M D"]
     x2: Float[Array, "N D"]
-    batch_size_row: int
-    batch_size_col: int
+    batch_size: int | None
+    max_memory_mb: int
     checkpoint: bool
 
     def __init__(
@@ -52,15 +52,29 @@ class LazyKernel(LinearOperator):
         self.x1 = x1
         self.x2 = x2
         self._compute_engine = DenseKernelComputation()
-        if batch_size is None:
-            element_size = self.dtype.itemsize
-            max_elements = (max_memory_mb * 2**20) // element_size
-            self.batch_size_row = max(1, max_elements // self.shape[1])
-            self.batch_size_col = max(1, max_elements // self.shape[0])
-        else:
-            self.batch_size_row = batch_size
-            self.batch_size_col = batch_size
+        self.max_memory_mb = max_memory_mb
+        self.batch_size = batch_size
         self.checkpoint = checkpoint
+
+    @property
+    def max_elements(self) -> int:
+        """Maximum number of elements to store in memory during matmul operations."""
+        element_size = self.dtype.itemsize
+        return (self.max_memory_mb * 2**20) // element_size
+
+    @property
+    def batch_size_row(self) -> int:
+        """Maximum number of rows to materialize at once during right mat(-vec)muls."""
+        if self.batch_size is not None:
+            return self.batch_size
+        return max(1, self.max_elements // self.shape[1])
+
+    @property
+    def batch_size_col(self) -> int:
+        """Maximum number of columns to materialize at once during left mat(-vec)muls."""
+        if self.batch_size is not None:
+            return self.batch_size
+        return max(1, self.max_elements // self.shape[0])
 
     def _matmat(self, X: Float[Array, "K M"]) -> Float[Array, "N M"]:
         """Compute K(x1,x2) @ X row-wise to control memory usage."""
