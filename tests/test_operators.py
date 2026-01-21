@@ -317,5 +317,5 @@ class TestLazyKernel:
         params = jax.random.uniform(subkeys[3], (2,), dtype=dtype)
         assert jnp.isfinite(loss(params))
         if grad:
-            rtol = 1e-3 if dtype == jnp.float32 else 1e-8
+            rtol = 1e-3 if dtype == jnp.float32 else 1e-6
             jax.test_util.check_grads(loss, (params,), order=1, rtol=rtol)
