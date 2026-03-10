@@ -53,7 +53,7 @@ docs = [
 ]
 dev = [
     "cagpjax[test,docs]",
-    "pre-commit",
+    "prek",
 ]
 
 [tool.ruff.lint]
