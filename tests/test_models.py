@@ -3,6 +3,7 @@
 import gpjax as gpjax
 import jax
 import jax.numpy as jnp
+import jax.test_util
 import pytest
 from flax import nnx
 from gpjax.gps import ConjugatePosterior
