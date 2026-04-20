@@ -17,7 +17,6 @@ class GaussianDistribution(Distribution):
 
     loc: Float[Array, " N"]
     scale: LinearOperator
-    support = constraints.real_vector
     solver: AbstractLinearSolver
 
     def __init__(
@@ -40,6 +39,11 @@ class GaussianDistribution(Distribution):
         event_shape = jnp.shape(self.loc)
         self.solver = solver
         super().__init__(batch_shape, event_shape, **kwargs)
+
+    @property
+    def support(self):
+        """Support of the distribution."""
+        return constraints.real_vector
 
     @property
     def mean(self) -> Float[Array, " N"]:

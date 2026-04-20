@@ -4,6 +4,7 @@ import cola
 import gpjax
 import jax
 import jax.numpy as jnp
+import jax.test_util
 import numpy as np
 import pytest
 from cola.ops import Dense, Diagonal, LinearOperator, ScalarMul

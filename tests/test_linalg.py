@@ -3,6 +3,7 @@
 import cola
 import jax
 import jax.numpy as jnp
+import jax.test_util
 import pytest
 from cola.ops import Dense, Diagonal, Identity, LinearOperator, ScalarMul, Triangular
 
