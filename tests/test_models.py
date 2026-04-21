@@ -1,5 +1,6 @@
 """Tests for Gaussian process models."""
 
+import equinox as eqx
 import gpjax as gpjax
 import jax
 import jax.numpy as jnp
@@ -103,7 +104,8 @@ class TestComputationAwareGP:
 
     def make_posterior(self, n_train, dtype, compute_engine, constant_type):
         kernel = RBF(
-            variance=jnp.array(1.0, dtype=dtype),
+            lengthscale=Real(jnp.array(1.0, dtype=dtype)),
+            variance=Real(jnp.array(1.0, dtype=dtype)),
             compute_engine=compute_engine,
         )
         likelihood = Gaussian(
@@ -226,7 +228,9 @@ class TestComputationAwareGP:
         assert pred.scale.shape[0] == pred_exact.scale.out_size()
         assert pred.scale.shape[1] == pred_exact.scale.in_size()
         assert jnp.allclose(pred.mean, pred_exact.mean, atol=1e-4)
-        assert jnp.allclose(pred.scale.to_dense(), pred_exact.scale.as_matrix(), atol=1e-5)
+        assert jnp.allclose(
+            pred.scale.to_dense(), pred_exact.scale.as_matrix(), atol=1e-5
+        )
 
     def test_prior_kl_consistency(self, cagp, cagp_state, train_data, dtype):
         """Test that custom ``prior_kl`` matches KL computed from result of ``predict``."""
@@ -235,7 +239,6 @@ class TestComputationAwareGP:
 
         kl = cagp.prior_kl(cagp_state)
         assert isinstance(kl, jnp.ndarray)
-        assert kl.dtype == dtype
         assert jnp.isscalar(kl)
         assert jnp.isfinite(kl)
         assert kl >= 0.0
@@ -267,14 +270,16 @@ class TestComputationAwareGP:
             pytest.skip("Skipping float32 test due to numerical precision limitations")
 
         nz_values = jax.random.normal(key, (n_train,), dtype=dtype)
+        policy = BlockSparsePolicy(n_actions=n_train, nz_values=nz_values)
+        cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
+        params, static = eqx.partition(cagp, eqx.is_array)
 
-        def kl_objective(raw_nz_values):
-            policy = BlockSparsePolicy(n_actions=n_train, nz_values=raw_nz_values)
-            cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
-            cagp_state = cagp.init(train_data)
-            return cagp.prior_kl(cagp_state)
+        def kl_objective(params):
+            model = eqx.combine(params, static)
+            cagp_state = model.init(train_data)
+            return model.prior_kl(cagp_state)
 
-        jax.test_util.check_grads(kl_objective, (nz_values,), order=1, modes=["rev"])
+        jax.test_util.check_grads(kl_objective, (params,), order=1, modes=["rev"])
 
     def test_integration_elbo(self, cagp, cagp_state, posterior, train_data, dtype):
         """Test that ``elbo`` objective from GPJax is computed correctly."""

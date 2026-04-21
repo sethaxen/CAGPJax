@@ -1,7 +1,6 @@
 """Tests for custom linear operators."""
 
 import cola
-import gpjax
 import jax
 import jax.numpy as jnp
 import jax.test_util
@@ -292,11 +291,13 @@ class TestLazyKernel:
         v = jax.random.normal(subkeys[2], (n,), dtype=dtype)
 
         lengthscale, variance = jax.random.uniform(subkeys[3], (2,), dtype=dtype)
-        kernel = RBF(lengthscale=lengthscale, variance=variance)
-        graphdef, params = nnx.split(kernel, gpjax.parameters.Parameter)
 
-        def loss(params):
-            kernel = nnx.merge(graphdef, params)
+        kernel = RBF(
+            variance=variance,
+            compute_engine=DenseKernelComputation(),
+        )
+
+        def loss(kernel):
             op = LazyKernel(
                 kernel, x1, x2, max_memory_mb=max_memory_mb, checkpoint=checkpoint
             )
@@ -308,4 +309,5 @@ class TestLazyKernel:
             rtol = 1e-2 if dtype == jnp.float32 else 1e-6
             jax.test_util.check_grads(
                 loss, (params,), order=1, modes=["rev"], rtol=rtol
+                loss, (kernel,), order=1, modes=["rev"], rtol=rtol
             )
