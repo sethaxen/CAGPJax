@@ -4,6 +4,7 @@ import cola
 import gpjax.kernels
 import jax
 import jax.numpy as jnp
+import paramax
 import pytest
 from cola.ops import Dense, LinearOperator, Transpose
 from gpjax.dataset import Dataset
@@ -155,9 +156,8 @@ class TestBlockSparsePolicy:
         policy = BlockSparsePolicy(n_actions=n_actions, n=n, key=key, dtype=dtype)
 
         assert policy.n_actions == n_actions
-        assert isinstance(policy.nz_values, Real)
-        assert policy.nz_values.shape == (n,)
-        assert policy.nz_values.dtype == dtype
+        assert paramax.unwrap(policy.nz_values).shape == (n,)
+        assert paramax.unwrap(policy.nz_values).dtype == dtype
 
     @pytest.mark.parametrize("n_actions", [2, 3])
     @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
@@ -170,16 +170,14 @@ class TestBlockSparsePolicy:
 
         policy = BlockSparsePolicy(n_actions=n_actions, nz_values=nz_values)
         assert policy.n_actions == n_actions
-        assert isinstance(policy.nz_values, Real)
-        assert policy.nz_values.dtype == dtype
-        assert jnp.allclose(policy.nz_values[...], nz_values)
+        assert paramax.unwrap(policy.nz_values).dtype == dtype
+        assert jnp.allclose(paramax.unwrap(policy.nz_values), nz_values)
 
         policy_static = BlockSparsePolicy(
-            n_actions=n_actions, nz_values=Real(nz_values)
+            n_actions=n_actions, nz_values=paramax.non_trainable(nz_values)
         )
-        assert isinstance(policy_static.nz_values, Real)
-        assert policy_static.nz_values.dtype == dtype
-        assert jnp.allclose(policy_static.nz_values[...], nz_values)
+        assert jnp.allclose(paramax.unwrap(policy_static.nz_values), nz_values)
+        assert paramax.unwrap(policy_static.nz_values).dtype == dtype
 
     @pytest.mark.parametrize("n_actions", [2, 3])
     def test_to_actions_consistency(
@@ -260,10 +258,9 @@ class TestPseudoInputPolicy:
         assert isinstance(policy, PseudoInputPolicy)
         assert policy.n_actions == pseudo_inputs.shape[0]
         assert policy.kernel is kernel
-        assert isinstance(policy.train_inputs, jnp.ndarray)
-        assert jnp.array_equal(policy.train_inputs, train_inputs)
+        assert jnp.array_equal(paramax.unwrap(policy.train_inputs), train_inputs)
         assert isinstance(policy.pseudo_inputs, pseudo_input_type)
-        assert jnp.array_equal(policy.pseudo_inputs[...], pseudo_inputs)
+        assert jnp.array_equal(paramax.unwrap(policy.pseudo_inputs), pseudo_inputs)
 
     def test_actions_is_cross_covariance(self, inputs, kernel, dtype):
         """Test actions are the cross-covariance between the training inputs and pseudo-inputs."""

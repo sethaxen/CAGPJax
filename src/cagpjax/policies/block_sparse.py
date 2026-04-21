@@ -4,8 +4,8 @@ import warnings
 
 import jax
 import jax.numpy as jnp
+import paramax
 from cola.ops import LinearOperator
-from gpjax.parameters import Real
 from jaxtyping import Array, Float, PRNGKeyArray
 from typing_extensions import override
 
@@ -31,11 +31,13 @@ class BlockSparsePolicy(AbstractBatchLinearSolverPolicy):
     These are stacked and stored as a single trainable parameter ``nz_values``.
     """
 
+    nz_values: Float[Array, "N"] | paramax.AbstractUnwrappable[Float[Array, "N"]]
+
     def __init__(
         self,
         n_actions: int,
         n: int | None = None,
-        nz_values: Float[Array, "N"] | nnx.Variable[Float[Array, "N"]] | None = None,
+        nz_values: Float[Array, "N"] | None = None,
         key: PRNGKeyArray | None = None,
         **kwargs,
     ):
@@ -58,12 +60,9 @@ class BlockSparsePolicy(AbstractBatchLinearSolverPolicy):
                 key = jax.random.PRNGKey(0)
             block_size = n // n_actions
             nz_values = jax.random.normal(key, (n,), **kwargs)
-            nz_values /= jnp.sqrt(block_size)
+            nz_values = nz_values / jnp.sqrt(block_size).astype(nz_values.dtype)
         elif n is not None:
             warnings.warn("n is ignored because nz_values is provided")
-
-        if not isinstance(nz_values, nnx.Variable):
-            nz_values = Real(nz_values)
 
         self.nz_values = nz_values
 
@@ -77,4 +76,4 @@ class BlockSparsePolicy(AbstractBatchLinearSolverPolicy):
         Returns:
             BlockDiagonalSparse: Sparse action structure representing the blocks.
         """
-        return BlockDiagonalSparse(self.nz_values[...], self.n_actions)
+        return BlockDiagonalSparse(paramax.unwrap(self.nz_values), self.n_actions)

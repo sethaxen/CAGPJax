@@ -138,7 +138,7 @@ class TestComputationAwareGP:
         """Create CAGP state."""
         return cagp.init(train_data)
 
-    @pytest.mark.skipif(constant_type is nnx.Variable, reason="Test is redundant")
+    @pytest.mark.skipif(constant_type is Real, reason="Test is redundant")
     def test_initialization(self, policy, posterior, solver):
         """Test that CAGP initializes correctly."""
         cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
@@ -267,21 +267,14 @@ class TestComputationAwareGP:
             pytest.skip("Skipping float32 test due to numerical precision limitations")
 
         nz_values = jax.random.normal(key, (n_train,), dtype=dtype)
-        policy = BlockSparsePolicy(n_actions=n_train, nz_values=Real(nz_values))
 
-        # use nnx's utlities to split the policy into a graph definition and parameters
-        # this allows us to bypass gpjax.parameters.Parameter's check that the parameter is an
-        # ArrayLike (on jax > v0.8.1, GradTracer is not an ArrayLike) and mirrors how gpjax.fit
-        # computes gradients wrt parameters.
-        graphdef, params = nnx.split(policy, Real)
-
-        def kl_objective(params: nnx.State):
-            policy = nnx.merge(graphdef, params)
+        def kl_objective(raw_nz_values):
+            policy = BlockSparsePolicy(n_actions=n_train, nz_values=raw_nz_values)
             cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
             cagp_state = cagp.init(train_data)
             return cagp.prior_kl(cagp_state)
 
-        jax.test_util.check_grads(kl_objective, (params,), order=1, modes=["rev"])
+        jax.test_util.check_grads(kl_objective, (nz_values,), order=1, modes=["rev"])
 
     def test_integration_elbo(self, cagp, cagp_state, posterior, train_data, dtype):
         """Test that ``elbo`` objective from GPJax is computed correctly."""

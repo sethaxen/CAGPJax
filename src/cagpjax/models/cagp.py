@@ -6,6 +6,7 @@ from typing import Optional
 import cola
 import equinox as eqx
 import jax.numpy as jnp
+import paramax
 from cola.ops import LinearOperator
 from gpjax.gps import ConjugatePosterior, Dataset
 from gpjax.mean_functions import Constant
@@ -111,10 +112,10 @@ class ComputationAwareGP(eqx.Module, Generic[_LinearSolverState]):
         mean_prior = prior.mean_function(x).squeeze()
         # Work around GPJax promoting dtype of mean to float64 (See JaxGaussianProcesses/GPJax#523)
         if isinstance(prior.mean_function, Constant):
-            constant = prior.mean_function.constant[...]
+            constant = paramax.unwrap(prior.mean_function.constant)
             mean_prior = mean_prior.astype(constant.dtype)
         cov_xx = lazify(prior.kernel.gram(x))
-        obs_cov = diag_like(cov_xx, likelihood.obs_stddev[...] ** 2)
+        obs_cov = diag_like(cov_xx, paramax.unwrap(likelihood.obs_stddev) ** 2)
         cov_prior = cov_xx + obs_cov
 
         # Project quantities to subspace
@@ -161,7 +162,7 @@ class ComputationAwareGP(eqx.Module, Generic[_LinearSolverState]):
         mean_z = prior.mean_function(z).squeeze()
         # Work around GPJax promoting dtype of mean to float64 (See JaxGaussianProcesses/GPJax#523)
         if isinstance(prior.mean_function, Constant):
-            constant = prior.mean_function.constant[...]
+            constant = paramax.unwrap(prior.mean_function.constant)
             mean_z = mean_z.astype(constant.dtype)
         cov_zz = lazify(prior.kernel.gram(z))
         cov_zx = cov_zz if test_inputs is None else prior.kernel.cross_covariance(z, x)
