@@ -16,7 +16,7 @@ from cagpjax.operators import BlockDiagonalSparse
 from cagpjax.operators.annotations import ScaledOrthogonal
 from cagpjax.operators.diag_like import diag_like
 from cagpjax.operators.lazy_kernel import LazyKernel
-from cagpjax.operators.utils import lazify
+from cagpjax.interop import lazify
 
 jax.config.update("jax_enable_x64", True)
 

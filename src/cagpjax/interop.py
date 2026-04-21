@@ -1,3 +1,5 @@
+"""Interop utilities between cola and lineax operators."""
+
 from typing import Any
 
 import cola
@@ -5,12 +7,15 @@ import cola.ops
 import jax
 import lineax as lx
 from cola.ops import LinearOperator
+from jaxtyping import Array, Float, PyTree
 
 
 def lazify(A: Any) -> LinearOperator:
-    """Convert GPJax/Lineax/array inputs into Cola operators."""
+    """Convert GPJax/Lineax/array inputs into cola operators."""
     if isinstance(A, LinearOperator):
         return A
+    if isinstance(A, ColaLinearOperator):
+        return A.operator
     if isinstance(A, lx.TaggedLinearOperator):
         op = lazify(A.operator)
         if lx.positive_semidefinite_tag in A.tags:
@@ -37,4 +42,6 @@ def to_lineax(A: Any) -> lx.AbstractLinearOperator:
     if isinstance(A, cola.ops.Identity):
         metadata = jax.ShapeDtypeStruct((A.shape[1],), A.dtype)
         return lx.IdentityLinearOperator(metadata)
-    return lx.MatrixLinearOperator(cola.densify(A))
+    if isinstance(A, cola.ops.LinearOperator):
+        return ColaLinearOperator(A)
+    return lx.MatrixLinearOperator(A)

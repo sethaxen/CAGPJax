@@ -12,8 +12,8 @@ from gpjax.kernels.computations import DenseKernelComputation
 from gpjax.parameters import Real
 
 from cagpjax.linalg import OrthogonalizationMethod
+from cagpjax.interop import lazify
 from cagpjax.operators import BlockDiagonalSparse
-from cagpjax.operators.utils import lazify
 from cagpjax.policies import (
     BlockSparsePolicy,
     LanczosPolicy,

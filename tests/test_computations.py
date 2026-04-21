@@ -9,8 +9,8 @@ from gpjax.kernels.computations import DenseKernelComputation
 from gpjax.parameters import Real
 
 from cagpjax.computations import LazyKernelComputation
+from cagpjax.interop import lazify
 from cagpjax.operators import LazyKernel
-from cagpjax.operators.utils import lazify
 
 jax.config.update("jax_enable_x64", True)
 

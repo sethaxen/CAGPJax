@@ -14,9 +14,9 @@ from jaxtyping import Array, Float, PRNGKeyArray
 from typing_extensions import Generic, TypeVar
 
 from ..distributions import GaussianDistribution
+from ..interop import lazify
 from ..linalg import congruence_transform
 from ..operators import diag_like
-from ..operators.utils import lazify
 from ..policies import AbstractBatchLinearSolverPolicy
 from ..solvers import AbstractLinearSolver, Cholesky
 from ..typing import ScalarFloat
