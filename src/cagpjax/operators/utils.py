@@ -1,41 +1,40 @@
 from typing import Any
 
+import cola
 import cola.ops
-import jax.numpy as jnp
+import jax
+import lineax as lx
 from cola.ops import LinearOperator
-from typing_extensions import overload
 
-try:  # support for GPJax v0.12.0
-    import gpjax.linalg  # pyright: ignore[reportMissingImports]
 
-    @overload
-    def lazify(A: gpjax.linalg.Dense) -> cola.ops.Dense:  # pyright: ignore[reportOverlappingOverload]
-        return cola.ops.Dense(A.array)
-
-    @overload
-    def lazify(A: gpjax.linalg.Diagonal) -> cola.ops.Diagonal:  # pyright: ignore[reportOverlappingOverload]
+def lazify(A: Any) -> LinearOperator:
+    """Convert GPJax/Lineax/array inputs into Cola operators."""
+    if isinstance(A, LinearOperator):
+        return A
+    if isinstance(A, lx.TaggedLinearOperator):
+        op = lazify(A.operator)
+        if lx.positive_semidefinite_tag in A.tags:
+            return cola.PSD(op)
+        return op
+    if isinstance(A, lx.MatrixLinearOperator):
+        return cola.ops.Dense(A.matrix)
+    if isinstance(A, lx.DiagonalLinearOperator):
         return cola.ops.Diagonal(A.diagonal)
-
-    @overload
-    def lazify(A: gpjax.linalg.Identity) -> cola.ops.Identity:  # pyright: ignore[reportOverlappingOverload]
-        return cola.ops.Identity(A.shape, A.dtype)
-
-    @overload
-    def lazify(A: gpjax.linalg.Triangular) -> cola.ops.Triangular:  # pyright: ignore[reportOverlappingOverload]
-        if A.lower:
-            return cola.ops.Triangular(jnp.tril(A.array), lower=True)
-        else:
-            return cola.ops.Triangular(jnp.triu(A.array), lower=False)
-
-except ImportError:
-    pass
-
-
-@overload
-def lazify(A: Any) -> cola.ops.LinearOperator:  # pyright: ignore[reportOverlappingOverload]
+    if isinstance(A, lx.IdentityLinearOperator):
+        metadata = jax.eval_shape(A.as_matrix)
+        return cola.ops.Identity(metadata.shape, metadata.dtype)
+    if isinstance(A, lx.AbstractLinearOperator):
+        return cola.lazify(A.as_matrix())
     return cola.lazify(A)
 
 
-@cola.dispatch
-def lazify(A: Any) -> Any:
-    pass
+def to_lineax(A: Any) -> lx.AbstractLinearOperator:
+    """Convert existing operators into Lineax only where GPJax requires it."""
+    if isinstance(A, lx.AbstractLinearOperator):
+        return A
+    if isinstance(A, cola.ops.Diagonal):
+        return lx.DiagonalLinearOperator(A.diag)
+    if isinstance(A, cola.ops.Identity):
+        metadata = jax.ShapeDtypeStruct((A.shape[1],), A.dtype)
+        return lx.IdentityLinearOperator(metadata)
+    return lx.MatrixLinearOperator(cola.densify(A))
