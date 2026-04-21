@@ -5,7 +5,6 @@ import jax
 import jax.numpy as jnp
 import jax.test_util
 import pytest
-from flax import nnx
 from gpjax.gps import ConjugatePosterior
 from gpjax.kernels import RBF
 from gpjax.kernels.computations import DenseKernelComputation
@@ -229,7 +228,6 @@ class TestComputationAwareGP:
             pred.scale.to_dense(), pred_exact.scale.to_dense(), atol=1e-5
         )
 
-    @pytest.mark.skipif(constant_type is nnx.Variable, reason="Test is redundant")
     def test_prior_kl_consistency(self, cagp, cagp_state, train_data, dtype):
         """Test that custom ``prior_kl`` matches KL computed from result of ``predict``."""
         if dtype == jnp.float32:
@@ -255,7 +253,6 @@ class TestComputationAwareGP:
 
         assert jnp.allclose(kl, kl_explicit, rtol=1e-4)
 
-    @pytest.mark.skipif(constant_type is nnx.Variable, reason="Test is redundant")
     def test_prior_kl_gradient_sparse_actions(
         self,
         posterior,

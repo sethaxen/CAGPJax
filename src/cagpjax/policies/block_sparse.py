@@ -5,7 +5,6 @@ import warnings
 import jax
 import jax.numpy as jnp
 from cola.ops import LinearOperator
-from flax import nnx
 from gpjax.parameters import Real
 from jaxtyping import Array, Float, PRNGKeyArray
 from typing_extensions import override
@@ -65,8 +64,8 @@ class BlockSparsePolicy(AbstractBatchLinearSolverPolicy):
         if not isinstance(nz_values, nnx.Variable):
             nz_values = Real(nz_values)
 
-        self.nz_values: nnx.Variable[Float[Array, "N"]] = nz_values
         self._n_actions: int = n_actions
+        self.nz_values = nz_values
 
     @property
     @override

@@ -4,9 +4,9 @@ from dataclasses import dataclass
 from typing import Optional
 
 import cola
+import equinox as eqx
 import jax.numpy as jnp
 from cola.ops import LinearOperator
-from flax import nnx
 from gpjax.gps import ConjugatePosterior, Dataset
 from gpjax.mean_functions import Constant
 from jaxtyping import Array, Float
@@ -45,7 +45,7 @@ class ComputationAwareGPState(Generic[_LinearSolverState]):
     repr_weights_proj: Float[Array, "M"]
 
 
-class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
+class ComputationAwareGP(eqx.Module, Generic[_LinearSolverState]):
     """Computation-aware Gaussian Process model.
 
     This model implements scalable GP inference by using batch linear solver

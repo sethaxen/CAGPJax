@@ -8,7 +8,6 @@ import jax.test_util
 import numpy as np
 import pytest
 from cola.ops import Dense, Diagonal, LinearOperator, ScalarMul
-from flax import nnx
 from gpjax.kernels import RBF
 
 from cagpjax.operators import BlockDiagonalSparse

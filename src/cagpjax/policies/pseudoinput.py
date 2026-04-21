@@ -4,7 +4,6 @@ import cola
 import gpjax
 import jax.numpy as jnp
 from cola.ops import LinearOperator
-from flax import nnx
 from gpjax.parameters import Parameter
 from jaxtyping import Array, Float
 

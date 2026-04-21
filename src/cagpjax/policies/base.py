@@ -1,10 +1,10 @@
 import abc
 
+import equinox as eqx
 from cola.ops import LinearOperator
-from flax import nnx
 
 
-class AbstractLinearSolverPolicy(nnx.Module):
+class AbstractLinearSolverPolicy(eqx.Module):
     r"""Abstract base class for all linear solver policies.
 
     Policies define actions used to solve a linear system $A x = b$, where $A$ is a
