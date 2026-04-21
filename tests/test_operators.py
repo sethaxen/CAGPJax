@@ -309,6 +309,5 @@ class TestLazyKernel:
         if grad:
             rtol = 1e-2 if dtype == jnp.float32 else 1e-6
             jax.test_util.check_grads(
-                loss, (params,), order=1, modes=["rev"], rtol=rtol
                 loss, (kernel,), order=1, modes=["rev"], rtol=rtol
             )
