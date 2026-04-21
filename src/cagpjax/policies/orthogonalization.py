@@ -30,14 +30,10 @@ class OrthogonalizationPolicy(AbstractBatchLinearSolverPolicy):
         method: OrthogonalizationMethod = OrthogonalizationMethod.QR,
         n_reortho: int = 0,
     ):
+        super().__init__(base_policy.n_actions)
         self.base_policy = base_policy
         self.method = method
         self.n_reortho = n_reortho
-
-    @property
-    @override
-    def n_actions(self):
-        return self.base_policy.n_actions
 
     @override
     def to_actions(self, A: LinearOperator) -> LinearOperator:

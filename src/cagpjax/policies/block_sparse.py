@@ -50,6 +50,7 @@ class BlockSparsePolicy(AbstractBatchLinearSolverPolicy):
             key: Random key for sampling actions if ``nz_values`` is not provided.
             **kwargs: Additional keyword arguments for ``jax.random.normal`` (e.g. ``dtype``)
         """
+        super().__init__(n_actions)
         if nz_values is None:
             if n is None:
                 raise ValueError("n must be provided if nz_values is not provided")
@@ -64,14 +65,7 @@ class BlockSparsePolicy(AbstractBatchLinearSolverPolicy):
         if not isinstance(nz_values, nnx.Variable):
             nz_values = Real(nz_values)
 
-        self._n_actions: int = n_actions
         self.nz_values = nz_values
-
-    @property
-    @override
-    def n_actions(self) -> int:
-        """Number of actions to be used."""
-        return self._n_actions
 
     @override
     def to_actions(self, A: LinearOperator) -> LinearOperator:

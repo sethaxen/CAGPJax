@@ -24,7 +24,7 @@ class LanczosPolicy(AbstractBatchLinearSolverPolicy):
 
     def __init__(
         self,
-        n_actions: int | None,
+        n_actions: int,
         key: PRNGKeyArray | None = None,
         grad_rtol: float | None = 0.0,
     ):
@@ -39,14 +39,9 @@ class LanczosPolicy(AbstractBatchLinearSolverPolicy):
                 If None or negative, all eigenvalues are treated as distinct.
                 (see [`cagpjax.linalg.eigh`][] for more details)
         """
-        self._n_actions: int = n_actions
+        super().__init__(n_actions)
         self.key = key
         self.grad_rtol = grad_rtol
-
-    @property
-    @override
-    def n_actions(self) -> int:
-        return self._n_actions
 
     @override
     def to_actions(self, A: LinearOperator) -> LinearOperator:

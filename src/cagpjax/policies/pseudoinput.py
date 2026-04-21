@@ -48,13 +48,10 @@ class PseudoInputPolicy(AbstractBatchLinearSolverPolicy):
             train_inputs = train_data.X
         else:
             train_inputs = train_inputs_or_dataset
+        super().__init__(paramax.unwrap(pseudo_inputs).shape[0])
         self.pseudo_inputs = pseudo_inputs
         self.train_inputs = jnp.atleast_2d(train_inputs)
         self.kernel = kernel
-
-    @property
-    def n_actions(self):
-        return self.pseudo_inputs.shape[0]
 
     def to_actions(self, A: LinearOperator) -> LinearOperator:
         S = self.kernel.cross_covariance(self.train_inputs, self.pseudo_inputs[...])

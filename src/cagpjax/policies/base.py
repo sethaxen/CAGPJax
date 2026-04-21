@@ -17,11 +17,10 @@ class AbstractLinearSolverPolicy(eqx.Module):
 class AbstractBatchLinearSolverPolicy(AbstractLinearSolverPolicy):
     """Abstract base class for policies that product action matrices."""
 
-    @property
-    @abc.abstractmethod
-    def n_actions(self) -> int:
-        """Number of actions in this policy."""
-        ...
+    n_actions: int
+
+    def __init__(self, n_actions: int):
+        self.n_actions = n_actions
 
     @abc.abstractmethod
     def to_actions(self, A: LinearOperator) -> LinearOperator:
