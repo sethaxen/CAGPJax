@@ -48,10 +48,11 @@ train_data = gpx.Dataset(x_train, y_train)
 key, subkey = jax.random.split(key)
 policy = cagpjax.policies.BlockSparsePolicy(n_actions=10, n=n_data, key=subkey)
 cagp = cagpjax.models.ComputationAwareGP(posterior, policy)
+key, actions_key = jax.random.split(key)
 
 # Optimize hyperparameters (including actions)
 def negative_elbo(cagp, train_data):
-    cagp_state = cagp.init(train_data)  # compute state conditioned on data
+    cagp_state = cagp.init(train_data, key=actions_key)  # compute state conditioned on data
     return -cagp.elbo(cagp_state)
 
 cagp_optimized, history = gpx.fit(
@@ -64,7 +65,7 @@ cagp_optimized, history = gpx.fit(
 )
 
 # Get CaGP posterior distribution at the inputs
-cagp_state = cagp_optimized.init(train_data)
+cagp_state = cagp_optimized.init(train_data, key=actions_key)
 cagp_post = cagp_optimized.predict(cagp_state)
 ```
 
