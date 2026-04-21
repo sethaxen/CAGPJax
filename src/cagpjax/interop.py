@@ -10,6 +10,40 @@ from cola.ops import LinearOperator
 from jaxtyping import Array, Float, PyTree
 
 
+class ColaLinearOperator(lx.AbstractLinearOperator):
+    """Wrap a cola operator with a Lineax-compatible interface."""
+
+    operator: LinearOperator
+
+    def __init__(self, operator: LinearOperator):
+        self.operator = operator
+
+    def mv(self, vector: Float[Array, " N"]) -> Float[Array, " M"]:
+        return self.operator @ vector
+
+    def as_matrix(self) -> Float[Array, "M N"]:
+        return cola.densify(self.operator)
+
+    def transpose(self) -> "ColaLinearOperator":
+        return ColaLinearOperator(self.operator.T)
+
+    def in_structure(self) -> PyTree[jax.ShapeDtypeStruct]:
+        return jax.ShapeDtypeStruct((self.operator.shape[1],), self.operator.dtype)
+
+    def out_structure(self) -> PyTree[jax.ShapeDtypeStruct]:
+        return jax.ShapeDtypeStruct((self.operator.shape[0],), self.operator.dtype)
+
+
+@lx.is_symmetric.register(ColaLinearOperator)
+def _(operator: ColaLinearOperator) -> bool:
+    return operator.operator.isa(cola.PSD)
+
+
+@lx.is_positive_semidefinite.register(ColaLinearOperator)
+def _(operator: ColaLinearOperator) -> bool:
+    return operator.operator.isa(cola.PSD)
+
+
 def lazify(A: Any) -> LinearOperator:
     """Convert GPJax/Lineax/array inputs into cola operators."""
     if isinstance(A, LinearOperator):
