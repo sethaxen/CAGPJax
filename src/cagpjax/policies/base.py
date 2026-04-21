@@ -14,7 +14,7 @@ class AbstractLinearSolverPolicy(eqx.Module):
     ...
 
 
-class AbstractBatchLinearSolverPolicy(AbstractLinearSolverPolicy, abc.ABC):
+class AbstractBatchLinearSolverPolicy(AbstractLinearSolverPolicy):
     """Abstract base class for policies that product action matrices."""
 
     @property
