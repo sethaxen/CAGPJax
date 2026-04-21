@@ -33,6 +33,9 @@ dependencies = [
     "jaxtyping",
     "cola-ml>=0.0.7",
     "flax>=0.10.0",
+    "equinox>=0.11.0",
+    "lineax>=0.0.6",
+    "paramax>=0.0.5",
     "typing-extensions",
     "matfree>=0.1.0",
 ]
