@@ -12,11 +12,11 @@ from gpjax.kernels import RBF
 from gpjax.kernels.computations import DenseKernelComputation
 from gpjax.parameters import Real
 
+from cagpjax.interop import lazify
 from cagpjax.operators import BlockDiagonalSparse
 from cagpjax.operators.annotations import ScaledOrthogonal
 from cagpjax.operators.diag_like import diag_like
 from cagpjax.operators.lazy_kernel import LazyKernel
-from cagpjax.interop import lazify
 
 jax.config.update("jax_enable_x64", True)
 

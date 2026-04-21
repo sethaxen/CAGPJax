@@ -168,7 +168,11 @@ class ComputationAwareGP(eqx.Module, Generic[_LinearSolverState]):
             constant = paramax.unwrap(prior.mean_function.constant)
             mean_z = mean_z.astype(constant.dtype)
         cov_zz = lazify(prior.kernel.gram(z))
-        cov_zx = cov_zz if test_inputs is None else prior.kernel.cross_covariance(z, x)
+        cov_zx = (
+            cov_zz
+            if test_inputs is None
+            else lazify(prior.kernel.cross_covariance(z, x))
+        )
         cov_zx_proj = cov_zx @ state.actions
 
         # Posterior predictive distribution

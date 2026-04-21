@@ -11,8 +11,8 @@ from gpjax.dataset import Dataset
 from gpjax.kernels.computations import DenseKernelComputation
 from gpjax.parameters import Real
 
-from cagpjax.linalg import OrthogonalizationMethod
 from cagpjax.interop import lazify
+from cagpjax.linalg import OrthogonalizationMethod
 from cagpjax.operators import BlockDiagonalSparse
 from cagpjax.policies import (
     BlockSparsePolicy,
@@ -265,12 +265,11 @@ class TestPseudoInputPolicy:
         train_inputs, pseudo_inputs = inputs
         policy = PseudoInputPolicy(pseudo_inputs, train_inputs, kernel)
         op = lazify(kernel.gram(train_inputs))
+        expected = kernel.cross_covariance(train_inputs, pseudo_inputs)
         actions = policy.to_actions(op)
         assert isinstance(actions, LinearOperator)
         assert actions.dtype == dtype
-        assert jnp.allclose(
-            actions.to_dense(), kernel.cross_covariance(train_inputs, pseudo_inputs)
-        )
+        assert jnp.allclose(actions.to_dense(), expected)
 
     def test_actions_consistency(self, inputs, kernel):
         """Test to_actions consistency and return type."""

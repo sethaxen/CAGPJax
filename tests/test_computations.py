@@ -3,13 +3,14 @@
 import cola
 import jax
 import jax.numpy as jnp
+import lineax as lx
 import pytest
 from gpjax.kernels import RBF
 from gpjax.kernels.computations import DenseKernelComputation
 from gpjax.parameters import Real
 
 from cagpjax.computations import LazyKernelComputation
-from cagpjax.interop import lazify
+from cagpjax.interop import ColaLinearOperator, lazify
 from cagpjax.operators import LazyKernel
 
 jax.config.update("jax_enable_x64", True)
@@ -75,7 +76,9 @@ class TestLazyKernelComputation:
             batch_size=batch_size, max_memory_mb=max_memory_mb, checkpoint=checkpoint
         )
         x1, _ = inputs
-        gram = lazify(comp.gram(kernel, x1))
+        gram_raw = comp.gram(kernel, x1)
+        gram = lazify(gram_raw)
+        assert isinstance(gram_raw, (ColaLinearOperator, lx.TaggedLinearOperator))
         assert isinstance(gram, LazyKernel)
         assert gram.shape == (x1.shape[0], x1.shape[0])
         assert gram.dtype == dtype
@@ -103,7 +106,9 @@ class TestLazyKernelComputation:
             batch_size=batch_size, max_memory_mb=max_memory_mb, checkpoint=checkpoint
         )
         x1, x2 = inputs
-        cross_cov = comp.cross_covariance(kernel, x1, x2)
+        cross_cov_raw = comp.cross_covariance(kernel, x1, x2)
+        cross_cov = lazify(cross_cov_raw)
+        assert isinstance(cross_cov_raw, ColaLinearOperator)
         assert isinstance(cross_cov, LazyKernel)
         assert cross_cov.shape == (x1.shape[0], x2.shape[0])
         assert cross_cov.dtype == dtype
