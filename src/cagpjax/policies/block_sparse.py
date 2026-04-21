@@ -67,11 +67,14 @@ class BlockSparsePolicy(AbstractBatchLinearSolverPolicy):
         self.nz_values = nz_values
 
     @override
-    def to_actions(self, A: LinearOperator) -> LinearOperator:
+    def to_actions(
+        self, A: LinearOperator, *, key: PRNGKeyArray | None = None
+    ) -> LinearOperator:
         """Convert to block diagonal sparse action operators.
 
         Args:
             A: Linear operator (unused).
+            key: Optional random key (unused).
 
         Returns:
             BlockDiagonalSparse: Sparse action structure representing the blocks.

@@ -24,9 +24,11 @@ from cagpjax.policies import (
 jax.config.update("jax_enable_x64", True)
 
 
-def _test_batch_policy_actions_consistency(policy, op: LinearOperator):
+def _test_batch_policy_actions_consistency(
+    policy, op: LinearOperator, key: jax.Array | None = None
+):
     """Test a batch policy."""
-    actions = policy.to_actions(op)
+    actions = policy.to_actions(op, key=key)
     assert isinstance(actions, LinearOperator)
     assert actions.shape == (op.shape[0], policy.n_actions)
     assert actions.dtype == op.dtype
@@ -44,32 +46,27 @@ def psd_linear_operator(request, key=jax.random.key(42)):
 class TestLanczosPolicy:
     """Test the LanczosPolicy concrete implementation."""
 
-    @pytest.mark.parametrize("key", [None, jax.random.key(42)])
     @pytest.mark.parametrize("n_actions", [2, 4])
-    def test_init_with_valid_params(self, n_actions, key):
+    def test_init_with_valid_params(self, n_actions):
         """Test initialization with valid parameters."""
-        actions = LanczosPolicy(n_actions=n_actions, key=key)
+        actions = LanczosPolicy(n_actions=n_actions)
         assert actions.n_actions == n_actions
-        if key is None:
-            assert actions.key is None
-        else:
-            assert actions.key is not None
-            assert jnp.array_equal(actions.key, key)
 
-    def test_actions_consistency(self, psd_linear_operator, key=jax.random.key(42)):
+    @pytest.mark.parametrize("key", [None, jax.random.key(42)])
+    def test_actions_consistency(self, psd_linear_operator, key):
         """Test that the actions are consistent."""
-        actions = LanczosPolicy(n_actions=2, key=key)
-        _test_batch_policy_actions_consistency(actions, psd_linear_operator)
+        actions = LanczosPolicy(n_actions=2)
+        _test_batch_policy_actions_consistency(actions, psd_linear_operator, key=key)
 
     def test_reproducibility(
         self, psd_linear_operator, n_actions=5, key=jax.random.key(42)
     ):
         """Test that using the same key produces the same results."""
-        actions1 = LanczosPolicy(n_actions=n_actions, key=key)
-        actions2 = LanczosPolicy(n_actions=n_actions, key=key)
+        actions1 = LanczosPolicy(n_actions=n_actions)
+        actions2 = LanczosPolicy(n_actions=n_actions)
 
-        result1 = actions1.to_actions(psd_linear_operator)
-        result2 = actions2.to_actions(psd_linear_operator)
+        result1 = actions1.to_actions(psd_linear_operator, key=key)
+        result2 = actions2.to_actions(psd_linear_operator, key=key)
 
         assert jnp.array_equal(
             result1 @ jnp.eye(n_actions), result2 @ jnp.eye(n_actions)
@@ -90,8 +87,8 @@ class TestLanczosPolicy:
             nvecs_check = 2
 
         # Get eigenvectors using LanczosPolicy
-        actions = LanczosPolicy(n_actions=n_actions, key=key)
-        cg_vecs = actions.to_actions(psd_linear_operator)
+        actions = LanczosPolicy(n_actions=n_actions)
+        cg_vecs = actions.to_actions(psd_linear_operator, key=key)
 
         # Get reference eigenvectors using dense computation
         _, eigenvecs = jnp.linalg.eigh(psd_linear_operator.to_dense())
@@ -117,7 +114,7 @@ class TestLanczosPolicy:
         self, grad_rtol, key, n=10, dtype=jnp.float64
     ):
         """Test that the gradient is zero for a degenerate matrix."""
-        policy = LanczosPolicy(n_actions=n, grad_rtol=grad_rtol, key=key)
+        policy = LanczosPolicy(n_actions=n, grad_rtol=grad_rtol)
         assert policy.grad_rtol == grad_rtol
         x = jnp.ones(n, dtype=dtype)
         scale = jnp.concatenate(
@@ -131,7 +128,7 @@ class TestLanczosPolicy:
         # Increasing grad_rtol should stabilize the gradient.
         def loss(op_diag):
             op = cola.lazify(jnp.diag(op_diag))
-            actions = policy.to_actions(op)
+            actions = policy.to_actions(op, key=key)
             z = actions @ ((actions.T @ x) * scale)
             return jnp.sum(jnp.square(z))
 
@@ -290,7 +287,7 @@ class TestOrthogonalizationPolicy:
     @pytest.mark.parametrize("n_reortho", [0, 1, 2])
     def test_init_and_properties(self, method, n_reortho, key=jax.random.key(42)):
         """Test initialization and basic properties."""
-        base_policy = LanczosPolicy(n_actions=3, key=key)
+        base_policy = LanczosPolicy(n_actions=3)
         policy = OrthogonalizationPolicy(
             base_policy=base_policy, method=method, n_reortho=n_reortho
         )
@@ -354,11 +351,11 @@ class TestOrthogonalizationPolicy:
 
     def test_lanczos_passes_through(self, psd_linear_operator, key=jax.random.key(42)):
         """Test wrapping LanczosPolicy preserves orthogonality."""
-        base_policy = LanczosPolicy(n_actions=3, key=key)
+        base_policy = LanczosPolicy(n_actions=3)
         policy = OrthogonalizationPolicy(base_policy=base_policy)
 
-        base_actions = base_policy.to_actions(psd_linear_operator)
-        ortho_actions = policy.to_actions(psd_linear_operator)
+        base_actions = base_policy.to_actions(psd_linear_operator, key=key)
+        ortho_actions = policy.to_actions(psd_linear_operator, key=key)
 
         assert isinstance(ortho_actions, type(base_actions))
         assert ortho_actions.shape == base_actions.shape

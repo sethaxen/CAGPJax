@@ -1,5 +1,6 @@
 import cola
 from cola.ops import LinearOperator
+from jaxtyping import PRNGKeyArray
 from typing_extensions import override
 
 from ..linalg import OrthogonalizationMethod, orthogonalize
@@ -36,8 +37,10 @@ class OrthogonalizationPolicy(AbstractBatchLinearSolverPolicy):
         self.n_reortho = n_reortho
 
     @override
-    def to_actions(self, A: LinearOperator) -> LinearOperator:
-        op = self.base_policy.to_actions(A)
+    def to_actions(
+        self, A: LinearOperator, *, key: PRNGKeyArray | None = None
+    ) -> LinearOperator:
+        op = self.base_policy.to_actions(A, key=key)
         return cola.lazify(
             orthogonalize(op, method=self.method, n_reortho=self.n_reortho)
         )

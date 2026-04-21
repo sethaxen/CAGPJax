@@ -5,7 +5,7 @@ import gpjax
 import jax.numpy as jnp
 import paramax
 from cola.ops import LinearOperator
-from jaxtyping import Array, Float
+from jaxtyping import Array, Float, PRNGKeyArray
 
 from .base import AbstractBatchLinearSolverPolicy
 
@@ -54,7 +54,9 @@ class PseudoInputPolicy(AbstractBatchLinearSolverPolicy):
         self.train_inputs = paramax.non_trainable(jnp.atleast_2d(train_inputs))
         self.kernel = kernel
 
-    def to_actions(self, A: LinearOperator) -> LinearOperator:
+    def to_actions(
+        self, A: LinearOperator, *, key: PRNGKeyArray | None = None
+    ) -> LinearOperator:
         S = self.kernel.cross_covariance(
             paramax.unwrap(self.train_inputs), paramax.unwrap(self.pseudo_inputs)
         )

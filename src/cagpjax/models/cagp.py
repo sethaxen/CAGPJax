@@ -10,7 +10,7 @@ import paramax
 from cola.ops import LinearOperator
 from gpjax.gps import ConjugatePosterior, Dataset
 from gpjax.mean_functions import Constant
-from jaxtyping import Array, Float
+from jaxtyping import Array, Float, PRNGKeyArray
 from typing_extensions import Generic, TypeVar
 
 from ..distributions import GaussianDistribution
@@ -86,11 +86,14 @@ class ComputationAwareGP(eqx.Module, Generic[_LinearSolverState]):
         self.policy = policy
         self.solver = solver
 
-    def init(self, train_data: Dataset) -> ComputationAwareGPState[_LinearSolverState]:
+    def init(
+        self, train_data: Dataset, *, key: PRNGKeyArray | None = None
+    ) -> ComputationAwareGPState[_LinearSolverState]:
         """Compute the state of the conditioned GP posterior.
 
         Args:
             train_data: The training data used to fit the GP.
+            key: Optional random key forwarded to policy action construction.
 
         Returns:
             state: State of the conditioned CaGP posterior, which stores any necessary
@@ -119,7 +122,7 @@ class ComputationAwareGP(eqx.Module, Generic[_LinearSolverState]):
         cov_prior = cov_xx + obs_cov
 
         # Project quantities to subspace
-        actions = self.policy.to_actions(cov_prior)
+        actions = self.policy.to_actions(cov_prior, key=key)
         obs_cov_proj = congruence_transform(actions, obs_cov)
         cov_prior_proj = congruence_transform(actions, cov_prior)
         cov_prior_proj_state = self.solver.init(cov_prior_proj)

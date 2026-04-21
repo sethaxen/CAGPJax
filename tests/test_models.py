@@ -47,7 +47,7 @@ class TestComputationAwareGP:
     def policy(self, request, n_train, n_actions, dtype, key=jax.random.key(98)):
         policy_class = request.param
         if policy_class is LanczosPolicy:
-            return policy_class(n_actions=n_actions, key=key)
+            return policy_class(n_actions=n_actions)
         elif policy_class is BlockSparsePolicy:
             return policy_class(n_actions=n_actions, n=n_train, key=key, dtype=dtype)
         else:
@@ -138,7 +138,7 @@ class TestComputationAwareGP:
     @pytest.fixture
     def cagp_state(self, cagp, train_data):
         """Create CAGP state."""
-        return cagp.init(train_data)
+        return cagp.init(train_data, key=jax.random.key(0))
 
     @pytest.mark.skipif(constant_type is Real, reason="Test is redundant")
     def test_initialization(self, policy, posterior, solver):
@@ -161,7 +161,7 @@ class TestComputationAwareGP:
             "error", message=".*scatter inputs have incompatible types.*"
         )
 
-        state = cagp.init(train_data)
+        state = cagp.init(train_data, key=jax.random.key(0))
         assert isinstance(state, cagpjax.models.cagp.ComputationAwareGPState)
 
     @pytest.mark.parametrize(
@@ -217,9 +217,9 @@ class TestComputationAwareGP:
             pytest.skip("Skipping float32 test due to numerical precision limitations")
 
         x_test = test_data.X
-        policy = LanczosPolicy(n_actions=n_train, key=key)
+        policy = LanczosPolicy(n_actions=n_train)
         cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
-        cagp_state = cagp.init(train_data)
+        cagp_state = cagp.init(train_data, key=key)
         pred = cagp.predict(cagp_state, x_test)
 
         pred_exact = posterior_eager.predict(x_test, train_data)
