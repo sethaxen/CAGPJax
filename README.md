@@ -26,7 +26,7 @@ jax.config.update("jax_enable_x64", True)
 
 n_data = 1_000
 
-# Build_model
+# Build model
 prior = gpx.gps.Prior(
     mean_function=gpx.mean_functions.Zero(),
     kernel=gpx.kernels.RBF(lengthscale=1.0, variance=1.0),
@@ -56,7 +56,7 @@ def negative_elbo(cagp, train_data):
 
 cagp_optimized, history = gpx.fit(
     model=cagp,
-    objective=negative_elbo, 
+    objective=negative_elbo,
     train_data=train_data,
     optim=ox.adamw(learning_rate=0.01),
     num_iters=250,
