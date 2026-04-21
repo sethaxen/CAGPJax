@@ -4,6 +4,7 @@ import gpjax as gpjax
 import jax
 import jax.numpy as jnp
 import jax.test_util
+import lineax
 import pytest
 from gpjax.gps import ConjugatePosterior
 from gpjax.kernels import RBF
@@ -102,7 +103,6 @@ class TestComputationAwareGP:
 
     def make_posterior(self, n_train, dtype, compute_engine, constant_type):
         kernel = RBF(
-            lengthscale=jnp.array(1.0, dtype=dtype),
             variance=jnp.array(1.0, dtype=dtype),
             compute_engine=compute_engine,
         )
@@ -179,6 +179,7 @@ class TestComputationAwareGP:
         """Test that CAGP predict method with test inputs works."""
         x_test = test_data.X
         pred = cagp.predict(cagp_state, x_test)
+        expected_dtype = cagp_state.repr_weights_proj.dtype
         assert isinstance(pred, GaussianDistribution)
         assert pred.mean.shape == (n_test,)
         assert pred.mean.dtype == dtype
@@ -222,11 +223,10 @@ class TestComputationAwareGP:
         pred_exact = posterior_eager.predict(x_test, train_data)
 
         assert pred.mean.shape == pred_exact.mean.shape
-        assert pred.scale.shape == pred_exact.scale.shape
+        assert pred.scale.shape[0] == pred_exact.scale.out_size()
+        assert pred.scale.shape[1] == pred_exact.scale.in_size()
         assert jnp.allclose(pred.mean, pred_exact.mean, atol=1e-4)
-        assert jnp.allclose(
-            pred.scale.to_dense(), pred_exact.scale.to_dense(), atol=1e-5
-        )
+        assert jnp.allclose(pred.scale.to_dense(), pred_exact.scale.as_matrix(), atol=1e-5)
 
     def test_prior_kl_consistency(self, cagp, cagp_state, train_data, dtype):
         """Test that custom ``prior_kl`` matches KL computed from result of ``predict``."""
@@ -246,7 +246,7 @@ class TestComputationAwareGP:
         p = cagp.posterior.prior.predict(train_data.X)
         kl_explicit = gpjax.distributions.GaussianDistribution(
             q.mean,
-            gpjax.linalg.operators.Dense(
+            lineax.MatrixLinearOperator(
                 q.scale.to_dense() + jnp.eye(q.scale.shape[0]) * jitter
             ),
         ).kl_divergence(p)

@@ -8,6 +8,7 @@ import paramax
 import pytest
 from cola.ops import Dense, LinearOperator, Transpose
 from gpjax.dataset import Dataset
+from gpjax.kernels.computations import DenseKernelComputation
 from gpjax.parameters import Real
 
 from cagpjax.linalg import OrthogonalizationMethod
@@ -326,7 +327,11 @@ class TestOrthogonalizationPolicy:
         )
         train_inputs = jax.random.normal(subkey2, (n, input_dim), dtype=dtype)
 
-        kernel = gpjax.kernels.RBF(lengthscale=jnp.ones(input_dim, dtype=dtype))
+        kernel = gpjax.kernels.RBF(
+            lengthscale=Real(jnp.ones(input_dim, dtype=dtype)),
+            variance=Real(jnp.array(1.0, dtype=dtype)),
+            compute_engine=DenseKernelComputation(),
+        )
         base_policy = PseudoInputPolicy(pseudo_inputs, train_inputs, kernel)
         policy = OrthogonalizationPolicy(
             base_policy=base_policy, method=method, n_reortho=n_reortho

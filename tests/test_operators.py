@@ -5,10 +5,13 @@ import gpjax
 import jax
 import jax.numpy as jnp
 import jax.test_util
+import lineax as lx
 import numpy as np
 import pytest
 from cola.ops import Dense, Diagonal, LinearOperator, ScalarMul
 from gpjax.kernels import RBF
+from gpjax.kernels.computations import DenseKernelComputation
+from gpjax.parameters import Real
 
 from cagpjax.operators import BlockDiagonalSparse
 from cagpjax.operators.annotations import ScaledOrthogonal
@@ -85,49 +88,31 @@ class TestUtils:
         lazy_op = lazify(op)
         assert lazy_op is op
 
-    try:  # test support for GPJax v0.12.0
-        import gpjax.linalg
+    def test_lazify_lineax_matrix(self, nrows, ncols, dtype, key=jax.random.key(42)):
+        matrix = jax.random.normal(key, (nrows, ncols), dtype=dtype)
+        op = lx.MatrixLinearOperator(matrix)
+        lazy_op = lazify(op)
+        assert isinstance(lazy_op, cola.ops.Dense)
+        assert lazy_op.shape == (nrows, ncols)
+        assert lazy_op.dtype == dtype
+        np.testing.assert_allclose(lazy_op.to_dense(), matrix)
 
-        def test_lazify_gpjax_dense(self, nrows, ncols, dtype, key=jax.random.key(42)):
-            op = gpjax.linalg.Dense(jax.random.normal(key, (nrows, ncols), dtype=dtype))
-            lazy_op = lazify(op)
-            assert isinstance(lazy_op, cola.ops.Dense)
-            assert lazy_op.shape == (nrows, ncols)
-            assert lazy_op.dtype == dtype
-            np.testing.assert_allclose(lazy_op.to_dense(), op.to_dense())
+    def test_lazify_lineax_diagonal(self, nrows, dtype, key=jax.random.key(42)):
+        diag = jax.random.normal(key, (nrows,), dtype=dtype)
+        op = lx.DiagonalLinearOperator(diag)
+        lazy_op = lazify(op)
+        assert isinstance(lazy_op, cola.ops.Diagonal)
+        assert lazy_op.shape == (nrows, nrows)
+        assert lazy_op.dtype == dtype
+        np.testing.assert_allclose(lazy_op.to_dense(), jnp.diag(diag))
 
-        def test_lazify_gpjax_diagonal(self, nrows, dtype, key=jax.random.key(42)):
-            diag = jax.random.normal(key, (nrows,), dtype=dtype)
-            op = gpjax.linalg.Diagonal(diag)
-            lazy_op = lazify(op)
-            assert isinstance(lazy_op, cola.ops.Diagonal)
-            assert lazy_op.shape == (nrows, nrows)
-            assert lazy_op.dtype == dtype
-            np.testing.assert_allclose(lazy_op.to_dense(), jnp.diag(diag))
-
-        def test_lazify_gpjax_identity(self, nrows, dtype, key=jax.random.key(42)):
-            op = gpjax.linalg.Identity(nrows, dtype=dtype)
-            lazy_op = lazify(op)
-            assert isinstance(lazy_op, cola.ops.Identity)
-            assert lazy_op.shape == (nrows, nrows)
-            assert lazy_op.dtype == dtype
-
-        @pytest.mark.parametrize("lower", [True, False])
-        def test_lazify_gpjax_triangular(
-            self, nrows, dtype, lower, key=jax.random.key(42)
-        ):
-            op = gpjax.linalg.Triangular(
-                jax.random.normal(key, (nrows, nrows), dtype=dtype), lower=lower
-            )
-            lazy_op = lazify(op)
-            assert isinstance(lazy_op, cola.ops.Triangular)
-            assert lazy_op.shape == (nrows, nrows)
-            assert lazy_op.dtype == dtype
-            assert lazy_op.lower == lower
-            np.testing.assert_allclose(lazy_op.to_dense(), op.to_dense())
-
-    except ImportError:
-        pass
+    def test_lazify_lineax_identity(self, nrows, dtype):
+        metadata = jax.ShapeDtypeStruct((nrows,), dtype)
+        op = lx.IdentityLinearOperator(metadata)
+        lazy_op = lazify(op)
+        assert isinstance(lazy_op, cola.ops.Identity)
+        assert lazy_op.shape == (nrows, nrows)
+        assert lazy_op.dtype == dtype
 
 
 class TestBlockDiagonalSparse:
@@ -226,8 +211,9 @@ class TestLazyKernel:
     def kernel(self, dtype):
         """Create RBF kernel for testing."""
         return RBF(
-            lengthscale=jnp.array(1.0, dtype=dtype),
-            variance=jnp.array(1.0, dtype=dtype),
+            lengthscale=Real(jnp.array(1.0, dtype=dtype)),
+            variance=Real(jnp.array(1.0, dtype=dtype)),
+            compute_engine=DenseKernelComputation(),
         )
 
     @pytest.fixture

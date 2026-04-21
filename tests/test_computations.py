@@ -5,6 +5,8 @@ import jax
 import jax.numpy as jnp
 import pytest
 from gpjax.kernels import RBF
+from gpjax.kernels.computations import DenseKernelComputation
+from gpjax.parameters import Real
 
 from cagpjax.computations import LazyKernelComputation
 from cagpjax.operators import LazyKernel
@@ -35,8 +37,9 @@ class TestLazyKernelComputation:
     @pytest.fixture
     def kernel(self, dtype):
         return RBF(
-            lengthscale=jnp.array(1.0, dtype=dtype),
-            variance=jnp.array(1.0, dtype=dtype),
+            lengthscale=Real(jnp.array(1.0, dtype=dtype)),
+            variance=Real(jnp.array(1.0, dtype=dtype)),
+            compute_engine=DenseKernelComputation(),
         )
 
     @pytest.fixture(params=[(9, 5), (7, 10)], ids=["(9, 5)", "(7, 10)"])
@@ -89,7 +92,7 @@ class TestLazyKernelComputation:
         assert gram.batch_size_row == gram_lazy.batch_size_row
         assert gram.batch_size_col == gram_lazy.batch_size_col
 
-        assert jnp.allclose(cola.densify(gram), kernel.gram(x1).to_dense())
+        assert jnp.allclose(cola.densify(gram), kernel.gram(x1).as_matrix())
 
     @jax.default_matmul_precision("highest")
     def test_cross_covariance(
