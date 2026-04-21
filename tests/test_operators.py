@@ -293,6 +293,7 @@ class TestLazyKernel:
         lengthscale, variance = jax.random.uniform(subkeys[3], (2,), dtype=dtype)
 
         kernel = RBF(
+            lengthscale=lengthscale,
             variance=variance,
             compute_engine=DenseKernelComputation(),
         )
@@ -304,7 +305,7 @@ class TestLazyKernel:
             with jax.default_matmul_precision("highest"):
                 return jnp.vdot(v, op @ v)
 
-        assert jnp.isfinite(loss(params))
+        assert jnp.isfinite(loss(kernel))
         if grad:
             rtol = 1e-2 if dtype == jnp.float32 else 1e-6
             jax.test_util.check_grads(
