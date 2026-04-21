@@ -272,14 +272,12 @@ class TestComputationAwareGP:
         nz_values = jax.random.normal(key, (n_train,), dtype=dtype)
         policy = BlockSparsePolicy(n_actions=n_train, nz_values=nz_values)
         cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
-        params, static = eqx.partition(cagp, eqx.is_array)
 
-        def kl_objective(params):
-            model = eqx.combine(params, static)
+        def kl_objective(model):
             cagp_state = model.init(train_data)
             return model.prior_kl(cagp_state)
 
-        jax.test_util.check_grads(kl_objective, (params,), order=1, modes=["rev"])
+        jax.test_util.check_grads(kl_objective, (cagp,), order=1, modes=["rev"])
 
     def test_integration_elbo(self, cagp, cagp_state, posterior, train_data, dtype):
         """Test that ``elbo`` objective from GPJax is computed correctly."""
