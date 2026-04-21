@@ -1,5 +1,6 @@
 """Lanczos-based policies."""
 
+import equinox as eqx
 from cola.ops import LinearOperator
 from jaxtyping import PRNGKeyArray
 from typing_extensions import override
@@ -19,7 +20,7 @@ class LanczosPolicy(AbstractBatchLinearSolverPolicy):
         key: Random key for reproducible Lanczos iterations.
     """
 
-    grad_rtol: float | None
+    grad_rtol: float | None = eqx.field(static=True, default=0.0)
 
     def __init__(
         self,

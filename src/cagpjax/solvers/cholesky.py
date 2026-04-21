@@ -1,6 +1,7 @@
 """Linear solvers based on Cholesky decomposition."""
 
 import cola
+import equinox as eqx
 import jax.numpy as jnp
 from cola.ops import LinearOperator
 from jaxtyping import Array, Float
@@ -26,7 +27,7 @@ class Cholesky(AbstractLinearSolver[CholeskyState]):
         jitter: Small amount of jitter to add to $A$ to ensure positive-definiteness.
     """
 
-    jitter: ScalarFloat | None
+    jitter: ScalarFloat | None = eqx.field(static=True, default=None)
 
     def __init__(self, jitter: ScalarFloat | None = None):
         self.jitter = jitter

@@ -1,4 +1,5 @@
 import cola
+import equinox as eqx
 from cola.ops import LinearOperator
 from jaxtyping import PRNGKeyArray
 from typing_extensions import override
@@ -22,8 +23,10 @@ class OrthogonalizationPolicy(AbstractBatchLinearSolverPolicy):
     """
 
     base_policy: AbstractBatchLinearSolverPolicy
-    method: OrthogonalizationMethod
-    n_reortho: int
+    method: OrthogonalizationMethod = eqx.field(
+        static=True, default=OrthogonalizationMethod.QR
+    )
+    n_reortho: int = eqx.field(static=True, default=0)
 
     def __init__(
         self,

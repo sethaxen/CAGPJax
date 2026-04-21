@@ -1,6 +1,7 @@
 from typing import NamedTuple
 
 import cola
+import equinox as eqx
 import jax
 from cola.ops import LinearOperator
 from jax import numpy as jnp
@@ -50,9 +51,9 @@ class PseudoInverse(AbstractLinearSolver[PseudoInverseState]):
         alg: Algorithm for eigenvalue decomposition passed to [`cagpjax.linalg.eigh`][].
     """
 
-    rtol: ScalarFloat | None
-    grad_rtol: float | None
-    alg: cola.linalg.Algorithm
+    rtol: ScalarFloat | None = eqx.field(static=True, default=None)
+    grad_rtol: float | None = eqx.field(static=True, default=None)
+    alg: cola.linalg.Algorithm = eqx.field(static=True, default=Eigh())
 
     def __init__(
         self,
