@@ -213,3 +213,37 @@ class TestSolvers:
             assert not jnp.isfinite(grad).all()
         else:
             assert jnp.isfinite(grad).all()
+
+    def test_pseudoinverse_errors_on_negative_tolerances(self):
+        """Test pseudoinverse parameter validation."""
+        with pytest.raises(ValueError, match="rtol must be non-negative"):
+            PseudoInverse(rtol=-1.0)
+        with pytest.raises(ValueError, match="grad_rtol must be non-negative"):
+            PseudoInverse(grad_rtol=-1.0)
+
+    def test_solver_logdet(self, n, dtype, op, op_type):
+        """Test logdet against dense linear algebra."""
+        pseudo_solver = PseudoInverse(rtol=0.0)
+        pseudo_state = pseudo_solver.init(op)
+        pseudo_logdet = pseudo_solver.logdet(pseudo_state)
+        if op_type == "nonsingular":
+            expected_pseudo = jnp.linalg.slogdet(op.to_dense())[1]
+            assert jnp.isclose(pseudo_logdet, expected_pseudo)
+        else:
+            assert jnp.isfinite(pseudo_logdet)
+
+        if dtype == jnp.float32:
+            pytest.skip("Cholesky is not very numerically stable for float32")
+        jitter = 1e-6
+        cholesky_solver = Cholesky(jitter=jitter)
+        cholesky_state = cholesky_solver.init(op)
+        cholesky_logdet = cholesky_solver.logdet(cholesky_state)
+        expected_cholesky = jnp.linalg.slogdet((op + diag_like(op, jitter)).to_dense())[
+            1
+        ]
+        assert jnp.isclose(cholesky_logdet, expected_cholesky)
+
+    def test_cholesky_errors_on_negative_jitter(self):
+        """Test cholesky parameter validation."""
+        with pytest.raises(ValueError, match="jitter must be non-negative"):
+            Cholesky(jitter=-1.0)

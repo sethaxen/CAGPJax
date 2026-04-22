@@ -75,6 +75,14 @@ class TestInteropUtils:
         recovered = interop.lazify(matrix)
         np.testing.assert_allclose(cola.densify(recovered), matrix)
 
+    def test_cola_linear_operator_interface(self, n, dtype, key=jax.random.key(18)):
+        matrix = jax.random.normal(key, (n, n), dtype=dtype)
+        wrapped = ColaLinearOperator(cola.lazify(matrix))
+        vector = jax.random.normal(key, (n,), dtype=dtype)
+        np.testing.assert_allclose(wrapped.mv(vector), matrix @ vector)
+        np.testing.assert_allclose(wrapped.as_matrix(), matrix)
+        np.testing.assert_allclose(wrapped.transpose().as_matrix(), matrix.T)
+
     def test_to_lineax_roundtrip_dense(self, n, dtype, key=jax.random.key(2)):
         matrix = jax.random.normal(key, (n, n), dtype=dtype)
         cola_op = cola.lazify(matrix)
@@ -111,3 +119,12 @@ class TestInteropUtils:
         converted = interop.to_lineax(matrix)
         assert isinstance(converted, lx.MatrixLinearOperator)
         np.testing.assert_allclose(converted.as_matrix(), matrix)
+
+    def test_lineax_psd_predicate_for_cola_wrapper(
+        self, n, dtype, key=jax.random.key(19)
+    ):
+        matrix = jax.random.normal(key, (n, n), dtype=dtype)
+        wrapped_psd = ColaLinearOperator(cola.PSD(cola.lazify(matrix @ matrix.T)))
+        wrapped_non_psd = ColaLinearOperator(cola.lazify(matrix))
+        assert lx.is_positive_semidefinite(wrapped_psd)
+        assert not lx.is_positive_semidefinite(wrapped_non_psd)

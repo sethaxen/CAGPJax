@@ -266,6 +266,12 @@ class TestEigh:
         else:
             assert jnp.allclose(grad, 0.0, atol=1e-9)
 
+    def test_eigh_errors_on_negative_grad_rtol(self):
+        """Test that eigh rejects negative grad_rtol values."""
+        A = cola.ops.Dense(jnp.eye(3, dtype=jnp.float64))
+        with pytest.raises(ValueError, match="grad_rtol must be None or non-negative"):
+            eigh(A, grad_rtol=-1.0)
+
 
 class TestLowerCholesky:
     """Tests for ``lower_cholesky``."""

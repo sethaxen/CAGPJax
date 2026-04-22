@@ -60,6 +60,11 @@ class TestLanczosPolicy:
         actions = LanczosPolicy(n_actions=n_actions)
         assert actions.n_actions == n_actions
 
+    def test_init_errors_on_nonpositive_actions(self):
+        """Test n_actions validation from base policy."""
+        with pytest.raises(ValueError, match="n_actions must be at least 1"):
+            LanczosPolicy(n_actions=0)
+
     @pytest.mark.parametrize("key", [jax.random.key(42)])
     def test_actions_consistency(self, psd_linear_operator, key):
         """Test that the actions are consistent."""
@@ -166,6 +171,16 @@ class TestBlockSparsePolicy:
         assert policy.n_actions == n_actions
         assert paramax.unwrap(policy.nz_values).shape == (n,)
         assert paramax.unwrap(policy.nz_values).dtype == dtype
+
+    @pytest.mark.parametrize("n_actions", [1, 3])
+    def test_from_random_errors_on_zero_datapoints(self, n_actions):
+        """Test validation for num_datapoints."""
+        with pytest.raises(ValueError, match="num_datapoints must be at least 1"):
+            BlockSparsePolicy.from_random(
+                key=jax.random.key(123),
+                num_datapoints=0,
+                n_actions=n_actions,
+            )
 
     @pytest.mark.parametrize("n_actions", [2, 3])
     @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
@@ -334,6 +349,39 @@ class TestPseudoInputPolicy:
         op = lazify(kernel.gram(train_inputs))
         _test_batch_policy_actions_consistency(policy, op)
 
+    def test_errors_when_dataset_has_no_inputs(self):
+        """Test dataset input validation."""
+        kernel = gpjax.kernels.RBF(
+            lengthscale=Real(jnp.ones(1)),
+            variance=Real(jnp.array(1.0)),
+            compute_engine=DenseKernelComputation(),
+        )
+        with pytest.raises(ValueError, match="Dataset must contain training inputs"):
+            PseudoInputPolicy(
+                pseudo_inputs=jnp.zeros((2, 1)),
+                train_inputs_or_dataset=Dataset(X=None, y=jnp.zeros((2, 1))),
+                kernel=kernel,
+            )
+
+    def test_errors_on_shape_mismatch(self):
+        """Test pseudo-input and training-input shape validation."""
+        kernel = gpjax.kernels.RBF(
+            lengthscale=Real(jnp.ones(1)),
+            variance=Real(jnp.array(1.0)),
+            compute_engine=DenseKernelComputation(),
+        )
+        with pytest.raises(
+            ValueError,
+            match=(
+                "Training inputs and pseudo-inputs must have the same trailing dimensions"
+            ),
+        ):
+            PseudoInputPolicy(
+                pseudo_inputs=jnp.zeros((3, 2)),
+                train_inputs_or_dataset=jnp.zeros((5, 1)),
+                kernel=kernel,
+            )
+
 
 class TestOrthogonalizationPolicy:
     """Test the OrthogonalizationPolicy concrete implementation."""
@@ -351,6 +399,12 @@ class TestOrthogonalizationPolicy:
         assert policy.method == method
         assert policy.n_reortho == n_reortho
         assert policy.n_actions == base_policy.n_actions
+
+    def test_init_errors_on_negative_reorthogonalization(self):
+        """Test n_reortho validation."""
+        base_policy = LanczosPolicy(n_actions=2)
+        with pytest.raises(ValueError, match="n_reortho must be non-negative"):
+            OrthogonalizationPolicy(base_policy=base_policy, n_reortho=-1)
 
     @pytest.mark.parametrize(
         "method,n_reortho",
