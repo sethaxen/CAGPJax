@@ -25,6 +25,7 @@ import optax as ox
 jax.config.update("jax_enable_x64", True)
 
 n_data = 1_000
+n_actions = 10
 
 # Build model
 prior = gpx.gps.Prior(
@@ -45,8 +46,10 @@ y_train = (y_train + jax.random.normal(subkey, y_train.shape)).reshape(-1, 1)
 train_data = gpx.Dataset(x_train, y_train)
 
 # Condition a CaGP with an (untrained) sparse linear solver policy
-key, subkey = jax.random.split(key)
-policy = cagpjax.policies.BlockSparsePolicy(n_actions=10, n=n_data, key=subkey)
+key, policy_key = jax.random.split(key)
+policy = cagpjax.policies.BlockSparsePolicy.from_random(
+    policy_key, n_data, n_actions,
+)
 cagp = cagpjax.models.ComputationAwareGP(posterior, policy)
 key, actions_key = jax.random.split(key)
 
