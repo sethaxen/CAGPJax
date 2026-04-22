@@ -86,6 +86,8 @@ class BlockSparsePolicy(AbstractBatchLinearSolverPolicy):
             sampler: Callable with signature ``(key, shape, dtype) -> values``.
             dtype: Optional dtype forwarded to ``sampler``.
         """
+        if num_datapoints < 1:
+            raise ValueError("num_datapoints must be at least 1")
         nz_values = sampler(key, (num_datapoints,), dtype)
         nz_values = _normalize_by_blocks(nz_values, n_actions)
         return cls(n_actions=n_actions, nz_values=nz_values)
