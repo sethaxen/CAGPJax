@@ -78,10 +78,11 @@ class TestLazyKernelComputation:
         x1, _ = inputs
         gram_raw = comp.gram(kernel, x1)
         gram = lazify(gram_raw)
+        expected_dtype = kernel(x1[0], x1[0]).dtype
         assert isinstance(gram_raw, (ColaLinearOperator, lx.TaggedLinearOperator))
         assert isinstance(gram, LazyKernel)
         assert gram.shape == (x1.shape[0], x1.shape[0])
-        assert gram.dtype == dtype
+        assert gram.dtype == expected_dtype
         assert gram.checkpoint == checkpoint
         assert gram.isa(cola.PSD)
 
@@ -106,12 +107,13 @@ class TestLazyKernelComputation:
             batch_size=batch_size, max_memory_mb=max_memory_mb, checkpoint=checkpoint
         )
         x1, x2 = inputs
+        expected_dtype = kernel.cross_covariance(x1, x2).dtype
         cross_cov_raw = comp.cross_covariance(kernel, x1, x2)
         cross_cov = lazify(cross_cov_raw)
         assert isinstance(cross_cov_raw, ColaLinearOperator)
         assert isinstance(cross_cov, LazyKernel)
         assert cross_cov.shape == (x1.shape[0], x2.shape[0])
-        assert cross_cov.dtype == dtype
+        assert cross_cov.dtype == expected_dtype
         assert cross_cov.checkpoint == checkpoint
 
         cross_cov_lazy = LazyKernel(

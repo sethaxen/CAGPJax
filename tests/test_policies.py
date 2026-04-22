@@ -324,7 +324,7 @@ class TestPseudoInputPolicy:
         expected = kernel.cross_covariance(train_inputs, pseudo_inputs)
         actions = policy.to_actions(op)
         assert isinstance(actions, LinearOperator)
-        assert actions.dtype == dtype
+        assert actions.dtype == expected.dtype
         assert jnp.allclose(actions.to_dense(), expected)
 
     def test_actions_consistency(self, inputs, kernel):

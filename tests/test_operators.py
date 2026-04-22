@@ -243,7 +243,7 @@ class TestLazyKernel:
             checkpoint=checkpoint,
         )
         x1, x2 = inputs
-        assert op.dtype == x1.dtype
+        assert op.dtype == kernel(x1[0], x2[0]).dtype
         assert op.kernel is kernel
         assert op.x1 is x1
         assert op.x2 is x2

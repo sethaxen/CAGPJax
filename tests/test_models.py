@@ -186,9 +186,9 @@ class TestComputationAwareGP:
         expected_dtype = cagp_state.repr_weights_proj.dtype
         assert isinstance(pred, GaussianDistribution)
         assert pred.mean.shape == (n_test,)
-        assert pred.mean.dtype == dtype
+        assert pred.mean.dtype == expected_dtype
         assert pred.scale.shape == (n_test, n_test)
-        assert pred.scale.dtype == dtype
+        assert pred.scale.dtype == expected_dtype
 
     def test_predict_no_inputs(self, cagp, cagp_state, train_data, dtype):
         """Test that CAGP predict method with no inputs evaluates at training inputs."""
@@ -287,8 +287,9 @@ class TestComputationAwareGP:
             pytest.skip("Skipping float32 test due to numerical precision limitations")
 
         elbo_value = cagp.elbo(cagp_state)
+        expected_dtype = cagp_state.repr_weights_proj.dtype
         assert isinstance(elbo_value, jnp.ndarray)
-        assert elbo_value.dtype == dtype
+        assert elbo_value.dtype == expected_dtype
         assert jnp.isscalar(elbo_value)
         assert jnp.isfinite(elbo_value)
 
