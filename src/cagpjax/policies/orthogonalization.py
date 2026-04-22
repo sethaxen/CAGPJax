@@ -28,16 +28,12 @@ class OrthogonalizationPolicy(AbstractBatchLinearSolverPolicy):
     )
     n_reortho: int = eqx.field(static=True, default=0)
 
-    def __init__(
-        self,
-        base_policy: AbstractBatchLinearSolverPolicy,
-        method: OrthogonalizationMethod = OrthogonalizationMethod.QR,
-        n_reortho: int = 0,
-    ):
-        super().__init__(base_policy.n_actions)
-        self.base_policy = base_policy
-        self.method = method
-        self.n_reortho = n_reortho
+    def __post_init__(self):
+        self.n_actions = self.base_policy.n_actions
+
+    def __check_init__(self):
+        if self.n_reortho < 0:
+            raise ValueError("n_reortho must be non-negative")
 
     @override
     def to_actions(

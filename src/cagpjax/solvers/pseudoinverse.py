@@ -53,17 +53,13 @@ class PseudoInverse(AbstractLinearSolver[PseudoInverseState]):
 
     rtol: ScalarFloat | None = eqx.field(static=True, default=None)
     grad_rtol: float | None = eqx.field(static=True, default=None)
-    alg: cola.linalg.Algorithm = eqx.field(static=True, default=Eigh())
+    alg: cola.linalg.Algorithm = eqx.field(static=True, default_factory=Eigh)
 
-    def __init__(
-        self,
-        rtol: ScalarFloat | None = None,
-        grad_rtol: float | None = None,
-        alg: cola.linalg.Algorithm = Eigh(),
-    ):
-        self.rtol = rtol
-        self.grad_rtol = grad_rtol
-        self.alg = alg
+    def __check_init__(self):
+        if self.rtol is not None and self.rtol < 0:
+            raise ValueError("rtol must be non-negative")
+        if self.grad_rtol is not None and self.grad_rtol < 0:
+            raise ValueError("grad_rtol must be non-negative")
 
     @override
     def init(self, A: LinearOperator) -> PseudoInverseState:

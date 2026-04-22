@@ -16,12 +16,13 @@ class AbstractLinearSolverPolicy(eqx.Module):
 
 
 class AbstractBatchLinearSolverPolicy(AbstractLinearSolverPolicy):
-    """Abstract base class for policies that product action matrices."""
+    """Abstract base class for policies that produce action matrices."""
 
-    n_actions: int = eqx.field(static=True)
+    n_actions: int = eqx.field(static=True, init=False)
 
-    def __init__(self, n_actions: int):
-        self.n_actions = n_actions
+    def __check_init__(self):
+        if self.n_actions < 1:
+            raise ValueError("n_actions must be at least 1")
 
     @abc.abstractmethod
     def to_actions(

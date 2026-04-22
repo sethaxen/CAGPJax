@@ -29,12 +29,13 @@ class Cholesky(AbstractLinearSolver[CholeskyState]):
 
     jitter: ScalarFloat | None = eqx.field(static=True, default=None)
 
-    def __init__(self, jitter: ScalarFloat | None = None):
-        self.jitter = jitter
+    def __check_init__(self):
+        if self.jitter is not None and self.jitter < 0:
+            raise ValueError("jitter must be non-negative")
 
     @override
     def init(self, A: LinearOperator) -> CholeskyState:
-        return lower_cholesky(A, self.jitter)
+        return lower_cholesky(A, jitter=self.jitter)
 
     @override
     def unwhiten(

@@ -17,28 +17,15 @@ class LanczosPolicy(AbstractBatchLinearSolverPolicy):
 
     Attributes:
         n_actions: Number of Lanczos vectors/actions to compute.
-        key: Random key for reproducible Lanczos iterations.
+        grad_rtol: Specifies the cutoff for similar eigenvalues, used to improve
+            gradient computation for (almost-)degenerate matrices.
+            If not provided, the default is 0.0.
+            If None or negative, all eigenvalues are treated as distinct.
+            (see [`cagpjax.linalg.eigh`][] for more details)
     """
 
+    n_actions: int = eqx.field(static=True)
     grad_rtol: float | None = eqx.field(static=True, default=0.0)
-
-    def __init__(
-        self,
-        n_actions: int,
-        grad_rtol: float | None = 0.0,
-    ):
-        """Initialize the Lanczos policy.
-
-        Args:
-            n_actions: Number of Lanczos vectors to compute.
-            grad_rtol: Specifies the cutoff for similar eigenvalues, used to improve
-                gradient computation for (almost-)degenerate matrices.
-                If not provided, the default is 0.0.
-                If None or negative, all eigenvalues are treated as distinct.
-                (see [`cagpjax.linalg.eigh`][] for more details)
-        """
-        super().__init__(n_actions)
-        self.grad_rtol = grad_rtol
 
     @override
     def to_actions(

@@ -55,7 +55,8 @@ class ComputationAwareGP(eqx.Module, Generic[_LinearSolverState]):
 
     Attributes:
         posterior: The original (exact) posterior.
-        policy: The batch linear solver policy.
+        policy: The batch linear solver policy that defines the subspace into
+                which the data is projected.
         solver: The linear solver method to use for solving linear systems
             with positive semi-definite operators.
 
@@ -65,26 +66,9 @@ class ComputationAwareGP(eqx.Module, Generic[_LinearSolverState]):
 
     posterior: ConjugatePosterior
     policy: AbstractBatchLinearSolverPolicy
-    solver: AbstractLinearSolver[_LinearSolverState]
-
-    def __init__(
-        self,
-        posterior: ConjugatePosterior,
-        policy: AbstractBatchLinearSolverPolicy,
-        solver: AbstractLinearSolver[_LinearSolverState] = Cholesky(1e-6),
-    ):
-        """Initialize the Computation-Aware GP model.
-
-        Args:
-            posterior: GPJax conjugate posterior.
-            policy: The batch linear solver policy that defines the subspace into
-                which the data is projected.
-            solver: The linear solver method to use for solving linear systems with
-                positive semi-definite operators.
-        """
-        self.posterior = posterior
-        self.policy = policy
-        self.solver = solver
+    solver: AbstractLinearSolver[_LinearSolverState] = eqx.field(
+        default_factory=lambda: Cholesky(1e-6)
+    )
 
     def init(
         self, train_data: Dataset, *, key: PRNGKeyArray | None = None
