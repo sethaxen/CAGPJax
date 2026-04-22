@@ -1,10 +1,11 @@
 import abc
 
+import equinox as eqx
 from cola.ops import LinearOperator
-from flax import nnx
+from jaxtyping import PRNGKeyArray
 
 
-class AbstractLinearSolverPolicy(nnx.Module):
+class AbstractLinearSolverPolicy(eqx.Module):
     r"""Abstract base class for all linear solver policies.
 
     Policies define actions used to solve a linear system $A x = b$, where $A$ is a
@@ -14,17 +15,19 @@ class AbstractLinearSolverPolicy(nnx.Module):
     ...
 
 
-class AbstractBatchLinearSolverPolicy(AbstractLinearSolverPolicy, abc.ABC):
-    """Abstract base class for policies that product action matrices."""
+class AbstractBatchLinearSolverPolicy(AbstractLinearSolverPolicy):
+    """Abstract base class for policies that produce action matrices."""
 
-    @property
-    @abc.abstractmethod
-    def n_actions(self) -> int:
-        """Number of actions in this policy."""
-        ...
+    n_actions: int = eqx.field(static=True, init=False)
+
+    def __check_init__(self):
+        if self.n_actions < 1:
+            raise ValueError("n_actions must be at least 1")
 
     @abc.abstractmethod
-    def to_actions(self, A: LinearOperator) -> LinearOperator:
+    def to_actions(
+        self, A: LinearOperator, *, key: PRNGKeyArray | None = None
+    ) -> LinearOperator:
         r"""Compute all actions used to solve the linear system $Ax=b$.
 
         For a matrix $A$ with shape ``(n, n)``, the action matrix has shape
@@ -32,6 +35,7 @@ class AbstractBatchLinearSolverPolicy(AbstractLinearSolverPolicy, abc.ABC):
 
         Args:
             A: Linear operator representing the linear system.
+            key: Optional random key used by stochastic policies.
 
         Returns:
             Linear operator representing the action matrix.

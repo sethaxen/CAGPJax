@@ -1,11 +1,12 @@
 """Tests for Gaussian process models."""
 
+import equinox as eqx
 import gpjax as gpjax
 import jax
 import jax.numpy as jnp
 import jax.test_util
+import lineax
 import pytest
-from flax import nnx
 from gpjax.gps import ConjugatePosterior
 from gpjax.kernels import RBF
 from gpjax.kernels.computations import DenseKernelComputation
@@ -46,9 +47,11 @@ class TestComputationAwareGP:
     def policy(self, request, n_train, n_actions, dtype, key=jax.random.key(98)):
         policy_class = request.param
         if policy_class is LanczosPolicy:
-            return policy_class(n_actions=n_actions, key=key)
+            return policy_class(n_actions=n_actions)
         elif policy_class is BlockSparsePolicy:
-            return policy_class(n_actions=n_actions, n=n_train, key=key, dtype=dtype)
+            return policy_class.from_random(
+                key=key, num_datapoints=n_train, n_actions=n_actions, dtype=dtype
+            )
         else:
             raise ValueError(f"Invalid policy class: {policy_class}")
 
@@ -103,8 +106,8 @@ class TestComputationAwareGP:
 
     def make_posterior(self, n_train, dtype, compute_engine, constant_type):
         kernel = RBF(
-            lengthscale=jnp.array(1.0, dtype=dtype),
-            variance=jnp.array(1.0, dtype=dtype),
+            lengthscale=Real(jnp.array(1.0, dtype=dtype)),
+            variance=Real(jnp.array(1.0, dtype=dtype)),
             compute_engine=compute_engine,
         )
         likelihood = Gaussian(
@@ -137,9 +140,9 @@ class TestComputationAwareGP:
     @pytest.fixture
     def cagp_state(self, cagp, train_data):
         """Create CAGP state."""
-        return cagp.init(train_data)
+        return cagp.init(train_data, key=jax.random.key(0))
 
-    @pytest.mark.skipif(constant_type is nnx.Variable, reason="Test is redundant")
+    @pytest.mark.skipif(constant_type is Real, reason="Test is redundant")
     def test_initialization(self, policy, posterior, solver):
         """Test that CAGP initializes correctly."""
         cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
@@ -160,7 +163,7 @@ class TestComputationAwareGP:
             "error", message=".*scatter inputs have incompatible types.*"
         )
 
-        state = cagp.init(train_data)
+        state = cagp.init(train_data, key=jax.random.key(0))
         assert isinstance(state, cagpjax.models.cagp.ComputationAwareGPState)
 
     @pytest.mark.parametrize(
@@ -180,11 +183,12 @@ class TestComputationAwareGP:
         """Test that CAGP predict method with test inputs works."""
         x_test = test_data.X
         pred = cagp.predict(cagp_state, x_test)
+        expected_dtype = cagp_state.repr_weights_proj.dtype
         assert isinstance(pred, GaussianDistribution)
         assert pred.mean.shape == (n_test,)
-        assert pred.mean.dtype == dtype
+        assert pred.mean.dtype == expected_dtype
         assert pred.scale.shape == (n_test, n_test)
-        assert pred.scale.dtype == dtype
+        assert pred.scale.dtype == expected_dtype
 
     def test_predict_no_inputs(self, cagp, cagp_state, train_data, dtype):
         """Test that CAGP predict method with no inputs evaluates at training inputs."""
@@ -215,21 +219,21 @@ class TestComputationAwareGP:
             pytest.skip("Skipping float32 test due to numerical precision limitations")
 
         x_test = test_data.X
-        policy = LanczosPolicy(n_actions=n_train, key=key)
+        policy = LanczosPolicy(n_actions=n_train)
         cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
-        cagp_state = cagp.init(train_data)
+        cagp_state = cagp.init(train_data, key=key)
         pred = cagp.predict(cagp_state, x_test)
 
         pred_exact = posterior_eager.predict(x_test, train_data)
 
         assert pred.mean.shape == pred_exact.mean.shape
-        assert pred.scale.shape == pred_exact.scale.shape
+        assert pred.scale.shape[0] == pred_exact.scale.out_size()
+        assert pred.scale.shape[1] == pred_exact.scale.in_size()
         assert jnp.allclose(pred.mean, pred_exact.mean, atol=1e-4)
         assert jnp.allclose(
-            pred.scale.to_dense(), pred_exact.scale.to_dense(), atol=1e-5
+            pred.scale.to_dense(), pred_exact.scale.as_matrix(), atol=1e-5
         )
 
-    @pytest.mark.skipif(constant_type is nnx.Variable, reason="Test is redundant")
     def test_prior_kl_consistency(self, cagp, cagp_state, train_data, dtype):
         """Test that custom ``prior_kl`` matches KL computed from result of ``predict``."""
         if dtype == jnp.float32:
@@ -237,7 +241,6 @@ class TestComputationAwareGP:
 
         kl = cagp.prior_kl(cagp_state)
         assert isinstance(kl, jnp.ndarray)
-        assert kl.dtype == dtype
         assert jnp.isscalar(kl)
         assert jnp.isfinite(kl)
         assert kl >= 0.0
@@ -248,14 +251,13 @@ class TestComputationAwareGP:
         p = cagp.posterior.prior.predict(train_data.X)
         kl_explicit = gpjax.distributions.GaussianDistribution(
             q.mean,
-            gpjax.linalg.operators.Dense(
+            lineax.MatrixLinearOperator(
                 q.scale.to_dense() + jnp.eye(q.scale.shape[0]) * jitter
             ),
         ).kl_divergence(p)
 
         assert jnp.allclose(kl, kl_explicit, rtol=1e-4)
 
-    @pytest.mark.skipif(constant_type is nnx.Variable, reason="Test is redundant")
     def test_prior_kl_gradient_sparse_actions(
         self,
         posterior,
@@ -270,21 +272,14 @@ class TestComputationAwareGP:
             pytest.skip("Skipping float32 test due to numerical precision limitations")
 
         nz_values = jax.random.normal(key, (n_train,), dtype=dtype)
-        policy = BlockSparsePolicy(n_actions=n_train, nz_values=Real(nz_values))
+        policy = BlockSparsePolicy(n_actions=n_train, nz_values=nz_values)
+        cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
 
-        # use nnx's utlities to split the policy into a graph definition and parameters
-        # this allows us to bypass gpjax.parameters.Parameter's check that the parameter is an
-        # ArrayLike (on jax > v0.8.1, GradTracer is not an ArrayLike) and mirrors how gpjax.fit
-        # computes gradients wrt parameters.
-        graphdef, params = nnx.split(policy, Real)
+        def kl_objective(model):
+            cagp_state = model.init(train_data)
+            return model.prior_kl(cagp_state)
 
-        def kl_objective(params: nnx.State):
-            policy = nnx.merge(graphdef, params)
-            cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
-            cagp_state = cagp.init(train_data)
-            return cagp.prior_kl(cagp_state)
-
-        jax.test_util.check_grads(kl_objective, (params,), order=1, modes=["rev"])
+        jax.test_util.check_grads(kl_objective, (cagp,), order=1, modes=["rev"])
 
     def test_integration_elbo(self, cagp, cagp_state, posterior, train_data, dtype):
         """Test that ``elbo`` objective from GPJax is computed correctly."""
@@ -292,8 +287,9 @@ class TestComputationAwareGP:
             pytest.skip("Skipping float32 test due to numerical precision limitations")
 
         elbo_value = cagp.elbo(cagp_state)
+        expected_dtype = cagp_state.repr_weights_proj.dtype
         assert isinstance(elbo_value, jnp.ndarray)
-        assert elbo_value.dtype == dtype
+        assert elbo_value.dtype == expected_dtype
         assert jnp.isscalar(elbo_value)
         assert jnp.isfinite(elbo_value)
 

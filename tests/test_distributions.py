@@ -10,7 +10,7 @@ from numpyro.distributions import MultivariateNormal
 
 import cagpjax
 from cagpjax.distributions import GaussianDistribution
-from cagpjax.operators.utils import lazify
+from cagpjax.interop import lazify
 from cagpjax.solvers import Cholesky, PseudoInverse
 
 jax.config.update("jax_enable_x64", True)

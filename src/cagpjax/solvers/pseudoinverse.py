@@ -1,6 +1,7 @@
 from typing import NamedTuple
 
 import cola
+import equinox as eqx
 import jax
 from cola.ops import LinearOperator
 from jax import numpy as jnp
@@ -45,24 +46,19 @@ class PseudoInverse(AbstractLinearSolver[PseudoInverseState]):
               of the operator (see [`jax.numpy.linalg.pinv`][]).
         grad_rtol: Specifies the cutoff for similar eigenvalues, used to improve
             gradient computation for (almost-)degenerate matrices.
-            If not provided, the default is 0.0.
-            If None or negative, all eigenvalues are treated as distinct.
+            If None (default), all eigenvalues are treated as distinct.
         alg: Algorithm for eigenvalue decomposition passed to [`cagpjax.linalg.eigh`][].
     """
 
-    rtol: ScalarFloat | None
-    grad_rtol: float | None
-    alg: cola.linalg.Algorithm
+    rtol: ScalarFloat | None = eqx.field(static=True, default=None)
+    grad_rtol: float | None = eqx.field(static=True, default=None)
+    alg: cola.linalg.Algorithm = eqx.field(static=True, default_factory=Eigh)
 
-    def __init__(
-        self,
-        rtol: ScalarFloat | None = None,
-        grad_rtol: float | None = None,
-        alg: cola.linalg.Algorithm = Eigh(),
-    ):
-        self.rtol = rtol
-        self.grad_rtol = grad_rtol
-        self.alg = alg
+    def __check_init__(self):
+        if self.rtol is not None and self.rtol < 0:
+            raise ValueError("rtol must be non-negative")
+        if self.grad_rtol is not None and self.grad_rtol < 0:
+            raise ValueError("grad_rtol must be non-negative")
 
     @override
     def init(self, A: LinearOperator) -> PseudoInverseState:

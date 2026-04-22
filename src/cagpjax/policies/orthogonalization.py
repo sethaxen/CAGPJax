@@ -1,5 +1,7 @@
 import cola
+import equinox as eqx
 from cola.ops import LinearOperator
+from jaxtyping import PRNGKeyArray
 from typing_extensions import override
 
 from ..linalg import OrthogonalizationMethod, orthogonalize
@@ -21,27 +23,23 @@ class OrthogonalizationPolicy(AbstractBatchLinearSolverPolicy):
     """
 
     base_policy: AbstractBatchLinearSolverPolicy
-    method: OrthogonalizationMethod
-    n_reortho: int
+    method: OrthogonalizationMethod = eqx.field(
+        static=True, default=OrthogonalizationMethod.QR
+    )
+    n_reortho: int = eqx.field(static=True, default=0)
 
-    def __init__(
-        self,
-        base_policy: AbstractBatchLinearSolverPolicy,
-        method: OrthogonalizationMethod = OrthogonalizationMethod.QR,
-        n_reortho: int = 0,
-    ):
-        self.base_policy = base_policy
-        self.method = method
-        self.n_reortho = n_reortho
+    def __post_init__(self):
+        self.n_actions = self.base_policy.n_actions
 
-    @property
-    @override
-    def n_actions(self):
-        return self.base_policy.n_actions
+    def __check_init__(self):
+        if self.n_reortho < 0:
+            raise ValueError("n_reortho must be non-negative")
 
     @override
-    def to_actions(self, A: LinearOperator) -> LinearOperator:
-        op = self.base_policy.to_actions(A)
+    def to_actions(
+        self, A: LinearOperator, *, key: PRNGKeyArray | None = None
+    ) -> LinearOperator:
+        op = self.base_policy.to_actions(A, key=key)
         return cola.lazify(
             orthogonalize(op, method=self.method, n_reortho=self.n_reortho)
         )

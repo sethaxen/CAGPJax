@@ -72,8 +72,7 @@ def eigh(
         alg: Algorithm for eigenvalue decomposition.
         grad_rtol: Specifies the cutoff for similar eigenvalues, used to improve
             gradient computation for (almost-)degenerate matrices.
-            If not provided, the default is 0.0.
-            If None or negative, all eigenvalues are treated as distinct.
+            If None (default), all eigenvalues are treated as distinct.
 
     Returns:
         A named tuple of `(eigenvalues, eigenvectors)` where `eigenvectors` is a
@@ -89,6 +88,8 @@ def eigh(
     """
     if grad_rtol is None:
         grad_rtol = -1.0
+    elif grad_rtol < 0.0:
+        raise ValueError("grad_rtol must be None or non-negative.")
     vals, vecs = _eigh(A, alg, grad_rtol)  # pyright: ignore[reportArgumentType]
     if vecs.shape[-1] == A.shape[-1]:
         vecs = cola.Unitary(vecs)

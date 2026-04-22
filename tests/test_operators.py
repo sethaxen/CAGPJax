@@ -1,21 +1,22 @@
 """Tests for custom linear operators."""
 
 import cola
-import gpjax
 import jax
 import jax.numpy as jnp
 import jax.test_util
+import lineax as lx
 import numpy as np
 import pytest
 from cola.ops import Dense, Diagonal, LinearOperator, ScalarMul
-from flax import nnx
 from gpjax.kernels import RBF
+from gpjax.kernels.computations import DenseKernelComputation
+from gpjax.parameters import Real
 
+from cagpjax.interop import lazify
 from cagpjax.operators import BlockDiagonalSparse
 from cagpjax.operators.annotations import ScaledOrthogonal
 from cagpjax.operators.diag_like import diag_like
 from cagpjax.operators.lazy_kernel import LazyKernel
-from cagpjax.operators.utils import lazify
 
 jax.config.update("jax_enable_x64", True)
 
@@ -86,49 +87,31 @@ class TestUtils:
         lazy_op = lazify(op)
         assert lazy_op is op
 
-    try:  # test support for GPJax v0.12.0
-        import gpjax.linalg
+    def test_lazify_lineax_matrix(self, nrows, ncols, dtype, key=jax.random.key(42)):
+        matrix = jax.random.normal(key, (nrows, ncols), dtype=dtype)
+        op = lx.MatrixLinearOperator(matrix)
+        lazy_op = lazify(op)
+        assert isinstance(lazy_op, cola.ops.Dense)
+        assert lazy_op.shape == (nrows, ncols)
+        assert lazy_op.dtype == dtype
+        np.testing.assert_allclose(lazy_op.to_dense(), matrix)
 
-        def test_lazify_gpjax_dense(self, nrows, ncols, dtype, key=jax.random.key(42)):
-            op = gpjax.linalg.Dense(jax.random.normal(key, (nrows, ncols), dtype=dtype))
-            lazy_op = lazify(op)
-            assert isinstance(lazy_op, cola.ops.Dense)
-            assert lazy_op.shape == (nrows, ncols)
-            assert lazy_op.dtype == dtype
-            np.testing.assert_allclose(lazy_op.to_dense(), op.to_dense())
+    def test_lazify_lineax_diagonal(self, nrows, dtype, key=jax.random.key(42)):
+        diag = jax.random.normal(key, (nrows,), dtype=dtype)
+        op = lx.DiagonalLinearOperator(diag)
+        lazy_op = lazify(op)
+        assert isinstance(lazy_op, cola.ops.Diagonal)
+        assert lazy_op.shape == (nrows, nrows)
+        assert lazy_op.dtype == dtype
+        np.testing.assert_allclose(lazy_op.to_dense(), jnp.diag(diag))
 
-        def test_lazify_gpjax_diagonal(self, nrows, dtype, key=jax.random.key(42)):
-            diag = jax.random.normal(key, (nrows,), dtype=dtype)
-            op = gpjax.linalg.Diagonal(diag)
-            lazy_op = lazify(op)
-            assert isinstance(lazy_op, cola.ops.Diagonal)
-            assert lazy_op.shape == (nrows, nrows)
-            assert lazy_op.dtype == dtype
-            np.testing.assert_allclose(lazy_op.to_dense(), jnp.diag(diag))
-
-        def test_lazify_gpjax_identity(self, nrows, dtype, key=jax.random.key(42)):
-            op = gpjax.linalg.Identity(nrows, dtype=dtype)
-            lazy_op = lazify(op)
-            assert isinstance(lazy_op, cola.ops.Identity)
-            assert lazy_op.shape == (nrows, nrows)
-            assert lazy_op.dtype == dtype
-
-        @pytest.mark.parametrize("lower", [True, False])
-        def test_lazify_gpjax_triangular(
-            self, nrows, dtype, lower, key=jax.random.key(42)
-        ):
-            op = gpjax.linalg.Triangular(
-                jax.random.normal(key, (nrows, nrows), dtype=dtype), lower=lower
-            )
-            lazy_op = lazify(op)
-            assert isinstance(lazy_op, cola.ops.Triangular)
-            assert lazy_op.shape == (nrows, nrows)
-            assert lazy_op.dtype == dtype
-            assert lazy_op.lower == lower
-            np.testing.assert_allclose(lazy_op.to_dense(), op.to_dense())
-
-    except ImportError:
-        pass
+    def test_lazify_lineax_identity(self, nrows, dtype):
+        metadata = jax.ShapeDtypeStruct((nrows,), dtype)
+        op = lx.IdentityLinearOperator(metadata)
+        lazy_op = lazify(op)
+        assert isinstance(lazy_op, cola.ops.Identity)
+        assert lazy_op.shape == (nrows, nrows)
+        assert lazy_op.dtype == dtype
 
 
 class TestBlockDiagonalSparse:
@@ -227,8 +210,9 @@ class TestLazyKernel:
     def kernel(self, dtype):
         """Create RBF kernel for testing."""
         return RBF(
-            lengthscale=jnp.array(1.0, dtype=dtype),
-            variance=jnp.array(1.0, dtype=dtype),
+            lengthscale=Real(jnp.array(1.0, dtype=dtype)),
+            variance=Real(jnp.array(1.0, dtype=dtype)),
+            compute_engine=DenseKernelComputation(),
         )
 
     @pytest.fixture
@@ -259,7 +243,7 @@ class TestLazyKernel:
             checkpoint=checkpoint,
         )
         x1, x2 = inputs
-        assert op.dtype == x1.dtype
+        assert op.dtype == kernel(x1[0], x2[0]).dtype
         assert op.kernel is kernel
         assert op.x1 is x1
         assert op.x2 is x2
@@ -307,20 +291,23 @@ class TestLazyKernel:
         v = jax.random.normal(subkeys[2], (n,), dtype=dtype)
 
         lengthscale, variance = jax.random.uniform(subkeys[3], (2,), dtype=dtype)
-        kernel = RBF(lengthscale=lengthscale, variance=variance)
-        graphdef, params = nnx.split(kernel, gpjax.parameters.Parameter)
 
-        def loss(params):
-            kernel = nnx.merge(graphdef, params)
+        kernel = RBF(
+            lengthscale=lengthscale,
+            variance=variance,
+            compute_engine=DenseKernelComputation(),
+        )
+
+        def loss(kernel):
             op = LazyKernel(
                 kernel, x1, x2, max_memory_mb=max_memory_mb, checkpoint=checkpoint
             )
             with jax.default_matmul_precision("highest"):
                 return jnp.vdot(v, op @ v)
 
-        assert jnp.isfinite(loss(params))
+        assert jnp.isfinite(loss(kernel))
         if grad:
             rtol = 1e-2 if dtype == jnp.float32 else 1e-6
             jax.test_util.check_grads(
-                loss, (params,), order=1, modes=["rev"], rtol=rtol
+                loss, (kernel,), order=1, modes=["rev"], rtol=rtol
             )

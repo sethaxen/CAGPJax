@@ -1,12 +1,12 @@
 """Pseodo-input linear solver policy."""
 
 import cola
+import equinox as eqx
 import gpjax
 import jax.numpy as jnp
+import paramax
 from cola.ops import LinearOperator
-from flax import nnx
-from gpjax.parameters import Parameter
-from jaxtyping import Array, Float
+from jaxtyping import Array, Float, PRNGKeyArray
 
 from .base import AbstractBatchLinearSolverPolicy
 
@@ -19,8 +19,7 @@ class PseudoInputPolicy(AbstractBatchLinearSolverPolicy):
     inducing points and can be marked as trainable.
 
     Args:
-        pseudo_inputs: Pseudo-inputs for the kernel. If wrapped as a `gpjax.parameters.Parameter`,
-            they will be treated as trainable.
+        pseudo_inputs: Pseudo-inputs for the kernel.
         train_inputs: Training inputs or a dataset containing training inputs. These must be the
             same inputs in the same order as the training data used to condition the CaGP model.
         kernel: Kernel for the GP prior. It must be able to take `train_inputs` and `pseudo_inputs`
@@ -32,16 +31,20 @@ class PseudoInputPolicy(AbstractBatchLinearSolverPolicy):
         the actions using an [`OrthogonalizationPolicy`][cagpjax.policies.OrthogonalizationPolicy].
     """
 
-    pseudo_inputs: Float[Array, "M D"] | Parameter[Float[Array, "M D"]]
-    train_inputs: Float[Array, "N D"]
+    pseudo_inputs: (
+        Float[Array, "M D"] | paramax.AbstractUnwrappable[Float[Array, "M D"]]
+    )
+    train_inputs: paramax.AbstractUnwrappable[Float[Array, "N D"]]
     kernel: gpjax.kernels.AbstractKernel
 
     def __init__(
         self,
-        pseudo_inputs: Float[Array, "M D"] | Parameter[Float[Array, "M D"]],
+        pseudo_inputs: Float[Array, "M D"]
+        | paramax.AbstractUnwrappable[Float[Array, "M D"]],
         train_inputs_or_dataset: Float[Array, "N D"] | gpjax.dataset.Dataset,
         kernel: gpjax.kernels.AbstractKernel,
     ):
+        self.pseudo_inputs = pseudo_inputs
         if isinstance(train_inputs_or_dataset, gpjax.dataset.Dataset):
             train_data = train_inputs_or_dataset
             if train_data.X is None:
@@ -49,14 +52,23 @@ class PseudoInputPolicy(AbstractBatchLinearSolverPolicy):
             train_inputs = train_data.X
         else:
             train_inputs = train_inputs_or_dataset
-        self.pseudo_inputs = pseudo_inputs
-        self.train_inputs = jnp.atleast_2d(train_inputs)
+        self.train_inputs = paramax.non_trainable(jnp.atleast_2d(train_inputs))
         self.kernel = kernel
+        self.n_actions = paramax.unwrap(self.pseudo_inputs).shape[0]
 
-    @property
-    def n_actions(self):
-        return self.pseudo_inputs.shape[0]
+    def __check_init__(self):
+        if (
+            paramax.unwrap(self.train_inputs).shape[1:]
+            != paramax.unwrap(self.pseudo_inputs).shape[1:]
+        ):
+            raise ValueError(
+                "Training inputs and pseudo-inputs must have the same trailing dimensions."
+            )
 
-    def to_actions(self, A: LinearOperator) -> LinearOperator:
-        S = self.kernel.cross_covariance(self.train_inputs, self.pseudo_inputs[...])
+    def to_actions(
+        self, A: LinearOperator, *, key: PRNGKeyArray | None = None
+    ) -> LinearOperator:
+        S = self.kernel.cross_covariance(
+            paramax.unwrap(self.train_inputs), paramax.unwrap(self.pseudo_inputs)
+        )
         return cola.lazify(S)

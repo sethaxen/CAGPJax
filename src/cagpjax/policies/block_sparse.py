@@ -1,17 +1,43 @@
 """Block-sparse policy."""
 
-import warnings
+from collections.abc import Callable
+from typing import Any
 
+import equinox as eqx
 import jax
 import jax.numpy as jnp
+import paramax
 from cola.ops import LinearOperator
-from flax import nnx
-from gpjax.parameters import Real
 from jaxtyping import Array, Float, PRNGKeyArray
 from typing_extensions import override
 
 from ..operators import BlockDiagonalSparse
 from .base import AbstractBatchLinearSolverPolicy
+
+
+def _normalize_by_blocks(
+    values: Float[Array, "N"],
+    n_actions: int,
+) -> Float[Array, "N"]:
+    n = values.shape[0]
+    block_size = n // n_actions
+    n_blocks_main = n_actions if n % n_actions == 0 else n_actions - 1
+    n_main = n_blocks_main * block_size
+
+    chunks = []
+    if n_main > 0:
+        main = values[:n_main].reshape(n_blocks_main, block_size)
+        norms = jnp.linalg.vector_norm(main, axis=1, keepdims=True)
+        main = main / jnp.where(norms > 0, norms, 1.0)
+        chunks.append(main.reshape(n_main))
+    if n > n_main:
+        overhang = values[n_main:]
+        norm = jnp.linalg.vector_norm(overhang)
+        overhang = overhang / jnp.where(norm > 0, norm, 1.0)
+        chunks.append(overhang)
+    if not chunks:
+        return values
+    return jnp.concatenate(chunks)
 
 
 class BlockSparsePolicy(AbstractBatchLinearSolverPolicy):
@@ -30,58 +56,53 @@ class BlockSparsePolicy(AbstractBatchLinearSolverPolicy):
     $$
 
     These are stacked and stored as a single trainable parameter ``nz_values``.
+
+    Attributes:
+        n_actions: Number of actions to use.
+        nz_values: Non-zero values of the block-diagonal sparse matrix.
     """
 
-    def __init__(
-        self,
+    n_actions: int = eqx.field(static=True)
+    nz_values: Float[Array, "N"] | paramax.AbstractUnwrappable[Float[Array, "N"]]
+
+    @classmethod
+    def from_random(
+        cls,
+        key: PRNGKeyArray,
+        num_datapoints: int,
         n_actions: int,
-        n: int | None = None,
-        nz_values: Float[Array, "N"] | nnx.Variable[Float[Array, "N"]] | None = None,
-        key: PRNGKeyArray | None = None,
-        **kwargs,
-    ):
-        """Initialize the block sparse policy.
+        *,
+        sampler: Callable[
+            [PRNGKeyArray, tuple[int, ...], Any], Float[Array, " N"]
+        ] = jax.random.normal,
+        dtype: Any = None,
+    ) -> "BlockSparsePolicy":
+        """Initialize policy from block-normalized random samples.
 
         Args:
-            n_actions: Number of actions to use.
-            n: Number of rows and columns of the full operator. Must be provided if ``nz_values`` is
-                not provided.
-            nz_values: Non-zero values of the block-diagonal sparse matrix (shape ``(n,)``). If not
-                provided, random actions are sampled using the key if provided.
-            key: Random key for sampling actions if ``nz_values`` is not provided.
-            **kwargs: Additional keyword arguments for ``jax.random.normal`` (e.g. ``dtype``)
+            key: Random key used to sample initial values.
+            num_datapoints: Number of rows in the resulting operator.
+            n_actions: Number of action columns in the resulting operator.
+            sampler: Callable with signature ``(key, shape, dtype) -> values``.
+            dtype: Optional dtype forwarded to ``sampler``.
         """
-        if nz_values is None:
-            if n is None:
-                raise ValueError("n must be provided if nz_values is not provided")
-            if key is None:
-                key = jax.random.PRNGKey(0)
-            block_size = n // n_actions
-            nz_values = jax.random.normal(key, (n,), **kwargs)
-            nz_values /= jnp.sqrt(block_size)
-        elif n is not None:
-            warnings.warn("n is ignored because nz_values is provided")
-
-        if not isinstance(nz_values, nnx.Variable):
-            nz_values = Real(nz_values)
-
-        self.nz_values: nnx.Variable[Float[Array, "N"]] = nz_values
-        self._n_actions: int = n_actions
-
-    @property
-    @override
-    def n_actions(self) -> int:
-        """Number of actions to be used."""
-        return self._n_actions
+        if num_datapoints < 1:
+            raise ValueError("num_datapoints must be at least 1")
+        nz_values = sampler(key, (num_datapoints,), dtype)
+        nz_values = _normalize_by_blocks(nz_values, n_actions)
+        return cls(n_actions=n_actions, nz_values=nz_values)
 
     @override
-    def to_actions(self, A: LinearOperator) -> LinearOperator:
+    def to_actions(
+        self, A: LinearOperator, *, key: PRNGKeyArray | None = None
+    ) -> LinearOperator:
         """Convert to block diagonal sparse action operators.
 
         Args:
             A: Linear operator (unused).
+            key: Optional random key (unused).
 
         Returns:
             BlockDiagonalSparse: Sparse action structure representing the blocks.
         """
-        return BlockDiagonalSparse(self.nz_values[...], self.n_actions)
+        return BlockDiagonalSparse(paramax.unwrap(self.nz_values), self.n_actions)

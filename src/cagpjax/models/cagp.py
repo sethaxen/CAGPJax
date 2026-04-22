@@ -4,18 +4,19 @@ from dataclasses import dataclass
 from typing import Optional
 
 import cola
+import equinox as eqx
 import jax.numpy as jnp
+import paramax
 from cola.ops import LinearOperator
-from flax import nnx
 from gpjax.gps import ConjugatePosterior, Dataset
 from gpjax.mean_functions import Constant
-from jaxtyping import Array, Float
+from jaxtyping import Array, Float, PRNGKeyArray
 from typing_extensions import Generic, TypeVar
 
 from ..distributions import GaussianDistribution
+from ..interop import lazify
 from ..linalg import congruence_transform
 from ..operators import diag_like
-from ..operators.utils import lazify
 from ..policies import AbstractBatchLinearSolverPolicy
 from ..solvers import AbstractLinearSolver, Cholesky
 from ..typing import ScalarFloat
@@ -45,7 +46,7 @@ class ComputationAwareGPState(Generic[_LinearSolverState]):
     repr_weights_proj: Float[Array, "M"]
 
 
-class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
+class ComputationAwareGP(eqx.Module, Generic[_LinearSolverState]):
     """Computation-aware Gaussian Process model.
 
     This model implements scalable GP inference by using batch linear solver
@@ -54,7 +55,8 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
 
     Attributes:
         posterior: The original (exact) posterior.
-        policy: The batch linear solver policy.
+        policy: The batch linear solver policy that defines the subspace into
+                which the data is projected.
         solver: The linear solver method to use for solving linear systems
             with positive semi-definite operators.
 
@@ -64,32 +66,18 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
 
     posterior: ConjugatePosterior
     policy: AbstractBatchLinearSolverPolicy
-    solver: AbstractLinearSolver[_LinearSolverState]
+    solver: AbstractLinearSolver[_LinearSolverState] = eqx.field(
+        default_factory=lambda: Cholesky(1e-6)
+    )
 
-    def __init__(
-        self,
-        posterior: ConjugatePosterior,
-        policy: AbstractBatchLinearSolverPolicy,
-        solver: AbstractLinearSolver[_LinearSolverState] = Cholesky(1e-6),
-    ):
-        """Initialize the Computation-Aware GP model.
-
-        Args:
-            posterior: GPJax conjugate posterior.
-            policy: The batch linear solver policy that defines the subspace into
-                which the data is projected.
-            solver: The linear solver method to use for solving linear systems with
-                positive semi-definite operators.
-        """
-        self.posterior = posterior
-        self.policy = policy
-        self.solver = solver
-
-    def init(self, train_data: Dataset) -> ComputationAwareGPState[_LinearSolverState]:
+    def init(
+        self, train_data: Dataset, *, key: PRNGKeyArray | None = None
+    ) -> ComputationAwareGPState[_LinearSolverState]:
         """Compute the state of the conditioned GP posterior.
 
         Args:
             train_data: The training data used to fit the GP.
+            key: Optional random key forwarded to policy action construction.
 
         Returns:
             state: State of the conditioned CaGP posterior, which stores any necessary
@@ -111,14 +99,14 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
         mean_prior = prior.mean_function(x).squeeze()
         # Work around GPJax promoting dtype of mean to float64 (See JaxGaussianProcesses/GPJax#523)
         if isinstance(prior.mean_function, Constant):
-            constant = prior.mean_function.constant[...]
+            constant = paramax.unwrap(prior.mean_function.constant)
             mean_prior = mean_prior.astype(constant.dtype)
         cov_xx = lazify(prior.kernel.gram(x))
-        obs_cov = diag_like(cov_xx, likelihood.obs_stddev[...] ** 2)
+        obs_cov = diag_like(cov_xx, paramax.unwrap(likelihood.obs_stddev) ** 2)
         cov_prior = cov_xx + obs_cov
 
         # Project quantities to subspace
-        actions = self.policy.to_actions(cov_prior)
+        actions = self.policy.to_actions(cov_prior, key=key)
         obs_cov_proj = congruence_transform(actions, obs_cov)
         cov_prior_proj = congruence_transform(actions, cov_prior)
         cov_prior_proj_state = self.solver.init(cov_prior_proj)
@@ -161,10 +149,14 @@ class ComputationAwareGP(nnx.Module, Generic[_LinearSolverState]):
         mean_z = prior.mean_function(z).squeeze()
         # Work around GPJax promoting dtype of mean to float64 (See JaxGaussianProcesses/GPJax#523)
         if isinstance(prior.mean_function, Constant):
-            constant = prior.mean_function.constant[...]
+            constant = paramax.unwrap(prior.mean_function.constant)
             mean_z = mean_z.astype(constant.dtype)
         cov_zz = lazify(prior.kernel.gram(z))
-        cov_zx = cov_zz if test_inputs is None else prior.kernel.cross_covariance(z, x)
+        cov_zx = (
+            cov_zz
+            if test_inputs is None
+            else lazify(prior.kernel.cross_covariance(z, x))
+        )
         cov_zx_proj = cov_zx @ state.actions
 
         # Posterior predictive distribution

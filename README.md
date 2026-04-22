@@ -25,8 +25,9 @@ import optax as ox
 jax.config.update("jax_enable_x64", True)
 
 n_data = 1_000
+n_actions = 10
 
-# Build_model
+# Build model
 prior = gpx.gps.Prior(
     mean_function=gpx.mean_functions.Zero(),
     kernel=gpx.kernels.RBF(lengthscale=1.0, variance=1.0),
@@ -45,18 +46,21 @@ y_train = (y_train + jax.random.normal(subkey, y_train.shape)).reshape(-1, 1)
 train_data = gpx.Dataset(x_train, y_train)
 
 # Condition a CaGP with an (untrained) sparse linear solver policy
-key, subkey = jax.random.split(key)
-policy = cagpjax.policies.BlockSparsePolicy(n_actions=10, n=n_data, key=subkey)
+key, policy_key = jax.random.split(key)
+policy = cagpjax.policies.BlockSparsePolicy.from_random(
+    policy_key, n_data, n_actions,
+)
 cagp = cagpjax.models.ComputationAwareGP(posterior, policy)
+key, actions_key = jax.random.split(key)
 
 # Optimize hyperparameters (including actions)
 def negative_elbo(cagp, train_data):
-    cagp_state = cagp.init(train_data)  # compute state conditioned on data
+    cagp_state = cagp.init(train_data, key=actions_key)  # compute state conditioned on data
     return -cagp.elbo(cagp_state)
 
 cagp_optimized, history = gpx.fit(
     model=cagp,
-    objective=negative_elbo, 
+    objective=negative_elbo,
     train_data=train_data,
     optim=ox.adamw(learning_rate=0.01),
     num_iters=250,
@@ -64,7 +68,7 @@ cagp_optimized, history = gpx.fit(
 )
 
 # Get CaGP posterior distribution at the inputs
-cagp_state = cagp_optimized.init(train_data)
+cagp_state = cagp_optimized.init(train_data, key=actions_key)
 cagp_post = cagp_optimized.predict(cagp_state)
 ```
 

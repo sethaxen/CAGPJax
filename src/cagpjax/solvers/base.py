@@ -2,8 +2,8 @@
 
 from abc import abstractmethod
 
+import equinox as eqx
 from cola.ops import LinearOperator
-from flax import nnx
 from jaxtyping import Array, Float
 from typing_extensions import Generic, TypeVar
 
@@ -12,7 +12,7 @@ from ..typing import ScalarFloat
 _LinearSolverState = TypeVar("_LinearSolverState")
 
 
-class AbstractLinearSolver(nnx.Module, Generic[_LinearSolverState]):
+class AbstractLinearSolver(eqx.Module, Generic[_LinearSolverState]):
     """
     Base class for linear solvers.
 
