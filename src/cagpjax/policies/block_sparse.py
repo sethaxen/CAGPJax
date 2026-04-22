@@ -15,7 +15,6 @@ from ..operators import BlockDiagonalSparse
 from .base import AbstractBatchLinearSolverPolicy
 
 
-@staticmethod
 def _normalize_by_blocks(
     values: Float[Array, "N"],
     n_actions: int,
