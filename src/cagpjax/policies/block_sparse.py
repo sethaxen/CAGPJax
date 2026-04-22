@@ -41,7 +41,6 @@ def _normalize_by_blocks(
     return jnp.concatenate(chunks)
 
 
-
 class BlockSparsePolicy(AbstractBatchLinearSolverPolicy):
     r"""Block-sparse linear solver policy.
     

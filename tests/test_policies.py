@@ -6,7 +6,7 @@ import jax
 import jax.numpy as jnp
 import paramax
 import pytest
-from cola.ops import Dense, LinearOperator, Transpose
+from cola.ops import Dense, LinearOperator
 from gpjax.dataset import Dataset
 from gpjax.kernels.computations import DenseKernelComputation
 from gpjax.parameters import Real
@@ -43,6 +43,14 @@ def psd_linear_operator(request, key=jax.random.key(42)):
     return cola.PSD(Dense(A))
 
 
+def make_constant_sampler(value):
+    def constant_sampler(key, shape, dtype):
+        del key
+        return jnp.full(shape, value, dtype=dtype)
+
+    return constant_sampler
+
+
 class TestLanczosPolicy:
     """Test the LanczosPolicy concrete implementation."""
 
@@ -52,7 +60,7 @@ class TestLanczosPolicy:
         actions = LanczosPolicy(n_actions=n_actions)
         assert actions.n_actions == n_actions
 
-    @pytest.mark.parametrize("key", [None, jax.random.key(42)])
+    @pytest.mark.parametrize("key", [jax.random.key(42)])
     def test_actions_consistency(self, psd_linear_operator, key):
         """Test that the actions are consistent."""
         actions = LanczosPolicy(n_actions=2)
@@ -145,13 +153,15 @@ class TestLanczosPolicy:
 class TestBlockSparsePolicy:
     """Test the BlockSparsePolicy concrete implementation."""
 
-    @pytest.mark.parametrize("key", [None, jax.random.key(42)])
+    @pytest.mark.parametrize("key", [jax.random.key(42)])
     @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
     @pytest.mark.parametrize("n_actions", [2, 3])
     @pytest.mark.parametrize("n", [10, 20])
     def test_init_basic(self, n_actions, n, key, dtype):
         """Test basic initialization."""
-        policy = BlockSparsePolicy(n_actions=n_actions, n=n, key=key, dtype=dtype)
+        policy = BlockSparsePolicy.from_random(
+            key=key, num_datapoints=n, n_actions=n_actions, dtype=dtype
+        )
 
         assert policy.n_actions == n_actions
         assert paramax.unwrap(policy.nz_values).shape == (n,)
@@ -184,7 +194,9 @@ class TestBlockSparsePolicy:
         """Test to_actions consistency and return type."""
         n = psd_linear_operator.shape[0]
         dtype = psd_linear_operator.dtype
-        policy = BlockSparsePolicy(n_actions=n_actions, n=n, key=key, dtype=dtype)
+        policy = BlockSparsePolicy.from_random(
+            key=key, num_datapoints=n, n_actions=n_actions, dtype=dtype
+        )
         _test_batch_policy_actions_consistency(policy, psd_linear_operator)
         action = policy.to_actions(psd_linear_operator)
         assert isinstance(action, BlockDiagonalSparse)
@@ -196,10 +208,54 @@ class TestBlockSparsePolicy:
         """Test that to_actions produces reproducible results with same values."""
         n = psd_linear_operator.shape[0]
         dtype = psd_linear_operator.dtype
-        policy = BlockSparsePolicy(n_actions=n_actions, n=n, key=key, dtype=dtype)
+        policy = BlockSparsePolicy.from_random(
+            key=key, num_datapoints=n, n_actions=n_actions, dtype=dtype
+        )
         actions1 = policy.to_actions(psd_linear_operator)
         actions2 = policy.to_actions(psd_linear_operator)
         assert jnp.allclose(actions1.to_dense(), actions2.to_dense())
+
+    @pytest.mark.parametrize("distribution", ["normal", "rademacher", "constant"])
+    def test_from_random_with_distribution_sampler(
+        self,
+        distribution,
+        num_datapoints=12,
+        n_actions=2,
+        dtype=jnp.float64,
+    ):
+        """Test selecting built-in distributions via module-level sampler helper."""
+        if distribution == "normal":
+            sampler = jax.random.normal
+        elif distribution == "rademacher":
+            sampler = jax.random.rademacher
+        elif distribution == "constant":
+            sampler = make_constant_sampler(3.0)
+        else:
+            raise ValueError(f"Invalid distribution: {distribution}")
+
+        policy = BlockSparsePolicy.from_random(
+            key=jax.random.key(13),
+            num_datapoints=num_datapoints,
+            n_actions=n_actions,
+            sampler=sampler,
+            dtype=dtype,
+        )
+        values = paramax.unwrap(policy.nz_values)
+        assert values.shape == (num_datapoints,)
+        assert values.dtype == dtype
+        # confirm values are block-normalized
+        block_size = num_datapoints // n_actions
+        pad_size = num_datapoints - n_actions * block_size
+        padded_values = jnp.concatenate([values, jnp.zeros(pad_size, dtype=dtype)])
+        values_blocked = padded_values.reshape(n_actions, block_size)
+        assert jnp.allclose(jnp.linalg.vector_norm(values_blocked, axis=1), 1.0)
+        # check specific invariants
+        if distribution == "rademacher":
+            block_size = num_datapoints // n_actions
+            scale = 1.0 / jnp.sqrt(block_size).astype(dtype)
+            assert jnp.all(jnp.isin(values, jnp.array([-scale, scale], dtype=dtype)))
+        elif distribution == "constant":
+            assert jnp.all(values == values[0])
 
 
 class TestPseudoInputPolicy:
@@ -365,7 +421,9 @@ class TestOrthogonalizationPolicy:
     ):
         """Test wrapping BlockSparsePolicy preserves orthogonality."""
         n, dtype = psd_linear_operator.shape[0], psd_linear_operator.dtype
-        base_policy = BlockSparsePolicy(n_actions=3, n=n, key=key, dtype=dtype)
+        base_policy = BlockSparsePolicy.from_random(
+            key=key, num_datapoints=n, n_actions=3, dtype=dtype
+        )
         policy = OrthogonalizationPolicy(base_policy=base_policy)
 
         base_actions = base_policy.to_actions(psd_linear_operator)

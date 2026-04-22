@@ -49,7 +49,9 @@ class TestComputationAwareGP:
         if policy_class is LanczosPolicy:
             return policy_class(n_actions=n_actions)
         elif policy_class is BlockSparsePolicy:
-            return policy_class(n_actions=n_actions, n=n_train, key=key, dtype=dtype)
+            return policy_class.from_random(
+                key=key, num_datapoints=n_train, n_actions=n_actions, dtype=dtype
+            )
         else:
             raise ValueError(f"Invalid policy class: {policy_class}")
 
