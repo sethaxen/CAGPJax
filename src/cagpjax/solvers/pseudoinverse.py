@@ -46,8 +46,7 @@ class PseudoInverse(AbstractLinearSolver[PseudoInverseState]):
               of the operator (see [`jax.numpy.linalg.pinv`][]).
         grad_rtol: Specifies the cutoff for similar eigenvalues, used to improve
             gradient computation for (almost-)degenerate matrices.
-            If not provided, the default is 0.0.
-            If None or negative, all eigenvalues are treated as distinct.
+            If None (default), all eigenvalues are treated as distinct.
         alg: Algorithm for eigenvalue decomposition passed to [`cagpjax.linalg.eigh`][].
     """
 

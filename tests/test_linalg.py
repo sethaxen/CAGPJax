@@ -211,7 +211,7 @@ class TestEigh:
         )
 
     @pytest.mark.parametrize("alg_class", [Eigh, Lanczos])
-    @pytest.mark.parametrize("grad_rtol", [None, -1.0, 0.0])
+    @pytest.mark.parametrize("grad_rtol", [None, 0.0])
     def test_eigh_gradient_degenerate(self, alg_class, grad_rtol, dtype):
         """Test gradient computation with degenerate eigenvalues."""
         n = 4

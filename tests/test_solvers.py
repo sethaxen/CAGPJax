@@ -193,7 +193,7 @@ class TestSolvers:
         rtol = (1e-4 if dtype == jnp.float32 else 1e-12) * n
         assert jnp.isclose(trace_solve, trace_solve_solve, rtol=rtol)
 
-    @pytest.mark.parametrize("grad_rtol", [None, -1.0, 0.0])
+    @pytest.mark.parametrize("grad_rtol", [None, 0.0])
     def test_pseudoinverse_gradient_degenerate(self, n, dtype, grad_rtol):
         """Test gradient computation with degenerate operators."""
         A = cola.ops.Dense(jnp.eye(n, dtype=dtype))
