@@ -12,6 +12,7 @@ from cagpjax.interop import ColaLinearOperator
 
 jax.config.update("jax_enable_x64", True)
 
+
 class TestInteropUtils:
     @pytest.fixture(params=[jnp.float32, jnp.float64])
     def dtype(self, request):
@@ -62,7 +63,10 @@ class TestInteropUtils:
 
     def test_lazify_generic_lineax_operator(self, n, dtype, key=jax.random.key(14)):
         matrix = jax.random.normal(key, (n, n), dtype=dtype)
-        op = lx.AddLinearOperator(lx.MatrixLinearOperator(matrix), lx.DiagonalLinearOperator(jnp.ones(n, dtype=dtype)))
+        op = lx.AddLinearOperator(
+            lx.MatrixLinearOperator(matrix),
+            lx.DiagonalLinearOperator(jnp.ones(n, dtype=dtype)),
+        )
         recovered = interop.lazify(op)
         np.testing.assert_allclose(cola.densify(recovered), op.as_matrix())
 
@@ -89,7 +93,9 @@ class TestInteropUtils:
 
         assert isinstance(lineax_diag, lx.DiagonalLinearOperator)
         assert isinstance(lineax_id, lx.IdentityLinearOperator)
-        np.testing.assert_allclose(interop.lazify(lineax_diag).to_dense(), jnp.diag(diag))
+        np.testing.assert_allclose(
+            interop.lazify(lineax_diag).to_dense(), jnp.diag(diag)
+        )
         np.testing.assert_allclose(interop.lazify(lineax_id).to_dense(), jnp.eye(n))
 
     def test_to_lineax_passthrough_existing_lineax_operator(
