@@ -439,6 +439,69 @@ class TestAddJitter:
         expected = (A + diag_like(A, jitter)).to_dense()
         assert jnp.allclose(A_jittered.to_dense(), expected)
 
+    @pytest.mark.parametrize("jitter_type", ["scalar", "vector"])
+    def test_add_jitter_lineax_matrix(self, jitter_type, n, dtype, key):
+        matrix = jax.random.normal(key, (n, n), dtype=dtype)
+        A = lx.MatrixLinearOperator(matrix)
+        if jitter_type == "scalar":
+            jitter = 1e-6
+            expected = matrix + jnp.eye(n, dtype=dtype) * jitter
+        else:
+            jitter = jax.random.uniform(key, (n,), dtype=dtype) * 1e-6
+            expected = matrix + jnp.diag(jitter)
+        A_jittered = _add_jitter(A, jitter)
+        assert isinstance(A_jittered, lx.AbstractLinearOperator)
+        assert jnp.allclose(A_jittered.as_matrix(), expected)
+
+    @pytest.mark.parametrize("jitter_type", ["scalar", "vector"])
+    def test_add_jitter_lineax_diagonal_preserves_structure(
+        self, jitter_type, n, dtype, key
+    ):
+        diag = jax.random.normal(key, (n,), dtype=dtype)
+        A = lx.DiagonalLinearOperator(diag)
+        if jitter_type == "scalar":
+            jitter = 1e-6
+            expected_diag = diag + jitter
+        else:
+            jitter = jax.random.uniform(key, (n,), dtype=dtype) * 1e-6
+            expected_diag = diag + jitter
+        A_jittered = _add_jitter(A, jitter)
+        assert isinstance(A_jittered, lx.DiagonalLinearOperator)
+        assert jnp.allclose(lx.diagonal(A_jittered), expected_diag)
+
+    @pytest.mark.parametrize("jitter_type", ["scalar", "vector"])
+    def test_add_jitter_lineax_identity_returns_diagonal(
+        self, jitter_type, n, dtype, key
+    ):
+        metadata = jax.ShapeDtypeStruct((n,), dtype)
+        A = lx.IdentityLinearOperator(metadata)
+        if jitter_type == "scalar":
+            jitter = 1e-6
+            expected_diag = jnp.ones((n,), dtype=dtype) + jitter
+        else:
+            jitter = jax.random.uniform(key, (n,), dtype=dtype) * 1e-6
+            expected_diag = jnp.ones((n,), dtype=dtype) + jitter
+        A_jittered = _add_jitter(A, jitter)
+        assert isinstance(A_jittered, lx.DiagonalLinearOperator)
+        assert jnp.allclose(lx.diagonal(A_jittered), expected_diag)
+
+    @pytest.mark.parametrize("jitter_type", ["scalar", "vector"])
+    def test_add_jitter_lineax_tagged_diagonal_operator(
+        self, jitter_type, n, dtype, key
+    ):
+        diag = jax.random.normal(key, (n,), dtype=dtype)
+        base = lx.MatrixLinearOperator(jnp.diag(diag))
+        A = lx.TaggedLinearOperator(base, lx.diagonal_tag)
+        if jitter_type == "scalar":
+            jitter = 1e-6
+            expected_diag = diag + jitter
+        else:
+            jitter = jax.random.uniform(key, (n,), dtype=dtype) * 1e-6
+            expected_diag = diag + jitter
+        A_jittered = _add_jitter(A, jitter)
+        assert isinstance(A_jittered, lx.DiagonalLinearOperator)
+        assert jnp.allclose(lx.diagonal(A_jittered), expected_diag)
+
 
 class TestOrthogonalize:
     """Tests for ``orthogonalize``."""
