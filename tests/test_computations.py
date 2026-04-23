@@ -1,6 +1,5 @@
 """Tests for kernel computation methods."""
 
-import cola
 import jax
 import jax.numpy as jnp
 import lineax as lx
@@ -10,7 +9,6 @@ from gpjax.kernels.computations import DenseKernelComputation
 from gpjax.parameters import Real
 
 from cagpjax.computations import LazyKernelComputation
-from cagpjax.interop import ColaLinearOperator, lazify
 from cagpjax.operators import LazyKernel
 
 jax.config.update("jax_enable_x64", True)
@@ -77,14 +75,15 @@ class TestLazyKernelComputation:
         )
         x1, _ = inputs
         gram_raw = comp.gram(kernel, x1)
-        gram = lazify(gram_raw)
         expected_dtype = kernel(x1[0], x1[0]).dtype
-        assert isinstance(gram_raw, (ColaLinearOperator, lx.TaggedLinearOperator))
-        assert isinstance(gram, LazyKernel)
-        assert gram.shape == (x1.shape[0], x1.shape[0])
-        assert gram.dtype == expected_dtype
+        assert isinstance(gram_raw, lx.TaggedLinearOperator)
+        assert isinstance(gram_raw.operator, LazyKernel)
+        gram = gram_raw.operator
+        assert gram.out_size() == x1.shape[0]
+        assert gram.in_size() == x1.shape[0]
+        assert gram.in_structure().dtype == expected_dtype
+        assert gram.out_structure().dtype == expected_dtype
         assert gram.checkpoint == checkpoint
-        assert gram.isa(cola.PSD)
 
         gram_lazy = LazyKernel(
             kernel,
@@ -96,7 +95,7 @@ class TestLazyKernelComputation:
         assert gram.batch_size_row == gram_lazy.batch_size_row
         assert gram.batch_size_col == gram_lazy.batch_size_col
 
-        assert jnp.allclose(cola.densify(gram), kernel.gram(x1).as_matrix())
+        assert jnp.allclose(gram.as_matrix(), kernel.gram(x1).as_matrix())
 
     @jax.default_matmul_precision("highest")
     def test_cross_covariance(
@@ -109,11 +108,12 @@ class TestLazyKernelComputation:
         x1, x2 = inputs
         expected_dtype = kernel.cross_covariance(x1, x2).dtype
         cross_cov_raw = comp.cross_covariance(kernel, x1, x2)
-        cross_cov = lazify(cross_cov_raw)
-        assert isinstance(cross_cov_raw, ColaLinearOperator)
-        assert isinstance(cross_cov, LazyKernel)
-        assert cross_cov.shape == (x1.shape[0], x2.shape[0])
-        assert cross_cov.dtype == expected_dtype
+        assert isinstance(cross_cov_raw, LazyKernel)
+        cross_cov = cross_cov_raw
+        assert cross_cov.out_size() == x1.shape[0]
+        assert cross_cov.in_size() == x2.shape[0]
+        assert cross_cov.in_structure().dtype == expected_dtype
+        assert cross_cov.out_structure().dtype == expected_dtype
         assert cross_cov.checkpoint == checkpoint
 
         cross_cov_lazy = LazyKernel(
@@ -126,6 +126,9 @@ class TestLazyKernelComputation:
         assert cross_cov.batch_size_row == cross_cov_lazy.batch_size_row
         assert cross_cov.batch_size_col == cross_cov_lazy.batch_size_col
 
+        expected = kernel.cross_covariance(x1, x2)
+        expected = expected.as_matrix() if hasattr(expected, "as_matrix") else expected
         assert jnp.allclose(
-            cola.densify(cross_cov), cola.densify(kernel.cross_covariance(x1, x2))
+            cross_cov.as_matrix(),
+            expected,
         )

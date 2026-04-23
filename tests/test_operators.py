@@ -286,7 +286,10 @@ class TestLazyKernel:
             checkpoint=checkpoint,
         )
         x1, x2 = inputs
-        assert op.dtype == kernel(x1[0], x2[0]).dtype
+        assert op.in_structure().dtype == kernel(x1[0], x2[0]).dtype
+        assert op.out_structure().dtype == kernel(x1[0], x2[0]).dtype
+        assert op.in_size() == x2.shape[0]
+        assert op.out_size() == x1.shape[0]
         assert op.kernel is kernel
         assert op.x1 is x1
         assert op.x2 is x2
@@ -311,9 +314,17 @@ class TestLazyKernel:
     def test_consistency_with_dense(self, op, kernel, inputs):
         """Test consistency with dense kernel matrix."""
         x1, x2 = inputs
-        assert jnp.allclose(
-            cola.densify(op), cola.densify(kernel.cross_covariance(x1, x2))
-        )
+        expected = kernel.cross_covariance(x1, x2)
+        expected = expected.as_matrix() if hasattr(expected, "as_matrix") else expected
+        assert jnp.allclose(op.as_matrix(), expected)
+        assert lx.is_symmetric(op) == bool(jnp.array_equal(x1, x2))
+        assert lx.is_positive_semidefinite(op) == bool(jnp.array_equal(x1, x2))
+
+    def test_diagonal_when_singleton_inputs(self, kernel, dtype):
+        x = jnp.zeros((1, 2), dtype=dtype)
+        op = LazyKernel(kernel, x, x)
+        assert lx.is_diagonal(op)
+        assert lx.is_tridiagonal(op)
 
     @pytest.mark.parametrize("grad,checkpoint", [(False, False), (True, True)])
     @pytest.mark.parametrize("n,dtype", [(20_000, jnp.float64), (40_000, jnp.float32)])
@@ -346,7 +357,7 @@ class TestLazyKernel:
                 kernel, x1, x2, max_memory_mb=max_memory_mb, checkpoint=checkpoint
             )
             with jax.default_matmul_precision("highest"):
-                return jnp.vdot(v, op @ v)
+                return jnp.vdot(v, op.mv(v))
 
         assert jnp.isfinite(loss(kernel))
         if grad:

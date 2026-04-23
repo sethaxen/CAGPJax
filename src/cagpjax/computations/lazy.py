@@ -1,6 +1,5 @@
 """Lazy kernel computation."""
 
-import cola
 import jax.numpy as jnp
 import lineax as lx
 from gpjax.kernels import AbstractKernel
@@ -8,7 +7,6 @@ from gpjax.kernels.computations import AbstractKernelComputation, DenseKernelCom
 from jaxtyping import Array, Float
 from typing_extensions import override
 
-from ..interop import ColaLinearOperator
 from ..operators import LazyKernel
 
 
@@ -91,19 +89,15 @@ class LazyKernelComputation(AbstractKernelComputation):
         kernel: AbstractKernel,
         x: Float[Array, "N D"],
     ) -> lx.AbstractLinearOperator:
-        op = cola.PSD(
-            LazyKernel(
-                kernel,
-                x,
-                x,
-                batch_size=self.batch_size,
-                max_memory_mb=self.max_memory_mb,
-                checkpoint=self.checkpoint,
-            )
+        op = LazyKernel(
+            kernel,
+            x,
+            x,
+            batch_size=self.batch_size,
+            max_memory_mb=self.max_memory_mb,
+            checkpoint=self.checkpoint,
         )
-        return lx.TaggedLinearOperator(
-            ColaLinearOperator(op), lx.positive_semidefinite_tag
-        )
+        return lx.TaggedLinearOperator(op, lx.positive_semidefinite_tag)
 
     @override
     def cross_covariance(  # pyright: ignore[reportIncompatibleMethodOverride]
@@ -112,13 +106,11 @@ class LazyKernelComputation(AbstractKernelComputation):
         x1: Float[Array, "N D"],
         x2: Float[Array, "M D"],
     ) -> Float[Array, "N M"] | lx.AbstractLinearOperator:
-        return ColaLinearOperator(
-            LazyKernel(
-                kernel,
-                x1,
-                x2,
-                batch_size=self.batch_size,
-                max_memory_mb=self.max_memory_mb,
-                checkpoint=self.checkpoint,
-            )
+        return LazyKernel(
+            kernel,
+            x1,
+            x2,
+            batch_size=self.batch_size,
+            max_memory_mb=self.max_memory_mb,
+            checkpoint=self.checkpoint,
         )
