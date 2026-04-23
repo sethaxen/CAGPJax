@@ -4,6 +4,7 @@ import cola
 import gpjax.kernels
 import jax
 import jax.numpy as jnp
+import lineax as lx
 import paramax
 import pytest
 from cola.ops import Dense, LinearOperator
@@ -29,9 +30,14 @@ def _test_batch_policy_actions_consistency(
 ):
     """Test a batch policy."""
     actions = policy.to_actions(op, key=key)
-    assert isinstance(actions, LinearOperator)
-    assert actions.shape == (op.shape[0], policy.n_actions)
-    assert actions.dtype == op.dtype
+    assert isinstance(actions, (LinearOperator, lx.AbstractLinearOperator))
+    if isinstance(actions, lx.AbstractLinearOperator):
+        assert actions.out_size() == op.shape[0]
+        assert actions.in_size() == policy.n_actions
+        assert actions.in_structure().dtype == op.dtype
+    else:
+        assert actions.shape == (op.shape[0], policy.n_actions)
+        assert actions.dtype == op.dtype
 
 
 @pytest.fixture(params=[[10, jnp.float32], [20, jnp.float64]])

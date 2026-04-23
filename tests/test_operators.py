@@ -21,30 +21,71 @@ from cagpjax.operators.lazy_kernel import LazyKernel
 jax.config.update("jax_enable_x64", True)
 
 
-def _test_mul_consistency(op: LinearOperator, **kwargs):
+def _matrix(op):
+    if isinstance(op, lx.AbstractLinearOperator):
+        return op.as_matrix()
+    return op.to_dense()
+
+
+def _dtype(op):
+    if isinstance(op, lx.AbstractLinearOperator):
+        return op.in_structure().dtype
+    return op.dtype
+
+
+def _in_size(op):
+    if isinstance(op, lx.AbstractLinearOperator):
+        return op.in_size()
+    return op.shape[1]
+
+
+def _out_size(op):
+    if isinstance(op, lx.AbstractLinearOperator):
+        return op.out_size()
+    return op.shape[0]
+
+
+def _mv(op, x):
+    if isinstance(op, lx.AbstractLinearOperator):
+        return op.mv(x)
+    return op @ x
+
+
+def _transpose(op):
+    if isinstance(op, lx.AbstractLinearOperator):
+        return op.transpose()
+    return op.T
+
+
+def _test_mul_consistency(op: LinearOperator | lx.AbstractLinearOperator, **kwargs):
     """Test that the linear operator is consistent with multiplication by identity."""
-    mat = op.to_dense()
-    np.testing.assert_allclose(jnp.eye(op.shape[0]) @ op, mat, **kwargs)
-    np.testing.assert_allclose(op @ jnp.eye(op.shape[1]), mat, **kwargs)
+    mat = _matrix(op)
+    eye_in = jnp.eye(_in_size(op), dtype=_dtype(op))
+    right = jax.vmap(lambda v: _mv(op, v), in_axes=1, out_axes=1)(eye_in)
+    np.testing.assert_allclose(right, mat, **kwargs)
 
 
-def _test_transpose_consistency(op: LinearOperator, **kwargs):
+def _test_transpose_consistency(
+    op: LinearOperator | lx.AbstractLinearOperator, **kwargs
+):
     """Test that the transpose is consistent."""
-    op_transpose = op.T
-    assert op_transpose.shape == op.shape[::-1]
-    np.testing.assert_allclose(op_transpose.to_dense(), op.to_dense().T, **kwargs)
+    op_transpose = _transpose(op)
+    np.testing.assert_allclose(_matrix(op_transpose), _matrix(op).T, **kwargs)
 
 
-def _test_dtype_consistency(op: LinearOperator, **kwargs):
+def _test_dtype_consistency(op: LinearOperator | lx.AbstractLinearOperator, **kwargs):
     """Test that the linear operator has the correct dtype."""
-    assert op.dtype == op.to_dense().dtype
-    x = jnp.ones(op.shape[1], dtype=op.dtype)
-    y = jnp.ones(op.shape[0], dtype=op.dtype)
-    assert (op @ x).dtype == op.dtype
-    assert (op.T @ y).dtype == op.dtype
+    dtype = _dtype(op)
+    assert dtype == _matrix(op).dtype
+    x = jnp.ones(_in_size(op), dtype=dtype)
+    y = jnp.ones(_out_size(op), dtype=dtype)
+    assert _mv(op, x).dtype == dtype
+    assert _mv(_transpose(op), y).dtype == dtype
 
 
-def _test_linear_operator_consistency(op: LinearOperator, **kwargs):
+def _test_linear_operator_consistency(
+    op: LinearOperator | lx.AbstractLinearOperator, **kwargs
+):
     """Test that the linear operator is self-consistent."""
     _test_mul_consistency(op, **kwargs)
     _test_transpose_consistency(op, **kwargs)
@@ -133,8 +174,10 @@ class TestBlockDiagonalSparse:
         n_nz_values, n_blocks = shape
         nz_values = jax.random.normal(key, (n_nz_values,), dtype=dtype)
         op = BlockDiagonalSparse(nz_values, n_blocks)
-        assert op.shape == shape
-        assert op.dtype == dtype
+        assert op.out_size() == n_nz_values
+        assert op.in_size() == n_blocks
+        assert op.in_structure().dtype == dtype
+        assert op.out_structure().dtype == dtype
         assert op.isa(ScaledOrthogonal)
         _test_linear_operator_consistency(op)
 
@@ -145,11 +188,11 @@ class TestBlockDiagonalSparse:
         nz_values = jax.random.normal(subkey, (n_nz_values,), dtype=dtype)
         op = BlockDiagonalSparse(nz_values, n_blocks)
 
-        f1 = lambda x: jnp.prod(jnp.sin(op @ x))
+        f1 = lambda x: jnp.prod(jnp.sin(op.mv(x)))
         x1 = jax.random.normal(key, (n_blocks,), dtype=dtype)
         jax.test_util.check_grads(f1, (x1,), order=1)
 
-        f2 = lambda x: jnp.prod(jnp.sin(op.T @ x))
+        f2 = lambda x: jnp.prod(jnp.sin(op.transpose().mv(x)))
         x2 = jax.random.normal(key, (n_nz_values,), dtype=dtype)
         jax.test_util.check_grads(f2, (x2,), order=1)
 
