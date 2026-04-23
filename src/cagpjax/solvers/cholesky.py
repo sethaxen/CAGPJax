@@ -3,15 +3,14 @@
 import cola
 import equinox as eqx
 import jax.numpy as jnp
-from cola.ops import LinearOperator
 from jaxtyping import Array, Float
 from typing_extensions import TypeAlias, override
 
 from ..linalg import lower_cholesky
 from ..typing import ScalarFloat
-from .base import AbstractLinearSolver
+from .base import AbstractLinearSolver, LinearOperatorLike
 
-CholeskyState: TypeAlias = LinearOperator
+CholeskyState: TypeAlias = LinearOperatorLike
 
 
 class Cholesky(AbstractLinearSolver[CholeskyState]):
@@ -34,7 +33,7 @@ class Cholesky(AbstractLinearSolver[CholeskyState]):
             raise ValueError("jitter must be non-negative")
 
     @override
-    def init(self, A: LinearOperator) -> CholeskyState:
+    def init(self, A: LinearOperatorLike) -> CholeskyState:
         return lower_cholesky(A, jitter=self.jitter)
 
     @override
@@ -56,8 +55,8 @@ class Cholesky(AbstractLinearSolver[CholeskyState]):
 
     @override
     def inv_congruence_transform(
-        self, state: CholeskyState, B: LinearOperator | Float[Array, "K N"]
-    ) -> LinearOperator | Float[Array, "K K"]:
+        self, state: CholeskyState, B: LinearOperatorLike | Float[Array, "K N"]
+    ) -> LinearOperatorLike | Float[Array, "K K"]:
         Linv = cola.linalg.inv(state)
         right_term = Linv @ B
         return right_term.T @ right_term

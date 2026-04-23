@@ -3,18 +3,17 @@ from typing import NamedTuple
 import cola
 import equinox as eqx
 import jax
-from cola.ops import LinearOperator
 from jax import numpy as jnp
 from jaxtyping import Array, Bool, Float
 from typing_extensions import override
 
 from ..linalg.eigh import Eigh, EighResult, eigh
 from ..typing import ScalarFloat
-from .base import AbstractLinearSolver
+from .base import AbstractLinearSolver, LinearOperatorLike
 
 
 class PseudoInverseState(NamedTuple):
-    A: LinearOperator
+    A: LinearOperatorLike
     eigh_result: EighResult
     eigvals_mask: Bool[Array, "N"]
     eigvals_safe: Float[Array, "N"]
@@ -61,7 +60,7 @@ class PseudoInverse(AbstractLinearSolver[PseudoInverseState]):
             raise ValueError("grad_rtol must be non-negative")
 
     @override
-    def init(self, A: LinearOperator) -> PseudoInverseState:
+    def init(self, A: LinearOperatorLike) -> PseudoInverseState:
         n = A.shape[0]
         # select rtol using same heuristic as jax.numpy.linalg.lstsq
         rtol_val = (
@@ -113,8 +112,8 @@ class PseudoInverse(AbstractLinearSolver[PseudoInverseState]):
 
     @override
     def inv_congruence_transform(
-        self, state: PseudoInverseState, B: LinearOperator | Float[Array, "K N"]
-    ) -> LinearOperator | Float[Array, "K K"]:
+        self, state: PseudoInverseState, B: LinearOperatorLike | Float[Array, "K N"]
+    ) -> LinearOperatorLike | Float[Array, "K K"]:
         eigenvectors = state.eigh_result.eigenvectors
         z = eigenvectors.T @ B
         z = z.T @ cola.ops.Diagonal(state.eigvals_inv) @ z
