@@ -13,6 +13,58 @@ from cagpjax.interop import ColaLinearOperator
 jax.config.update("jax_enable_x64", True)
 
 
+class CustomMatrixOperator(lx.AbstractLinearOperator):
+    matrix: jax.Array
+
+    def __init__(self, matrix: jax.Array):
+        self.matrix = matrix
+
+    def mv(self, vector):
+        return self.matrix @ vector
+
+    def as_matrix(self):
+        return self.matrix
+
+    def transpose(self):
+        return CustomMatrixOperator(self.matrix.T)
+
+    def in_structure(self):
+        return jax.ShapeDtypeStruct((self.matrix.shape[1],), self.matrix.dtype)
+
+    def out_structure(self):
+        return jax.ShapeDtypeStruct((self.matrix.shape[0],), self.matrix.dtype)
+
+
+@lx.is_symmetric.register(CustomMatrixOperator)
+def _is_symmetric_custom(_operator: CustomMatrixOperator) -> bool:
+    return False
+
+
+@lx.is_diagonal.register(CustomMatrixOperator)
+def _is_diagonal_custom(_operator: CustomMatrixOperator) -> bool:
+    return False
+
+
+@lx.is_tridiagonal.register(CustomMatrixOperator)
+def _is_tridiagonal_custom(_operator: CustomMatrixOperator) -> bool:
+    return False
+
+
+@lx.is_lower_triangular.register(CustomMatrixOperator)
+def _is_lower_triangular_custom(_operator: CustomMatrixOperator) -> bool:
+    return False
+
+
+@lx.is_upper_triangular.register(CustomMatrixOperator)
+def _is_upper_triangular_custom(_operator: CustomMatrixOperator) -> bool:
+    return False
+
+
+@lx.is_positive_semidefinite.register(CustomMatrixOperator)
+def _is_psd_custom(_operator: CustomMatrixOperator) -> bool:
+    return False
+
+
 class TestInteropUtils:
     @pytest.fixture(params=[jnp.float32, jnp.float64])
     def dtype(self, request):
@@ -70,6 +122,12 @@ class TestInteropUtils:
         recovered = interop.lazify(op)
         np.testing.assert_allclose(cola.densify(recovered), op.as_matrix())
 
+    def test_lazify_custom_lineax_operator(self, n, dtype, key=jax.random.key(20)):
+        matrix = jax.random.normal(key, (n, n), dtype=dtype)
+        op = CustomMatrixOperator(matrix)
+        recovered = interop.lazify(op)
+        np.testing.assert_allclose(cola.densify(recovered), matrix)
+
     def test_lazify_raw_array_fallback(self, n, dtype, key=jax.random.key(15)):
         matrix = jax.random.normal(key, (n, n), dtype=dtype)
         recovered = interop.lazify(matrix)
@@ -111,6 +169,14 @@ class TestInteropUtils:
     ):
         matrix = jax.random.normal(key, (n, n), dtype=dtype)
         op = lx.MatrixLinearOperator(matrix)
+        converted = interop.to_lineax(op)
+        assert converted is op
+
+    def test_to_lineax_passthrough_custom_lineax_operator(
+        self, n, dtype, key=jax.random.key(21)
+    ):
+        matrix = jax.random.normal(key, (n, n), dtype=dtype)
+        op = CustomMatrixOperator(matrix)
         converted = interop.to_lineax(op)
         assert converted is op
 
