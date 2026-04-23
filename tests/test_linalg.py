@@ -4,6 +4,7 @@ import cola
 import jax
 import jax.numpy as jnp
 import jax.test_util
+import lineax as lx
 import pytest
 from cola.ops import Dense, Diagonal, Identity, LinearOperator, ScalarMul, Triangular
 
@@ -27,6 +28,14 @@ jax.config.update("jax_enable_x64", True)
 class TestCongruenceTransform:
     """Tests for ``congruence_transform``."""
 
+    @staticmethod
+    def _matrix(op_or_arr):
+        if isinstance(op_or_arr, lx.AbstractLinearOperator):
+            return op_or_arr.as_matrix()
+        if isinstance(op_or_arr, LinearOperator):
+            return op_or_arr.to_dense()
+        return op_or_arr
+
     @pytest.mark.parametrize("A_wrap", [jnp.asarray, cola.lazify])
     @pytest.mark.parametrize("B_wrap", [jnp.asarray, cola.lazify])
     @pytest.mark.parametrize("m, n", [(3, 5), (4, 6)])
@@ -40,14 +49,13 @@ class TestCongruenceTransform:
         A = A_wrap(A_dense)
         B = B_wrap(B_dense)
         C = congruence_transform(A, B)
-        assert C.shape == (m, m)
-        assert C.dtype == dtype
+        C_dense = self._matrix(C)
+        assert C_dense.shape == (m, m)
+        assert C_dense.dtype == dtype
         if isinstance(A, LinearOperator) and isinstance(B, LinearOperator):
             assert isinstance(C, LinearOperator)
-            C_dense = C.to_dense()
         else:
             assert isinstance(C, jnp.ndarray)
-            C_dense = C
 
         assert jnp.allclose(C_dense, A_dense.T @ B_dense @ A_dense)
 
@@ -78,11 +86,27 @@ class TestCongruenceTransform:
         B = Diagonal(jax.random.normal(subkey, (n,), dtype=dtype))
         C = congruence_transform(A, B)
         assert isinstance(C, Diagonal)
-        assert C.shape == (n_blocks, n_blocks)
+        assert C.shape == (A.in_size(), A.in_size())
         assert C.dtype == dtype
         assert jnp.allclose(
-            C.to_dense(), congruence_transform(A.to_dense(), B.to_dense())
+            C.to_dense(), congruence_transform(A.as_matrix(), B.to_dense())
         )
+
+    @pytest.mark.parametrize("n, n_blocks", [(7, 3), (10, 2)])
+    def test_congruence_block_diagonal_sparse_lineax_diagonal(
+        self, n, n_blocks, dtype=jnp.float64, key=jax.random.key(123)
+    ):
+        """Fast path for ``BlockDiagonalSparse`` with lineax diagonal ``B``."""
+        key, subkey1, subkey2 = jax.random.split(key, 3)
+        A = BlockDiagonalSparse(
+            jax.random.normal(subkey1, (n,), dtype=dtype), n_blocks=n_blocks
+        )
+        b_diag = jax.random.normal(subkey2, (n,), dtype=dtype)
+        B = lx.DiagonalLinearOperator(b_diag)
+        C = congruence_transform(A, B)
+        assert isinstance(C, lx.DiagonalLinearOperator)
+        expected = congruence_transform(A.as_matrix(), jnp.diag(b_diag))
+        assert jnp.allclose(C.as_matrix(), expected)
 
 
 class TestEigh:
