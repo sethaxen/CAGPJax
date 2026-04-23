@@ -200,27 +200,44 @@ class TestBlockDiagonalSparse:
 class TestDiagLike:
     """Test cases for ``diag_like``."""
 
+    @pytest.fixture(params=["cola", "lineax"])
+    def backend(self, request):
+        return request.param
+
     @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
     @pytest.mark.parametrize(
         "vals_n", [(2.5, 5), (jnp.array(3.3), 6), (jnp.arange(1.0, 6.0) ** 2, None)]
     )
-    def test_scalar_values(self, vals_n, dtype):
+    def test_scalar_values(self, vals_n, dtype, backend):
         """Test ``diag_like``."""
         vals, n = vals_n
         if n is None:
             n = len(vals)
-        ref_op = Dense(jnp.ones((n, n), dtype=dtype))
-        diag_op = diag_like(ref_op, vals)
-        assert diag_op.shape == ref_op.shape
-        assert diag_op.dtype == ref_op.dtype
-        assert diag_op.device == ref_op.device
-        _test_linear_operator_consistency(diag_op)
-        if isinstance(vals, jnp.ndarray) and vals.ndim == 1:
-            assert isinstance(diag_op, Diagonal)
-            np.testing.assert_allclose(diag_op.to_dense(), jnp.diag(vals))
+        if backend == "cola":
+            ref_op = Dense(jnp.ones((n, n), dtype=dtype))
         else:
-            assert isinstance(diag_op, ScalarMul)
-            np.testing.assert_allclose(diag_op.to_dense(), jnp.diag(jnp.full(n, vals)))
+            ref_op = lx.MatrixLinearOperator(jnp.ones((n, n), dtype=dtype))
+        diag_op = diag_like(ref_op, vals)
+        _test_linear_operator_consistency(diag_op)
+        expected_vals = vals
+        if isinstance(vals, jnp.ndarray) and vals.ndim == 1:
+            assert isinstance(diag_op, (Diagonal, lx.DiagonalLinearOperator))
+            np.testing.assert_allclose(_matrix(diag_op), jnp.diag(expected_vals))
+        else:
+            if backend == "cola":
+                assert isinstance(diag_op, ScalarMul)
+            else:
+                assert isinstance(diag_op, lx.DiagonalLinearOperator)
+            np.testing.assert_allclose(_matrix(diag_op), jnp.diag(jnp.full(n, vals)))
+
+        if backend == "cola":
+            assert diag_op.shape == ref_op.shape
+            assert diag_op.dtype == ref_op.dtype
+            assert diag_op.device == ref_op.device
+        else:
+            assert diag_op.in_size() == ref_op.in_size()
+            assert diag_op.out_size() == ref_op.out_size()
+            assert diag_op.in_structure().dtype == ref_op.in_structure().dtype
 
 
 class TestLazyKernel:
