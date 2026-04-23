@@ -1,13 +1,11 @@
 """Orthogonalization methods."""
 
 from enum import Enum
-from typing import Any
 
 import cola
 import jax
 import jax.numpy as jnp
 from jaxtyping import Array, Float
-from typing_extensions import overload
 
 from ..operators.annotations import ScaledOrthogonal
 from ..operators.block_diagonal_sparse import BlockDiagonalSparse
@@ -25,11 +23,11 @@ class OrthogonalizationMethod(Enum):
 
 
 def orthogonalize(
-    A: Float[Array, "m n"] | cola.ops.LinearOperator,
+    A: Float[Array, "m n"] | cola.ops.LinearOperator | BlockDiagonalSparse,
     /,
     method: OrthogonalizationMethod = OrthogonalizationMethod.QR,
     n_reortho: int = 0,
-) -> Float[Array, "m n"] | cola.ops.LinearOperator:
+) -> Float[Array, "m n"] | cola.ops.LinearOperator | BlockDiagonalSparse:
     """
     Orthogonalize the operator using the specified method.
 
@@ -48,7 +46,20 @@ def orthogonalize(
     Returns:
         The orthogonalized operator. If the input is a LinearOperator, then so is the output.
     """
-    return _orthogonalize(A, method, n_reortho)
+    if n_reortho < 0:
+        raise ValueError("n_reortho must be non-negative")
+    if isinstance(A, BlockDiagonalSparse):
+        # Already scaled-orthogonal by construction.
+        return A
+    if isinstance(A, cola.ops.Identity | cola.ops.Diagonal | cola.ops.ScalarMul):
+        return cola.Unitary(cola.ops.I_like(A))
+    if isinstance(A, cola.ops.LinearOperator):
+        if A.isa(cola.Stiefel) or A.isa(ScaledOrthogonal):
+            return A
+        Q = cola.lazify(_orthogonalize_array(cola.densify(A), method, n_reortho))
+        annotation = _get_return_operator_annotation(method)
+        return annotation(Q)
+    return _orthogonalize_array(A, method, n_reortho)
 
 
 def _get_return_operator_annotation(method: OrthogonalizationMethod):
@@ -61,14 +72,9 @@ def _get_return_operator_annotation(method: OrthogonalizationMethod):
             return ScaledOrthogonal
 
 
-@overload
-def _orthogonalize(
-    A: Float[Array, "m n"],
-    method: OrthogonalizationMethod,
-    n_reortho: int,
+def _orthogonalize_array(
+    A: Float[Array, "m n"], method: OrthogonalizationMethod, n_reortho: int
 ) -> Float[Array, "m n"]:
-    if n_reortho < 0:
-        raise ValueError("n_reortho must be non-negative")
     A = jnp.asarray(A)
     match method:
         case OrthogonalizationMethod.QR:
@@ -77,34 +83,6 @@ def _orthogonalize(
             return _classical_gram_schmidt(A, n_reortho)
         case OrthogonalizationMethod.MGS:
             return _modified_gram_schmidt(A, n_reortho)
-
-
-@overload
-def _orthogonalize(
-    A: cola.ops.LinearOperator,
-    method: OrthogonalizationMethod,
-    n_reortho: int,
-) -> cola.ops.LinearOperator:
-    if A.isa(cola.Stiefel) or A.isa(ScaledOrthogonal):
-        return A
-
-    Q = cola.lazify(orthogonalize(cola.densify(A), method=method, n_reortho=n_reortho))
-    annotation = _get_return_operator_annotation(method)
-    return annotation(Q)
-
-
-@overload
-def _orthogonalize(  # pyright: ignore[reportOverlappingOverload]
-    A: cola.ops.Identity | cola.ops.Diagonal | cola.ops.ScalarMul,
-    method: OrthogonalizationMethod,
-    n_reortho: int,
-) -> cola.ops.Identity:
-    return cola.Unitary(cola.ops.I_like(A))
-
-
-@cola.dispatch
-def _orthogonalize(A: Any, method: OrthogonalizationMethod, n_reortho: int) -> Any:
-    pass
 
 
 def _qr_q(A: Float[Array, "m n"], n_reortho: int) -> Float[Array, "m n"]:

@@ -552,6 +552,7 @@ class TestOrthogonalize:
         B = jax.random.normal(subkey, (rank, m), dtype=dtype)
         C = A @ B
         Q = orthogonalize(C, method, n_reortho=n_reortho)
+        assert isinstance(Q, jnp.ndarray)
         QT_Q = Q.T @ Q
 
         if n_reortho == 0 and method in [
@@ -580,7 +581,9 @@ class TestOrthogonalize:
         """Test orthogonalize with different shapes and dtypes."""
         A = jax.random.normal(key, shape, dtype=dtype)
         jax.test_util.check_grads(
-            lambda A: orthogonalize(jnp.asarray(A), method=method, n_reortho=n_reortho),
+            lambda A: jnp.asarray(
+                orthogonalize(jnp.asarray(A), method=method, n_reortho=n_reortho)
+            ),
             (A,),
             order=1,
         )
@@ -610,19 +613,25 @@ class TestOrthogonalize:
         else:
             raise ValueError(f"Unknown operator type: {op_type}")
         Q = orthogonalize(op, method=method)
-        assert isinstance(Q, cola.ops.LinearOperator)
-        assert Q.shape == op.shape
+        if op_type is BlockDiagonalSparse:
+            assert isinstance(Q, BlockDiagonalSparse)
+            assert Q.out_size() == op.out_size()
+            assert Q.in_size() == op.in_size()
+            assert jnp.array_equal(Q.nz_values, op.nz_values)
+        else:
+            assert isinstance(Q, cola.ops.LinearOperator)
+            assert Q.shape == op.shape
         if isinstance(op, (Identity, Diagonal, ScalarMul)):
             assert isinstance(Q, Identity)
-        elif op_type is BlockDiagonalSparse:
-            assert isinstance(Q, BlockDiagonalSparse)
-            assert jnp.array_equal(Q.nz_values, op.nz_values)
         else:  # Dense
-            assert jnp.allclose(
-                Q.to_dense(), orthogonalize(op.to_dense(), method=method)
-            )
-            match method:
-                case OrthogonalizationMethod.QR:
-                    assert Q.isa(cola.Stiefel)
-                case _:
-                    assert Q.isa(ScaledOrthogonal)
+            if op_type is Dense:
+                assert isinstance(Q, cola.ops.LinearOperator)
+                assert jnp.allclose(
+                    Q.to_dense(),
+                    jnp.asarray(orthogonalize(op.to_dense(), method=method)),
+                )
+                match method:
+                    case OrthogonalizationMethod.QR:
+                        assert Q.isa(cola.Stiefel)
+                    case _:
+                        assert Q.isa(ScaledOrthogonal)
