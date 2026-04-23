@@ -23,9 +23,6 @@ class _BlockDiagonalSparseTranspose(lx.AbstractLinearOperator):
     def as_matrix(self) -> Float[Array, "K N"]:
         return self.parent.as_matrix().T
 
-    def to_dense(self) -> Float[Array, "K N"]:
-        return self.as_matrix()
-
     def transpose(self) -> "BlockDiagonalSparse":
         return self.parent
 
@@ -145,9 +142,6 @@ class BlockDiagonalSparse(lx.AbstractLinearOperator):
         return self._matmat(jnp.eye(n_blocks, dtype=self.nz_values.dtype)).reshape(
             n, n_blocks
         )
-
-    def to_dense(self) -> Float[Array, "N K"]:
-        return self.as_matrix()
 
     def transpose(self) -> _BlockDiagonalSparseTranspose:
         return _BlockDiagonalSparseTranspose(self)
