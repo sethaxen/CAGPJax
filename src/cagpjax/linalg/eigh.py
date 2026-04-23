@@ -98,51 +98,40 @@ def eigh(
     return EighResult(vals, vecs)
 
 
-@cola.dispatch(precedence=-2)
-def _eigh(A: LinearOperator, alg: cola.linalg.Algorithm, grad_rtol: float):  # pyright: ignore[reportRedeclaration]
+def _eigh(A: LinearOperator, alg: cola.linalg.Algorithm, grad_rtol: float):
+    if isinstance(A, ScalarMul | Diagonal | Identity):
+        return cola.linalg.diag(A), I_like(A)
+    if isinstance(alg, Eigh):
+        vals, vecs = _eigh_safe(A.to_dense(), grad_rtol=grad_rtol)
+        return vals, cola.lazify(vecs)
+    if isinstance(alg, Lanczos):
+        if alg.v0 is None:
+            key = jax.random.key(0) if alg.key is None else alg.key
+            v0 = jax.random.normal(key, (A.shape[0],), dtype=A.dtype)
+        else:
+            v0 = alg.v0
+
+        num_matvecs = alg.max_iters if alg.max_iters is not None else A.shape[0]
+
+        # Set up Lanczos algorithm
+        tridiag_sym = matfree.decomp.tridiag_sym(
+            num_matvecs, materialize=True, reortho="full"
+        )
+
+        # Define matrix-vector product
+        def matvec(v):
+            return (A @ v).astype(A.dtype)
+
+        # Tridiagonalize the matrix using the Lanczos algorithm
+        Q, H, *_ = tridiag_sym(matvec, v0)
+
+        # Diagonalize the tridiagonal matrix
+        vals, vecs = _eigh_safe(H, grad_rtol=grad_rtol)
+        vecs = Q @ vecs
+        return vals, cola.lazify(vecs)
+
     warnings.warn("grad_rtol not supported for cola's eigh algorithms.")
     return cola.linalg.eig(cola.SelfAdjoint(A), A.shape[0], which="SM", alg=alg)
-
-
-@cola.dispatch(precedence=-1)
-def _eigh(A: LinearOperator, alg: Eigh, grad_rtol: float):  # pyright: ignore[reportRedeclaration]
-    vals, vecs = _eigh_safe(A.to_dense(), grad_rtol=grad_rtol)
-    return vals, cola.lazify(vecs)
-
-
-@cola.dispatch(precedence=-1)
-def _eigh(A: LinearOperator, alg: Lanczos, grad_rtol: float):  # pyright: ignore[reportRedeclaration]
-    if alg.v0 is None:
-        key = jax.random.key(0) if alg.key is None else alg.key
-        v0 = jax.random.normal(key, (A.shape[0],), dtype=A.dtype)
-    else:
-        v0 = alg.v0
-
-    num_matvecs = alg.max_iters if alg.max_iters is not None else A.shape[0]
-
-    # Set up Lanczos algorithm
-    tridiag_sym = matfree.decomp.tridiag_sym(
-        num_matvecs, materialize=True, reortho="full"
-    )
-
-    # Define matrix-vector product
-    def matvec(v):
-        return (A @ v).astype(A.dtype)
-
-    # Tridiagonalize the matrix using the Lanczos algorithm
-    Q, H, *_ = tridiag_sym(matvec, v0)
-
-    # Diagonalize the tridiagonal matrix
-    vals, vecs = _eigh_safe(H, grad_rtol=grad_rtol)
-    vecs = Q @ vecs
-    return vals, cola.lazify(vecs)
-
-
-@cola.dispatch
-def _eigh(
-    A: ScalarMul | Diagonal | Identity, alg: cola.linalg.Algorithm, grad_rtol: float
-):
-    return cola.linalg.diag(A), I_like(A)
 
 
 # Eigh with custom vjp to expand its support to (almost-)degenerate matrices.
