@@ -3,6 +3,7 @@ from typing import NamedTuple
 import cola
 import equinox as eqx
 import jax
+from cola.ops import LinearOperator
 from jax import numpy as jnp
 from jaxtyping import Array, Bool, Float
 from typing_extensions import override
@@ -115,28 +116,17 @@ class PseudoInverse(AbstractLinearSolver[PseudoInverseState]):
         self, state: PseudoInverseState, B: LinearOperatorLike | Float[Array, "K N"]
     ) -> LinearOperatorLike | Float[Array, "K K"]:
         eigenvectors = state.eigh_result.eigenvectors
-        z = eigenvectors.T @ B
-        z = z.T @ cola.ops.Diagonal(state.eigvals_inv) @ z
-        return z
+        B_mat = B.to_dense() if isinstance(B, LinearOperator) else B
+        z = eigenvectors.T @ B_mat
+        z_weighted = (
+            state.eigvals_inv * z if z.ndim == 1 else state.eigvals_inv[:, None] * z
+        )
+        result = z.T @ z_weighted
+        return cola.lazify(result) if isinstance(B, LinearOperator) else result
 
     @override
     def trace_solve(
         self, state: PseudoInverseState, state_other: PseudoInverseState
     ) -> ScalarFloat:
-        if isinstance(state_other.eigh_result.eigenvectors, cola.ops.Dense):
-            vectors_mat = state.eigh_result.eigenvectors.to_dense()
-            return jnp.einsum(
-                "ij,j,kj,ik",
-                vectors_mat,
-                state.eigvals_inv,
-                vectors_mat,
-                state_other.A.to_dense(),
-            )
-        else:
-            W = (
-                state_other.eigh_result.eigenvectors.T
-                @ state.eigh_result.eigenvectors.to_dense()
-            )
-            return jnp.einsum(
-                "ij,j,ij,i", W, state.eigvals_inv, W, state_other.eigvals_safe
-            )
+        solved = self.solve(state, state_other.A.to_dense())
+        return jnp.trace(solved)
