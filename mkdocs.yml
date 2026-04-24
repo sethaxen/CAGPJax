@@ -47,7 +47,6 @@ plugins:
           inventories:
             - https://docs.jax.dev/en/latest/objects.inv
             - https://docs.jaxgaussianprocesses.com/objects.inv
-            - https://cola.readthedocs.io/en/stable/objects.inv
   - api-autonav:
       modules: ['src/cagpjax']
       nav_section_title: "Reference"
