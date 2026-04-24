@@ -13,15 +13,89 @@ from gpjax.kernels.computations import DenseKernelComputation
 from gpjax.likelihoods import Gaussian
 from gpjax.mean_functions import Constant
 from gpjax.parameters import Real
+from typing_extensions import override
 
 import cagpjax
 from cagpjax.computations import LazyKernelComputation
 from cagpjax.distributions import GaussianDistribution
 from cagpjax.models import ComputationAwareGP
-from cagpjax.policies import BlockSparsePolicy, LanczosPolicy
+from cagpjax.policies import (
+    AbstractBatchLinearSolverPolicy,
+    BlockSparsePolicy,
+    LanczosPolicy,
+)
 from cagpjax.solvers import Cholesky, PseudoInverse
 
 jax.config.update("jax_enable_x64", True)
+
+
+class CustomPolicyOperator(lineax.AbstractLinearOperator):
+    matrix: jax.Array
+
+    def __init__(self, matrix: jax.Array):
+        self.matrix = matrix
+
+    def mv(self, vector):
+        return self.matrix @ vector
+
+    def as_matrix(self):
+        return self.matrix
+
+    def transpose(self):
+        return CustomPolicyOperator(self.matrix.T)
+
+    def in_structure(self):
+        return jax.ShapeDtypeStruct((self.matrix.shape[1],), self.matrix.dtype)
+
+    def out_structure(self):
+        return jax.ShapeDtypeStruct((self.matrix.shape[0],), self.matrix.dtype)
+
+
+@lineax.is_symmetric.register(CustomPolicyOperator)
+def _is_symmetric_custom_policy_operator(_operator: CustomPolicyOperator) -> bool:
+    return False
+
+
+@lineax.is_diagonal.register(CustomPolicyOperator)
+def _is_diagonal_custom_policy_operator(_operator: CustomPolicyOperator) -> bool:
+    return False
+
+
+@lineax.is_tridiagonal.register(CustomPolicyOperator)
+def _is_tridiagonal_custom_policy_operator(_operator: CustomPolicyOperator) -> bool:
+    return False
+
+
+@lineax.is_lower_triangular.register(CustomPolicyOperator)
+def _is_lower_triangular_custom_policy_operator(
+    _operator: CustomPolicyOperator,
+) -> bool:
+    return False
+
+
+@lineax.is_upper_triangular.register(CustomPolicyOperator)
+def _is_upper_triangular_custom_policy_operator(
+    _operator: CustomPolicyOperator,
+) -> bool:
+    return False
+
+
+@lineax.is_positive_semidefinite.register(CustomPolicyOperator)
+def _is_psd_custom_policy_operator(_operator: CustomPolicyOperator) -> bool:
+    return False
+
+
+class CustomOperatorPolicy(AbstractBatchLinearSolverPolicy):
+    n_actions: int = eqx.field(static=True)
+
+    @override
+    def to_actions(self, A, *, key=None):
+        del key
+        n_data = A.shape[0]
+        row_indices = jnp.arange(n_data)[:, None]
+        col_indices = jnp.arange(self.n_actions)[None, :]
+        matrix = jnp.where(row_indices >= col_indices, 1.0, 0.0).astype(A.dtype)
+        return CustomPolicyOperator(matrix)
 
 
 class TestComputationAwareGP:
@@ -306,3 +380,29 @@ class TestComputationAwareGP:
         elbo_value_explicit = var_exp.sum() - kl
 
         assert jnp.allclose(elbo_value, elbo_value_explicit)
+
+    def test_custom_policy_custom_operator_core_flow(
+        self, posterior, train_data, test_data, solver, dtype
+    ):
+        """Test custom policy/custom lineax operator through init/predict/KL flow."""
+        if dtype == jnp.float32:
+            pytest.skip("Skipping float32 test due to numerical precision limitations")
+
+        assert train_data.X is not None
+        n_train = train_data.X.shape[0]
+        n_actions = min(4, n_train)
+        policy = CustomOperatorPolicy(n_actions=n_actions)
+        cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
+
+        state = cagp.init(train_data, key=jax.random.key(0))
+        row_indices = jnp.arange(n_train)[:, None]
+        col_indices = jnp.arange(n_actions)[None, :]
+        expected_actions = jnp.where(row_indices >= col_indices, 1.0, 0.0).astype(dtype)
+        assert jnp.allclose(state.actions.to_dense(), expected_actions)
+
+        assert test_data.X is not None
+        pred = cagp.predict(state, test_data.X)
+        kl = cagp.prior_kl(state)
+        assert jnp.all(jnp.isfinite(pred.mean))
+        assert jnp.all(jnp.isfinite(pred.variance))
+        assert jnp.isfinite(kl)
