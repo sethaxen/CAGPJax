@@ -5,6 +5,7 @@ from typing import Any
 import cola
 import cola.ops
 import jax
+import jax.numpy as jnp
 import lineax as lx
 from cola.ops import LinearOperator
 from jaxtyping import Array, Float, PyTree
@@ -42,6 +43,11 @@ def _(operator: ColaLinearOperator) -> bool:
 @lx.is_positive_semidefinite.register(ColaLinearOperator)
 def _(operator: ColaLinearOperator) -> bool:
     return operator.operator.isa(cola.PSD)
+
+
+@lx.diagonal.register(ColaLinearOperator)
+def _(operator: ColaLinearOperator) -> Float[Array, " N"]:
+    return jnp.asarray(cola.linalg.diag(operator.operator))
 
 
 def lazify(A: Any) -> LinearOperator:

@@ -10,11 +10,11 @@ from typing_extensions import override
 
 from ..linalg.eigh import Eigh, EighResult, eigh
 from ..typing import ScalarFloat
-from .base import AbstractLinearSolver
+from .base import AbstractLinearSolver, LinearOperatorLike
 
 
 class PseudoInverseState(NamedTuple):
-    A: LinearOperator
+    A: LinearOperatorLike
     eigh_result: EighResult
     eigvals_mask: Bool[Array, "N"]
     eigvals_safe: Float[Array, "N"]
@@ -61,7 +61,7 @@ class PseudoInverse(AbstractLinearSolver[PseudoInverseState]):
             raise ValueError("grad_rtol must be non-negative")
 
     @override
-    def init(self, A: LinearOperator) -> PseudoInverseState:
+    def init(self, A: LinearOperatorLike) -> PseudoInverseState:
         n = A.shape[0]
         # select rtol using same heuristic as jax.numpy.linalg.lstsq
         rtol_val = (
@@ -113,31 +113,20 @@ class PseudoInverse(AbstractLinearSolver[PseudoInverseState]):
 
     @override
     def inv_congruence_transform(
-        self, state: PseudoInverseState, B: LinearOperator | Float[Array, "K N"]
-    ) -> LinearOperator | Float[Array, "K K"]:
+        self, state: PseudoInverseState, B: LinearOperatorLike | Float[Array, "K N"]
+    ) -> LinearOperatorLike | Float[Array, "K K"]:
         eigenvectors = state.eigh_result.eigenvectors
-        z = eigenvectors.T @ B
-        z = z.T @ cola.ops.Diagonal(state.eigvals_inv) @ z
-        return z
+        B_mat = B.to_dense() if isinstance(B, LinearOperator) else B
+        z = eigenvectors.T @ B_mat
+        z_weighted = (
+            state.eigvals_inv * z if z.ndim == 1 else state.eigvals_inv[:, None] * z
+        )
+        result = z.T @ z_weighted
+        return cola.lazify(result) if isinstance(B, LinearOperator) else result
 
     @override
     def trace_solve(
         self, state: PseudoInverseState, state_other: PseudoInverseState
     ) -> ScalarFloat:
-        if isinstance(state_other.eigh_result.eigenvectors, cola.ops.Dense):
-            vectors_mat = state.eigh_result.eigenvectors.to_dense()
-            return jnp.einsum(
-                "ij,j,kj,ik",
-                vectors_mat,
-                state.eigvals_inv,
-                vectors_mat,
-                state_other.A.to_dense(),
-            )
-        else:
-            W = (
-                state_other.eigh_result.eigenvectors.T
-                @ state.eigh_result.eigenvectors.to_dense()
-            )
-            return jnp.einsum(
-                "ij,j,ij,i", W, state.eigvals_inv, W, state_other.eigvals_safe
-            )
+        solved = self.solve(state, state_other.A.to_dense())
+        return jnp.trace(solved)

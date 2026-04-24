@@ -98,20 +98,20 @@ def eigh(
     return EighResult(vals, vecs)
 
 
-@cola.dispatch(precedence=-2)
-def _eigh(A: LinearOperator, alg: cola.linalg.Algorithm, grad_rtol: float):  # pyright: ignore[reportRedeclaration]
+def _eigh(A: LinearOperator, alg: cola.linalg.Algorithm, grad_rtol: float):
+    if isinstance(A, ScalarMul | Diagonal | Identity):
+        return cola.linalg.diag(A), I_like(A)
+    if isinstance(alg, Eigh):
+        vals, vecs = _eigh_safe(A.to_dense(), grad_rtol=grad_rtol)
+        return vals, cola.lazify(vecs)
+    if isinstance(alg, Lanczos):
+        return _eigh_lanczos(A, alg, grad_rtol)
+
     warnings.warn("grad_rtol not supported for cola's eigh algorithms.")
     return cola.linalg.eig(cola.SelfAdjoint(A), A.shape[0], which="SM", alg=alg)
 
 
-@cola.dispatch(precedence=-1)
-def _eigh(A: LinearOperator, alg: Eigh, grad_rtol: float):  # pyright: ignore[reportRedeclaration]
-    vals, vecs = _eigh_safe(A.to_dense(), grad_rtol=grad_rtol)
-    return vals, cola.lazify(vecs)
-
-
-@cola.dispatch(precedence=-1)
-def _eigh(A: LinearOperator, alg: Lanczos, grad_rtol: float):  # pyright: ignore[reportRedeclaration]
+def _eigh_lanczos(A: LinearOperator, alg: Lanczos, grad_rtol: float):
     if alg.v0 is None:
         key = jax.random.key(0) if alg.key is None else alg.key
         v0 = jax.random.normal(key, (A.shape[0],), dtype=A.dtype)
@@ -136,13 +136,6 @@ def _eigh(A: LinearOperator, alg: Lanczos, grad_rtol: float):  # pyright: ignore
     vals, vecs = _eigh_safe(H, grad_rtol=grad_rtol)
     vecs = Q @ vecs
     return vals, cola.lazify(vecs)
-
-
-@cola.dispatch
-def _eigh(
-    A: ScalarMul | Diagonal | Identity, alg: cola.linalg.Algorithm, grad_rtol: float
-):
-    return cola.linalg.diag(A), I_like(A)
 
 
 # Eigh with custom vjp to expand its support to (almost-)degenerate matrices.

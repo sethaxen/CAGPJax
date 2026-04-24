@@ -1,11 +1,8 @@
 """Lower Cholesky decomposition of positive semidefinite operators."""
 
-from typing import Any
-
 import cola
 import jax.numpy as jnp
 from cola.ops import Diagonal, Identity, LinearOperator, ScalarMul, Triangular
-from typing_extensions import overload
 
 from ..typing import ScalarFloat
 from .utils import _add_jitter
@@ -33,26 +30,11 @@ def _lower_cholesky_jittered(A: LinearOperator, jitter: ScalarFloat) -> LinearOp
     return _lower_cholesky(cola.PSD(A_jittered))
 
 
-@overload
-def _lower_cholesky(A: LinearOperator) -> Triangular:
+def _lower_cholesky(A: LinearOperator) -> LinearOperator:
+    if isinstance(A, Diagonal):
+        return Diagonal(jnp.sqrt(A.diag))
+    if isinstance(A, ScalarMul):
+        return ScalarMul(jnp.sqrt(A.c), A.shape, A.dtype, A.device)
+    if isinstance(A, Identity):
+        return A
     return Triangular(jnp.linalg.cholesky(A.to_dense()), lower=True)
-
-
-@overload
-def _lower_cholesky(A: Diagonal) -> Diagonal:  # pyright: ignore[reportOverlappingOverload]
-    return Diagonal(jnp.sqrt(A.diag))
-
-
-@overload
-def _lower_cholesky(A: ScalarMul) -> ScalarMul:  # pyright: ignore[reportOverlappingOverload]
-    return ScalarMul(jnp.sqrt(A.c), A.shape, A.dtype, A.device)
-
-
-@overload
-def _lower_cholesky(A: Identity) -> Identity:  # pyright: ignore[reportOverlappingOverload]
-    return A
-
-
-@cola.dispatch
-def _lower_cholesky(A: LinearOperator) -> Any:
-    pass

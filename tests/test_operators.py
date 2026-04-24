@@ -21,30 +21,71 @@ from cagpjax.operators.lazy_kernel import LazyKernel
 jax.config.update("jax_enable_x64", True)
 
 
-def _test_mul_consistency(op: LinearOperator, **kwargs):
+def _matrix(op):
+    if isinstance(op, lx.AbstractLinearOperator):
+        return op.as_matrix()
+    return op.to_dense()
+
+
+def _dtype(op):
+    if isinstance(op, lx.AbstractLinearOperator):
+        return op.in_structure().dtype
+    return op.dtype
+
+
+def _in_size(op):
+    if isinstance(op, lx.AbstractLinearOperator):
+        return op.in_size()
+    return op.shape[1]
+
+
+def _out_size(op):
+    if isinstance(op, lx.AbstractLinearOperator):
+        return op.out_size()
+    return op.shape[0]
+
+
+def _mv(op, x):
+    if isinstance(op, lx.AbstractLinearOperator):
+        return op.mv(x)
+    return op @ x
+
+
+def _transpose(op):
+    if isinstance(op, lx.AbstractLinearOperator):
+        return op.transpose()
+    return op.T
+
+
+def _test_mul_consistency(op: LinearOperator | lx.AbstractLinearOperator, **kwargs):
     """Test that the linear operator is consistent with multiplication by identity."""
-    mat = op.to_dense()
-    np.testing.assert_allclose(jnp.eye(op.shape[0]) @ op, mat, **kwargs)
-    np.testing.assert_allclose(op @ jnp.eye(op.shape[1]), mat, **kwargs)
+    mat = _matrix(op)
+    eye_in = jnp.eye(_in_size(op), dtype=_dtype(op))
+    right = jax.vmap(lambda v: _mv(op, v), in_axes=1, out_axes=1)(eye_in)
+    np.testing.assert_allclose(right, mat, **kwargs)
 
 
-def _test_transpose_consistency(op: LinearOperator, **kwargs):
+def _test_transpose_consistency(
+    op: LinearOperator | lx.AbstractLinearOperator, **kwargs
+):
     """Test that the transpose is consistent."""
-    op_transpose = op.T
-    assert op_transpose.shape == op.shape[::-1]
-    np.testing.assert_allclose(op_transpose.to_dense(), op.to_dense().T, **kwargs)
+    op_transpose = _transpose(op)
+    np.testing.assert_allclose(_matrix(op_transpose), _matrix(op).T, **kwargs)
 
 
-def _test_dtype_consistency(op: LinearOperator, **kwargs):
+def _test_dtype_consistency(op: LinearOperator | lx.AbstractLinearOperator, **kwargs):
     """Test that the linear operator has the correct dtype."""
-    assert op.dtype == op.to_dense().dtype
-    x = jnp.ones(op.shape[1], dtype=op.dtype)
-    y = jnp.ones(op.shape[0], dtype=op.dtype)
-    assert (op @ x).dtype == op.dtype
-    assert (op.T @ y).dtype == op.dtype
+    dtype = _dtype(op)
+    assert dtype == _matrix(op).dtype
+    x = jnp.ones(_in_size(op), dtype=dtype)
+    y = jnp.ones(_out_size(op), dtype=dtype)
+    assert _mv(op, x).dtype == dtype
+    assert _mv(_transpose(op), y).dtype == dtype
 
 
-def _test_linear_operator_consistency(op: LinearOperator, **kwargs):
+def _test_linear_operator_consistency(
+    op: LinearOperator | lx.AbstractLinearOperator, **kwargs
+):
     """Test that the linear operator is self-consistent."""
     _test_mul_consistency(op, **kwargs)
     _test_transpose_consistency(op, **kwargs)
@@ -133,8 +174,10 @@ class TestBlockDiagonalSparse:
         n_nz_values, n_blocks = shape
         nz_values = jax.random.normal(key, (n_nz_values,), dtype=dtype)
         op = BlockDiagonalSparse(nz_values, n_blocks)
-        assert op.shape == shape
-        assert op.dtype == dtype
+        assert op.out_size() == n_nz_values
+        assert op.in_size() == n_blocks
+        assert op.in_structure().dtype == dtype
+        assert op.out_structure().dtype == dtype
         assert op.isa(ScaledOrthogonal)
         _test_linear_operator_consistency(op)
 
@@ -145,11 +188,11 @@ class TestBlockDiagonalSparse:
         nz_values = jax.random.normal(subkey, (n_nz_values,), dtype=dtype)
         op = BlockDiagonalSparse(nz_values, n_blocks)
 
-        f1 = lambda x: jnp.prod(jnp.sin(op @ x))
+        f1 = lambda x: jnp.prod(jnp.sin(op.mv(x)))
         x1 = jax.random.normal(key, (n_blocks,), dtype=dtype)
         jax.test_util.check_grads(f1, (x1,), order=1)
 
-        f2 = lambda x: jnp.prod(jnp.sin(op.T @ x))
+        f2 = lambda x: jnp.prod(jnp.sin(op.transpose().mv(x)))
         x2 = jax.random.normal(key, (n_nz_values,), dtype=dtype)
         jax.test_util.check_grads(f2, (x2,), order=1)
 
@@ -157,27 +200,44 @@ class TestBlockDiagonalSparse:
 class TestDiagLike:
     """Test cases for ``diag_like``."""
 
+    @pytest.fixture(params=["cola", "lineax"])
+    def backend(self, request):
+        return request.param
+
     @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
     @pytest.mark.parametrize(
         "vals_n", [(2.5, 5), (jnp.array(3.3), 6), (jnp.arange(1.0, 6.0) ** 2, None)]
     )
-    def test_scalar_values(self, vals_n, dtype):
+    def test_scalar_values(self, vals_n, dtype, backend):
         """Test ``diag_like``."""
         vals, n = vals_n
         if n is None:
             n = len(vals)
-        ref_op = Dense(jnp.ones((n, n), dtype=dtype))
-        diag_op = diag_like(ref_op, vals)
-        assert diag_op.shape == ref_op.shape
-        assert diag_op.dtype == ref_op.dtype
-        assert diag_op.device == ref_op.device
-        _test_linear_operator_consistency(diag_op)
-        if isinstance(vals, jnp.ndarray) and vals.ndim == 1:
-            assert isinstance(diag_op, Diagonal)
-            np.testing.assert_allclose(diag_op.to_dense(), jnp.diag(vals))
+        if backend == "cola":
+            ref_op = Dense(jnp.ones((n, n), dtype=dtype))
         else:
-            assert isinstance(diag_op, ScalarMul)
-            np.testing.assert_allclose(diag_op.to_dense(), jnp.diag(jnp.full(n, vals)))
+            ref_op = lx.MatrixLinearOperator(jnp.ones((n, n), dtype=dtype))
+        diag_op = diag_like(ref_op, vals)
+        _test_linear_operator_consistency(diag_op)
+        expected_vals = vals
+        if isinstance(vals, jnp.ndarray) and vals.ndim == 1:
+            assert isinstance(diag_op, (Diagonal, lx.DiagonalLinearOperator))
+            np.testing.assert_allclose(_matrix(diag_op), jnp.diag(expected_vals))
+        else:
+            if backend == "cola":
+                assert isinstance(diag_op, ScalarMul)
+            else:
+                assert isinstance(diag_op, lx.DiagonalLinearOperator)
+            np.testing.assert_allclose(_matrix(diag_op), jnp.diag(jnp.full(n, vals)))
+
+        if backend == "cola":
+            assert diag_op.shape == ref_op.shape
+            assert diag_op.dtype == ref_op.dtype
+            assert diag_op.device == ref_op.device
+        else:
+            assert diag_op.in_size() == ref_op.in_size()
+            assert diag_op.out_size() == ref_op.out_size()
+            assert diag_op.in_structure().dtype == ref_op.in_structure().dtype
 
 
 class TestLazyKernel:
@@ -243,7 +303,10 @@ class TestLazyKernel:
             checkpoint=checkpoint,
         )
         x1, x2 = inputs
-        assert op.dtype == kernel(x1[0], x2[0]).dtype
+        assert op.in_structure().dtype == kernel(x1[0], x2[0]).dtype
+        assert op.out_structure().dtype == kernel(x1[0], x2[0]).dtype
+        assert op.in_size() == x2.shape[0]
+        assert op.out_size() == x1.shape[0]
         assert op.kernel is kernel
         assert op.x1 is x1
         assert op.x2 is x2
@@ -268,9 +331,17 @@ class TestLazyKernel:
     def test_consistency_with_dense(self, op, kernel, inputs):
         """Test consistency with dense kernel matrix."""
         x1, x2 = inputs
-        assert jnp.allclose(
-            cola.densify(op), cola.densify(kernel.cross_covariance(x1, x2))
-        )
+        expected = kernel.cross_covariance(x1, x2)
+        expected = expected.as_matrix() if hasattr(expected, "as_matrix") else expected
+        assert jnp.allclose(op.as_matrix(), expected)
+        assert lx.is_symmetric(op) == bool(jnp.array_equal(x1, x2))
+        assert lx.is_positive_semidefinite(op) == bool(jnp.array_equal(x1, x2))
+
+    def test_diagonal_when_singleton_inputs(self, kernel, dtype):
+        x = jnp.zeros((1, 2), dtype=dtype)
+        op = LazyKernel(kernel, x, x)
+        assert lx.is_diagonal(op)
+        assert lx.is_tridiagonal(op)
 
     @pytest.mark.parametrize("grad,checkpoint", [(False, False), (True, True)])
     @pytest.mark.parametrize("n,dtype", [(20_000, jnp.float64), (40_000, jnp.float32)])
@@ -303,7 +374,7 @@ class TestLazyKernel:
                 kernel, x1, x2, max_memory_mb=max_memory_mb, checkpoint=checkpoint
             )
             with jax.default_matmul_precision("highest"):
-                return jnp.vdot(v, op @ v)
+                return jnp.vdot(v, op.mv(v))
 
         assert jnp.isfinite(loss(kernel))
         if grad:

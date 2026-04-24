@@ -4,6 +4,7 @@ import cola
 import jax
 import jax.numpy as jnp
 import jax.test_util
+import lineax as lx
 import pytest
 from cola.ops import Dense, Diagonal, Identity, LinearOperator, ScalarMul, Triangular
 
@@ -27,6 +28,14 @@ jax.config.update("jax_enable_x64", True)
 class TestCongruenceTransform:
     """Tests for ``congruence_transform``."""
 
+    @staticmethod
+    def _matrix(op_or_arr):
+        if isinstance(op_or_arr, lx.AbstractLinearOperator):
+            return op_or_arr.as_matrix()
+        if isinstance(op_or_arr, LinearOperator):
+            return op_or_arr.to_dense()
+        return op_or_arr
+
     @pytest.mark.parametrize("A_wrap", [jnp.asarray, cola.lazify])
     @pytest.mark.parametrize("B_wrap", [jnp.asarray, cola.lazify])
     @pytest.mark.parametrize("m, n", [(3, 5), (4, 6)])
@@ -40,14 +49,13 @@ class TestCongruenceTransform:
         A = A_wrap(A_dense)
         B = B_wrap(B_dense)
         C = congruence_transform(A, B)
-        assert C.shape == (m, m)
-        assert C.dtype == dtype
+        C_dense = self._matrix(C)
+        assert C_dense.shape == (m, m)
+        assert C_dense.dtype == dtype
         if isinstance(A, LinearOperator) and isinstance(B, LinearOperator):
             assert isinstance(C, LinearOperator)
-            C_dense = C.to_dense()
         else:
             assert isinstance(C, jnp.ndarray)
-            C_dense = C
 
         assert jnp.allclose(C_dense, A_dense.T @ B_dense @ A_dense)
 
@@ -78,11 +86,27 @@ class TestCongruenceTransform:
         B = Diagonal(jax.random.normal(subkey, (n,), dtype=dtype))
         C = congruence_transform(A, B)
         assert isinstance(C, Diagonal)
-        assert C.shape == (n_blocks, n_blocks)
+        assert C.shape == (A.in_size(), A.in_size())
         assert C.dtype == dtype
         assert jnp.allclose(
-            C.to_dense(), congruence_transform(A.to_dense(), B.to_dense())
+            C.to_dense(), congruence_transform(A.as_matrix(), B.to_dense())
         )
+
+    @pytest.mark.parametrize("n, n_blocks", [(7, 3), (10, 2)])
+    def test_congruence_block_diagonal_sparse_lineax_diagonal(
+        self, n, n_blocks, dtype=jnp.float64, key=jax.random.key(123)
+    ):
+        """Fast path for ``BlockDiagonalSparse`` with lineax diagonal ``B``."""
+        key, subkey1, subkey2 = jax.random.split(key, 3)
+        A = BlockDiagonalSparse(
+            jax.random.normal(subkey1, (n,), dtype=dtype), n_blocks=n_blocks
+        )
+        b_diag = jax.random.normal(subkey2, (n,), dtype=dtype)
+        B = lx.DiagonalLinearOperator(b_diag)
+        C = congruence_transform(A, B)
+        assert isinstance(C, lx.DiagonalLinearOperator)
+        expected = congruence_transform(A.as_matrix(), jnp.diag(b_diag))
+        assert jnp.allclose(C.as_matrix(), expected)
 
 
 class TestEigh:
@@ -415,6 +439,69 @@ class TestAddJitter:
         expected = (A + diag_like(A, jitter)).to_dense()
         assert jnp.allclose(A_jittered.to_dense(), expected)
 
+    @pytest.mark.parametrize("jitter_type", ["scalar", "vector"])
+    def test_add_jitter_lineax_matrix(self, jitter_type, n, dtype, key):
+        matrix = jax.random.normal(key, (n, n), dtype=dtype)
+        A = lx.MatrixLinearOperator(matrix)
+        if jitter_type == "scalar":
+            jitter = 1e-6
+            expected = matrix + jnp.eye(n, dtype=dtype) * jitter
+        else:
+            jitter = jax.random.uniform(key, (n,), dtype=dtype) * 1e-6
+            expected = matrix + jnp.diag(jitter)
+        A_jittered = _add_jitter(A, jitter)
+        assert isinstance(A_jittered, lx.AbstractLinearOperator)
+        assert jnp.allclose(A_jittered.as_matrix(), expected)
+
+    @pytest.mark.parametrize("jitter_type", ["scalar", "vector"])
+    def test_add_jitter_lineax_diagonal_preserves_structure(
+        self, jitter_type, n, dtype, key
+    ):
+        diag = jax.random.normal(key, (n,), dtype=dtype)
+        A = lx.DiagonalLinearOperator(diag)
+        if jitter_type == "scalar":
+            jitter = 1e-6
+            expected_diag = diag + jitter
+        else:
+            jitter = jax.random.uniform(key, (n,), dtype=dtype) * 1e-6
+            expected_diag = diag + jitter
+        A_jittered = _add_jitter(A, jitter)
+        assert isinstance(A_jittered, lx.DiagonalLinearOperator)
+        assert jnp.allclose(lx.diagonal(A_jittered), expected_diag)
+
+    @pytest.mark.parametrize("jitter_type", ["scalar", "vector"])
+    def test_add_jitter_lineax_identity_returns_diagonal(
+        self, jitter_type, n, dtype, key
+    ):
+        metadata = jax.ShapeDtypeStruct((n,), dtype)
+        A = lx.IdentityLinearOperator(metadata)
+        if jitter_type == "scalar":
+            jitter = 1e-6
+            expected_diag = jnp.ones((n,), dtype=dtype) + jitter
+        else:
+            jitter = jax.random.uniform(key, (n,), dtype=dtype) * 1e-6
+            expected_diag = jnp.ones((n,), dtype=dtype) + jitter
+        A_jittered = _add_jitter(A, jitter)
+        assert isinstance(A_jittered, lx.DiagonalLinearOperator)
+        assert jnp.allclose(lx.diagonal(A_jittered), expected_diag)
+
+    @pytest.mark.parametrize("jitter_type", ["scalar", "vector"])
+    def test_add_jitter_lineax_tagged_diagonal_operator(
+        self, jitter_type, n, dtype, key
+    ):
+        diag = jax.random.normal(key, (n,), dtype=dtype)
+        base = lx.MatrixLinearOperator(jnp.diag(diag))
+        A = lx.TaggedLinearOperator(base, lx.diagonal_tag)
+        if jitter_type == "scalar":
+            jitter = 1e-6
+            expected_diag = diag + jitter
+        else:
+            jitter = jax.random.uniform(key, (n,), dtype=dtype) * 1e-6
+            expected_diag = diag + jitter
+        A_jittered = _add_jitter(A, jitter)
+        assert isinstance(A_jittered, lx.DiagonalLinearOperator)
+        assert jnp.allclose(lx.diagonal(A_jittered), expected_diag)
+
 
 class TestOrthogonalize:
     """Tests for ``orthogonalize``."""
@@ -465,6 +552,7 @@ class TestOrthogonalize:
         B = jax.random.normal(subkey, (rank, m), dtype=dtype)
         C = A @ B
         Q = orthogonalize(C, method, n_reortho=n_reortho)
+        assert isinstance(Q, jnp.ndarray)
         QT_Q = Q.T @ Q
 
         if n_reortho == 0 and method in [
@@ -493,7 +581,9 @@ class TestOrthogonalize:
         """Test orthogonalize with different shapes and dtypes."""
         A = jax.random.normal(key, shape, dtype=dtype)
         jax.test_util.check_grads(
-            lambda A: orthogonalize(jnp.asarray(A), method=method, n_reortho=n_reortho),
+            lambda A: jnp.asarray(
+                orthogonalize(jnp.asarray(A), method=method, n_reortho=n_reortho)
+            ),
             (A,),
             order=1,
         )
@@ -523,19 +613,25 @@ class TestOrthogonalize:
         else:
             raise ValueError(f"Unknown operator type: {op_type}")
         Q = orthogonalize(op, method=method)
-        assert isinstance(Q, cola.ops.LinearOperator)
-        assert Q.shape == op.shape
+        if op_type is BlockDiagonalSparse:
+            assert isinstance(Q, BlockDiagonalSparse)
+            assert Q.out_size() == op.out_size()
+            assert Q.in_size() == op.in_size()
+            assert jnp.array_equal(Q.nz_values, op.nz_values)
+        else:
+            assert isinstance(Q, cola.ops.LinearOperator)
+            assert Q.shape == op.shape
         if isinstance(op, (Identity, Diagonal, ScalarMul)):
             assert isinstance(Q, Identity)
-        elif op_type is BlockDiagonalSparse:
-            assert isinstance(Q, BlockDiagonalSparse)
-            assert jnp.array_equal(Q.nz_values, op.nz_values)
         else:  # Dense
-            assert jnp.allclose(
-                Q.to_dense(), orthogonalize(op.to_dense(), method=method)
-            )
-            match method:
-                case OrthogonalizationMethod.QR:
-                    assert Q.isa(cola.Stiefel)
-                case _:
-                    assert Q.isa(ScaledOrthogonal)
+            if op_type is Dense:
+                assert isinstance(Q, cola.ops.LinearOperator)
+                assert jnp.allclose(
+                    Q.to_dense(),
+                    jnp.asarray(orthogonalize(op.to_dense(), method=method)),
+                )
+                match method:
+                    case OrthogonalizationMethod.QR:
+                        assert Q.isa(cola.Stiefel)
+                    case _:
+                        assert Q.isa(ScaledOrthogonal)

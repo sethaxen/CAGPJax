@@ -9,9 +9,9 @@ from typing_extensions import TypeAlias, override
 
 from ..linalg import lower_cholesky
 from ..typing import ScalarFloat
-from .base import AbstractLinearSolver
+from .base import AbstractLinearSolver, LinearOperatorLike
 
-CholeskyState: TypeAlias = LinearOperator
+CholeskyState: TypeAlias = LinearOperatorLike
 
 
 class Cholesky(AbstractLinearSolver[CholeskyState]):
@@ -34,7 +34,7 @@ class Cholesky(AbstractLinearSolver[CholeskyState]):
             raise ValueError("jitter must be non-negative")
 
     @override
-    def init(self, A: LinearOperator) -> CholeskyState:
+    def init(self, A: LinearOperatorLike) -> CholeskyState:
         return lower_cholesky(A, jitter=self.jitter)
 
     @override
@@ -47,24 +47,29 @@ class Cholesky(AbstractLinearSolver[CholeskyState]):
     def solve(
         self, state: CholeskyState, b: Float[Array, "N #K"]
     ) -> Float[Array, "N #K"]:
-        Linv = cola.linalg.inv(state)
-        return Linv.T @ (Linv @ b)
+        L = state.to_dense()
+        y = jnp.linalg.solve(L, b)
+        return jnp.linalg.solve(L.T, y)
 
     @override
     def logdet(self, state: CholeskyState) -> ScalarFloat:
-        return 2 * jnp.sum(jnp.log(cola.linalg.diag(state)))
+        L = state.to_dense()
+        return 2 * jnp.sum(jnp.log(jnp.diag(L)))
 
     @override
     def inv_congruence_transform(
-        self, state: CholeskyState, B: LinearOperator | Float[Array, "K N"]
-    ) -> LinearOperator | Float[Array, "K K"]:
-        Linv = cola.linalg.inv(state)
-        right_term = Linv @ B
-        return right_term.T @ right_term
+        self, state: CholeskyState, B: LinearOperatorLike | Float[Array, "K N"]
+    ) -> LinearOperatorLike | Float[Array, "K K"]:
+        L = state.to_dense()
+        B_mat = B.to_dense() if isinstance(B, LinearOperator) else B
+        Y = jnp.linalg.solve(L, B_mat)
+        result = Y.T @ Y
+        return cola.lazify(result) if isinstance(B, LinearOperator) else result
 
     @override
     def trace_solve(
         self, state: CholeskyState, state_other: CholeskyState
     ) -> ScalarFloat:
-        L = cola.linalg.inv(state) @ state_other.to_dense()
-        return jnp.sum(jnp.square(L))
+        L = state.to_dense()
+        X = jnp.linalg.solve(L, state_other.to_dense())
+        return jnp.sum(jnp.square(X))
