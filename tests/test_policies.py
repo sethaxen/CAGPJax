@@ -40,6 +40,12 @@ def _test_batch_policy_actions_consistency(
         assert actions.dtype == op.dtype
 
 
+def _matrix(op):
+    if isinstance(op, lx.AbstractLinearOperator):
+        return op.as_matrix()
+    return op.to_dense()
+
+
 @pytest.fixture(params=[[10, jnp.float32], [20, jnp.float64]])
 def psd_linear_operator(request, key=jax.random.key(42)):
     """Create a sample linear operator for testing."""
@@ -455,14 +461,14 @@ class TestOrthogonalizationPolicy:
         # Verify orthogonality is maintained despite rank deficiency
         base_actions = base_policy.to_actions(op)
         actions = policy.to_actions(op)
-        assert actions.shape == base_actions.shape
-        assert actions.dtype == base_actions.dtype
-        assert not jnp.allclose(actions.to_dense(), base_actions.to_dense())
+        base_matrix = _matrix(base_actions)
+        action_matrix = _matrix(actions)
+        assert action_matrix.shape == base_matrix.shape
+        assert action_matrix.dtype == base_matrix.dtype
+        assert not jnp.allclose(action_matrix, base_matrix)
         if dtype == jnp.float64:
-            projector = actions @ actions.T
-            assert jnp.allclose(
-                (projector @ base_actions).to_dense(), base_actions.to_dense()
-            )
+            projector = action_matrix @ action_matrix.T
+            assert jnp.allclose(projector @ base_matrix, base_matrix)
 
     def test_lanczos_passes_through(self, psd_linear_operator, key=jax.random.key(42)):
         """Test wrapping LanczosPolicy preserves orthogonality."""
@@ -473,8 +479,8 @@ class TestOrthogonalizationPolicy:
         ortho_actions = policy.to_actions(psd_linear_operator, key=key)
 
         assert isinstance(ortho_actions, type(base_actions))
-        assert ortho_actions.shape == base_actions.shape
-        assert jnp.array_equal(ortho_actions.to_dense(), base_actions.to_dense())
+        assert _matrix(ortho_actions).shape == _matrix(base_actions).shape
+        assert jnp.array_equal(_matrix(ortho_actions), _matrix(base_actions))
 
     def test_block_sparse_passes_through(
         self, psd_linear_operator, key=jax.random.key(42)

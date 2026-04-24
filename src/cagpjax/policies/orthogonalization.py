@@ -1,11 +1,13 @@
 import cola
 import equinox as eqx
+import jax.numpy as jnp
 import lineax as lx
 from cola.ops import LinearOperator
 from jaxtyping import PRNGKeyArray
 from typing_extensions import override
 
 from ..linalg import OrthogonalizationMethod, orthogonalize
+from ..operators import BlockDiagonalSparse
 from ..policies.base import AbstractBatchLinearSolverPolicy, ActionOperator
 
 
@@ -41,6 +43,15 @@ class OrthogonalizationPolicy(AbstractBatchLinearSolverPolicy):
         self, A: LinearOperator, *, key: PRNGKeyArray | None = None
     ) -> ActionOperator:
         op = self.base_policy.to_actions(A, key=key)
+        if isinstance(op, BlockDiagonalSparse):
+            return op
+        if isinstance(op, lx.AbstractLinearOperator):
+            ortho_matrix = jnp.asarray(
+                orthogonalize(
+                    op.as_matrix(), method=self.method, n_reortho=self.n_reortho
+                )
+            )
+            return lx.MatrixLinearOperator(ortho_matrix)
         ortho_actions = orthogonalize(op, method=self.method, n_reortho=self.n_reortho)
         if isinstance(ortho_actions, lx.AbstractLinearOperator):
             return ortho_actions
