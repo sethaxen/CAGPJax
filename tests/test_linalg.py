@@ -8,6 +8,7 @@ import lineax as lx
 import pytest
 from cola.ops import Dense, Diagonal, Identity, LinearOperator, ScalarMul, Triangular
 
+from cagpjax.interop import lazify, to_lineax
 from cagpjax.linalg import (
     Eigh,
     Lanczos,
@@ -436,7 +437,7 @@ class TestAddJitter:
         assert A_jittered.dtype == A.dtype
 
         # Check correctness: compare dense representations
-        expected = (A + diag_like(A, jitter)).to_dense()
+        expected = lazify(to_lineax(A) + diag_like(A, jitter)).to_dense()
         assert jnp.allclose(A_jittered.to_dense(), expected)
 
     @pytest.mark.parametrize("jitter_type", ["scalar", "vector"])

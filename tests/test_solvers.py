@@ -7,7 +7,7 @@ import pytest
 from jaxtyping import Array, Float
 
 from cagpjax.linalg import congruence_transform
-from cagpjax.operators import diag_like
+from cagpjax.linalg.utils import _add_jitter
 from cagpjax.solvers import Cholesky, PseudoInverse
 from cagpjax.solvers.pseudoinverse import PseudoInverseState
 
@@ -106,7 +106,7 @@ class TestSolvers:
         state = solver.init(op)
         if isinstance(solver, Cholesky):
             jitter = solver.jitter
-            op_actual = op if jitter is None else op + diag_like(op, jitter)
+            op_actual = op if jitter is None else _add_jitter(op, jitter)
             assert jnp.allclose((state @ state.T).to_dense(), op_actual.to_dense())
         elif isinstance(solver, PseudoInverse):
             assert isinstance(state, PseudoInverseState)
@@ -124,7 +124,7 @@ class TestSolvers:
 
         if isinstance(solver, Cholesky):
             jitter = solver.jitter
-            op_actual = op if jitter is None else op + diag_like(op, jitter)
+            op_actual = op if jitter is None else _add_jitter(op, jitter)
         else:
             op_actual = op
 
@@ -238,9 +238,7 @@ class TestSolvers:
         cholesky_solver = Cholesky(jitter=jitter)
         cholesky_state = cholesky_solver.init(op)
         cholesky_logdet = cholesky_solver.logdet(cholesky_state)
-        expected_cholesky = jnp.linalg.slogdet((op + diag_like(op, jitter)).to_dense())[
-            1
-        ]
+        expected_cholesky = jnp.linalg.slogdet(_add_jitter(op, jitter).to_dense())[1]
         assert jnp.isclose(cholesky_logdet, expected_cholesky)
 
     def test_cholesky_errors_on_negative_jitter(self):

@@ -6,6 +6,7 @@ import lineax as lx
 from cola.ops import Diagonal, Identity, LinearOperator, ScalarMul
 from jaxtyping import Array, Float
 
+from ..interop import lazify, to_lineax
 from ..operators import diag_like
 from ..typing import ScalarFloat
 
@@ -28,4 +29,6 @@ def _add_jitter(
         return Diagonal(cola.linalg.diag(A) + jitter)
     if isinstance(A, Diagonal):
         return Diagonal(cola.linalg.diag(A) + jitter)
-    return A + diag_like(A, jitter)
+    if isinstance(A, lx.AbstractLinearOperator):
+        return A + diag_like(A, jitter)
+    return lazify(to_lineax(A) + diag_like(A, jitter))

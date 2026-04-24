@@ -220,24 +220,15 @@ class TestDiagLike:
         diag_op = diag_like(ref_op, vals)
         _test_linear_operator_consistency(diag_op)
         expected_vals = vals
+        assert isinstance(diag_op, lx.DiagonalLinearOperator)
         if isinstance(vals, jnp.ndarray) and vals.ndim == 1:
-            assert isinstance(diag_op, (Diagonal, lx.DiagonalLinearOperator))
             np.testing.assert_allclose(_matrix(diag_op), jnp.diag(expected_vals))
         else:
-            if backend == "cola":
-                assert isinstance(diag_op, ScalarMul)
-            else:
-                assert isinstance(diag_op, lx.DiagonalLinearOperator)
             np.testing.assert_allclose(_matrix(diag_op), jnp.diag(jnp.full(n, vals)))
 
-        if backend == "cola":
-            assert diag_op.shape == ref_op.shape
-            assert diag_op.dtype == ref_op.dtype
-            assert diag_op.device == ref_op.device
-        else:
-            assert diag_op.in_size() == ref_op.in_size()
-            assert diag_op.out_size() == ref_op.out_size()
-            assert diag_op.in_structure().dtype == ref_op.in_structure().dtype
+        assert diag_op.in_size() == _in_size(ref_op)
+        assert diag_op.out_size() == _out_size(ref_op)
+        assert diag_op.in_structure().dtype == _dtype(ref_op)
 
 
 class TestLazyKernel:

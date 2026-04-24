@@ -100,7 +100,7 @@ class ComputationAwareGP(eqx.Module, Generic[_LinearSolverState]):
             constant = paramax.unwrap(prior.mean_function.constant)
             mean_prior = mean_prior.astype(constant.dtype)
         cov_xx = lazify(prior.kernel.gram(x))
-        obs_cov = diag_like(cov_xx, paramax.unwrap(likelihood.obs_stddev) ** 2)
+        obs_cov = lazify(diag_like(cov_xx, paramax.unwrap(likelihood.obs_stddev) ** 2))
         cov_prior = cov_xx + obs_cov
 
         # Project quantities to subspace
