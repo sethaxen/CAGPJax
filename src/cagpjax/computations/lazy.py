@@ -31,8 +31,8 @@ class LazyKernelComputation(AbstractKernelComputation):
     Note:
         This class technically violates the API for `AbstractKernelComputation`, which
         expects that the return type of `cross_covariance` is an array, not a
-        `LinearOperator`. While this class works as expected within this package, it
-        should not be be used within GPJax itself.
+        linear operator. While this class works as expected within this package, it
+        should not be used within GPJax itself.
 
     Examples
     --------
@@ -105,7 +105,7 @@ class LazyKernelComputation(AbstractKernelComputation):
         kernel: AbstractKernel,
         x1: Float[Array, "N D"],
         x2: Float[Array, "M D"],
-    ) -> Float[Array, "N M"] | lx.AbstractLinearOperator:
+    ) -> lx.AbstractLinearOperator:
         return LazyKernel(
             kernel,
             x1,

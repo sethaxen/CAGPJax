@@ -78,6 +78,7 @@ class TestLazyKernelComputation:
         expected_dtype = kernel(x1[0], x1[0]).dtype
         assert isinstance(gram_raw, lx.TaggedLinearOperator)
         assert isinstance(gram_raw.operator, LazyKernel)
+        assert lx.is_positive_semidefinite(gram_raw)
         gram = gram_raw.operator
         assert gram.out_size() == x1.shape[0]
         assert gram.in_size() == x1.shape[0]
@@ -109,6 +110,7 @@ class TestLazyKernelComputation:
         expected_dtype = kernel.cross_covariance(x1, x2).dtype
         cross_cov_raw = comp.cross_covariance(kernel, x1, x2)
         assert isinstance(cross_cov_raw, LazyKernel)
+        assert isinstance(cross_cov_raw, lx.AbstractLinearOperator)
         cross_cov = cross_cov_raw
         assert cross_cov.out_size() == x1.shape[0]
         assert cross_cov.in_size() == x2.shape[0]
