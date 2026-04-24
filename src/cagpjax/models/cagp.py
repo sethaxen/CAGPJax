@@ -1,7 +1,7 @@
 """Computation-aware Gaussian Process models."""
 
 from dataclasses import dataclass
-from typing import Optional, cast
+from typing import Optional
 
 import cola
 import equinox as eqx
@@ -106,9 +106,9 @@ class ComputationAwareGP(eqx.Module, Generic[_LinearSolverState]):
         cov_prior = cov_xx + obs_cov
 
         # Project quantities to subspace
-        actions = self.policy.to_actions(cov_prior, key=key)
-        obs_cov_proj = congruence_transform(actions, obs_cov)
-        cov_prior_proj = congruence_transform(actions, cov_prior)
+        actions = lazify(self.policy.to_actions(cov_prior, key=key))
+        obs_cov_proj = lazify(congruence_transform(actions, obs_cov))
+        cov_prior_proj = lazify(congruence_transform(actions, cov_prior))
         cov_prior_proj_state = self.solver.init(cov_prior_proj)
 
         residual_proj = actions.T @ (y - mean_prior)
@@ -116,7 +116,7 @@ class ComputationAwareGP(eqx.Module, Generic[_LinearSolverState]):
 
         return ComputationAwareGPState(
             train_data=train_data,
-            actions=cast(LinearOperator, actions),
+            actions=actions,
             obs_cov_proj=obs_cov_proj,
             cov_prior_proj_state=cov_prior_proj_state,
             residual_proj=residual_proj,

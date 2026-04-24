@@ -147,17 +147,14 @@ def _lazy_kernel_diagonal(operator: LazyKernel) -> Float[Array, "N"]:
 
 @lx.is_symmetric.register(LazyKernel)
 def _lazy_kernel_is_symmetric(operator: LazyKernel) -> bool:
-    return bool(jnp.array_equal(operator.x1, operator.x2))
+    return _lazy_kernel_inputs_match(operator)
 
 
 @lx.is_diagonal.register(LazyKernel)
 def _lazy_kernel_is_diagonal(operator: LazyKernel) -> bool:
     if operator.x1.shape[0] == 1 and operator.x2.shape[0] == 1:
         return True
-    return (
-        bool(jnp.array_equal(operator.x1, operator.x2))
-        and type(operator.kernel) is White
-    )
+    return _lazy_kernel_inputs_match(operator) and type(operator.kernel) is White
 
 
 @lx.is_tridiagonal.register(LazyKernel)
@@ -177,4 +174,12 @@ def _lazy_kernel_is_upper_triangular(_operator: LazyKernel) -> bool:
 
 @lx.is_positive_semidefinite.register(LazyKernel)
 def _lazy_kernel_is_psd(operator: LazyKernel) -> bool:
-    return bool(jnp.array_equal(operator.x1, operator.x2))
+    return _lazy_kernel_inputs_match(operator)
+
+
+def _lazy_kernel_inputs_match(operator: LazyKernel) -> bool:
+    try:
+        return bool(jnp.array_equal(operator.x1, operator.x2))
+    except Exception:
+        # Under JAX tracing, bool conversion may not be available.
+        return operator.x1 is operator.x2

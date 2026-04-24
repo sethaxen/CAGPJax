@@ -52,10 +52,9 @@ def congruence_transform(A: Any, B: Any) -> Any:
         return Diagonal(cola.linalg.diag(A) ** 2 * cola.linalg.diag(B))
     if isinstance(A, BlockDiagonalSparse) and isinstance(B, (Diagonal, ScalarMul)):
         return _congruence_block_diagonal_sparse(A, B)
-    if isinstance(A, BlockDiagonalSparse):
-        B_lx = to_lineax(B)
-        if lx.is_diagonal(B_lx):
-            diagonal_values = lx.diagonal(B_lx)
+    if isinstance(A, BlockDiagonalSparse) and isinstance(B, lx.AbstractLinearOperator):
+        if lx.is_diagonal(B):
+            diagonal_values = lx.diagonal(B)
             diag = _block_diagonal_sparse_congruence_diagonal(
                 A, diagonal_values * (A.nz_values**2)
             )
