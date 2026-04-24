@@ -1,13 +1,14 @@
 import math
+from typing import Any
 
-import cola
 import jax
 import jax.numpy as jnp
-from cola.ops import LinearOperator
+import lineax as lx
 from jaxtyping import Array, Float, Key
 from numpyro.distributions import constraints
 from numpyro.distributions.distribution import Distribution
 
+from .interop import lazify, to_lineax
 from .solvers import AbstractLinearSolver, Cholesky
 from .typing import ScalarFloat
 
@@ -16,13 +17,13 @@ class GaussianDistribution(Distribution):
     """Gaussian distribution with an implicit covariance and customizable linear solver."""
 
     loc: Float[Array, " N"]
-    scale: LinearOperator
+    scale: Any
     solver: AbstractLinearSolver
 
     def __init__(
         self,
         loc: Float[Array, " N"],
-        scale: LinearOperator,
+        scale: Any,
         solver: AbstractLinearSolver = Cholesky(1e-6),
         **kwargs,
     ):
@@ -34,7 +35,7 @@ class GaussianDistribution(Distribution):
             solver: Method for solving the linear system of equations.
         """
         self.loc = loc
-        self.scale = scale
+        self.scale = lazify(scale)
         batch_shape = ()
         event_shape = jnp.shape(self.loc)
         self.solver = solver
@@ -53,14 +54,14 @@ class GaussianDistribution(Distribution):
     @property
     def variance(self) -> Float[Array, " N"]:
         """Marginal variance of the distribution."""
-        return cola.diag(self.scale)
+        return lx.diagonal(to_lineax(self.scale))
 
     @property
     def stddev(self) -> Float[Array, " N"]:
         """Marginal standard deviation of the distribution."""
         return jnp.sqrt(self.variance)
 
-    def covariance(self) -> LinearOperator:
+    def covariance(self) -> Any:
         """Operator representing the covariance of the distribution."""
         return self.scale
 
