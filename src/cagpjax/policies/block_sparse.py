@@ -7,12 +7,11 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 import paramax
-from cola.ops import LinearOperator
 from jaxtyping import Array, Float, PRNGKeyArray
 from typing_extensions import override
 
 from ..operators import BlockDiagonalSparse
-from .base import AbstractBatchLinearSolverPolicy
+from .base import AbstractBatchLinearSolverPolicy, ActionOperator
 
 
 def _normalize_by_blocks(
@@ -94,7 +93,7 @@ class BlockSparsePolicy(AbstractBatchLinearSolverPolicy):
 
     @override
     def to_actions(
-        self, A: LinearOperator, *, key: PRNGKeyArray | None = None
+        self, A: ActionOperator, *, key: PRNGKeyArray | None = None
     ) -> BlockDiagonalSparse:
         """Convert to block diagonal sparse action operators.
 

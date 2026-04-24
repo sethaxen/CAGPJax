@@ -94,7 +94,8 @@ class TestLanczosPolicy:
         result2 = actions2.to_actions(psd_linear_operator, key=key)
 
         assert jnp.array_equal(
-            result1 @ jnp.eye(n_actions), result2 @ jnp.eye(n_actions)
+            jnp.asarray(result1 @ jnp.eye(n_actions)),
+            jnp.asarray(result2 @ jnp.eye(n_actions)),
         )
 
     @pytest.mark.parametrize("n_actions", [8, None])
@@ -154,7 +155,7 @@ class TestLanczosPolicy:
         def loss(op_diag):
             op = cola.lazify(jnp.diag(op_diag))
             actions = policy.to_actions(op, key=key)
-            z = actions @ ((actions.T @ x) * scale)
+            z = jnp.asarray(actions @ ((actions.T @ x) * scale))
             return jnp.sum(jnp.square(z))
 
         op_diag = jnp.concatenate(

@@ -1,11 +1,11 @@
 import abc
+from typing import Any, TypeAlias
 
 import equinox as eqx
 import lineax as lx
-from cola.ops import LinearOperator
 from jaxtyping import PRNGKeyArray
 
-ActionOperator = LinearOperator | lx.AbstractLinearOperator
+ActionOperator: TypeAlias = lx.AbstractLinearOperator | Any
 
 
 class AbstractLinearSolverPolicy(eqx.Module):
@@ -29,7 +29,7 @@ class AbstractBatchLinearSolverPolicy(AbstractLinearSolverPolicy):
 
     @abc.abstractmethod
     def to_actions(
-        self, A: LinearOperator, *, key: PRNGKeyArray | None = None
+        self, A: ActionOperator, *, key: PRNGKeyArray | None = None
     ) -> ActionOperator:
         r"""Compute all actions used to solve the linear system $Ax=b$.
 

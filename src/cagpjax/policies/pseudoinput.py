@@ -4,7 +4,6 @@ import gpjax
 import jax.numpy as jnp
 import lineax as lx
 import paramax
-from cola.ops import LinearOperator
 from jaxtyping import Array, Float, PRNGKeyArray
 
 from .base import AbstractBatchLinearSolverPolicy, ActionOperator
@@ -65,7 +64,7 @@ class PseudoInputPolicy(AbstractBatchLinearSolverPolicy):
             )
 
     def to_actions(
-        self, A: LinearOperator, *, key: PRNGKeyArray | None = None
+        self, A: ActionOperator, *, key: PRNGKeyArray | None = None
     ) -> ActionOperator:
         del A, key
         S = self.kernel.cross_covariance(

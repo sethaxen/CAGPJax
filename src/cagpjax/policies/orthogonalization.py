@@ -2,7 +2,6 @@ import cola
 import equinox as eqx
 import jax.numpy as jnp
 import lineax as lx
-from cola.ops import LinearOperator
 from jaxtyping import PRNGKeyArray
 from typing_extensions import override
 
@@ -40,7 +39,7 @@ class OrthogonalizationPolicy(AbstractBatchLinearSolverPolicy):
 
     @override
     def to_actions(
-        self, A: LinearOperator, *, key: PRNGKeyArray | None = None
+        self, A: ActionOperator, *, key: PRNGKeyArray | None = None
     ) -> ActionOperator:
         op = self.base_policy.to_actions(A, key=key)
         if isinstance(op, BlockDiagonalSparse):

@@ -3,11 +3,9 @@
 from dataclasses import dataclass
 from typing import Optional
 
-import cola
 import equinox as eqx
 import jax.numpy as jnp
 import paramax
-from cola.ops import LinearOperator
 from gpjax.gps import ConjugatePosterior, Dataset
 from gpjax.mean_functions import Constant
 from jaxtyping import Array, Float, PRNGKeyArray
@@ -17,7 +15,7 @@ from ..distributions import GaussianDistribution
 from ..interop import lazify
 from ..linalg import congruence_transform
 from ..operators import diag_like
-from ..policies import AbstractBatchLinearSolverPolicy
+from ..policies import AbstractBatchLinearSolverPolicy, ActionOperator
 from ..solvers import AbstractLinearSolver, Cholesky
 from ..typing import ScalarFloat
 
@@ -39,8 +37,8 @@ class ComputationAwareGPState(Generic[_LinearSolverState]):
     """
 
     train_data: Dataset
-    actions: LinearOperator
-    obs_cov_proj: LinearOperator
+    actions: ActionOperator
+    obs_cov_proj: ActionOperator
     cov_prior_proj_state: _LinearSolverState
     residual_proj: Float[Array, "M"]
     repr_weights_proj: Float[Array, "M"]
@@ -164,7 +162,7 @@ class ComputationAwareGP(eqx.Module, Generic[_LinearSolverState]):
         cov_pred = cov_zz - self.solver.inv_congruence_transform(
             state.cov_prior_proj_state, cov_zx_proj.T
         )
-        cov_pred = cola.PSD(cov_pred)
+        cov_pred = lazify(cov_pred)
 
         return GaussianDistribution(mean_pred, cov_pred, solver=self.solver)
 
@@ -182,7 +180,7 @@ class ComputationAwareGP(eqx.Module, Generic[_LinearSolverState]):
         Returns:
             KL divergence value (scalar).
         """
-        obs_cov_proj_solver_state = self.solver.init(state.obs_cov_proj)
+        obs_cov_proj_solver_state = self.solver.init(lazify(state.obs_cov_proj))
 
         kl = (
             _kl_divergence_from_solvers(
