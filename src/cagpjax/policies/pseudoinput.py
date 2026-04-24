@@ -1,13 +1,13 @@
 """Pseodo-input linear solver policy."""
 
-import cola
 import gpjax
 import jax.numpy as jnp
+import lineax as lx
 import paramax
 from cola.ops import LinearOperator
 from jaxtyping import Array, Float, PRNGKeyArray
 
-from .base import AbstractBatchLinearSolverPolicy
+from .base import AbstractBatchLinearSolverPolicy, ActionOperator
 
 
 class PseudoInputPolicy(AbstractBatchLinearSolverPolicy):
@@ -66,8 +66,9 @@ class PseudoInputPolicy(AbstractBatchLinearSolverPolicy):
 
     def to_actions(
         self, A: LinearOperator, *, key: PRNGKeyArray | None = None
-    ) -> LinearOperator:
+    ) -> ActionOperator:
+        del A, key
         S = self.kernel.cross_covariance(
             paramax.unwrap(self.train_inputs), paramax.unwrap(self.pseudo_inputs)
         )
-        return cola.lazify(S)
+        return lx.MatrixLinearOperator(jnp.asarray(S))

@@ -344,9 +344,9 @@ class TestPseudoInputPolicy:
         op = lazify(kernel.gram(train_inputs))
         expected = kernel.cross_covariance(train_inputs, pseudo_inputs)
         actions = policy.to_actions(op)
-        assert isinstance(actions, LinearOperator)
-        assert actions.dtype == expected.dtype
-        assert jnp.allclose(actions.to_dense(), expected)
+        assert isinstance(actions, lx.MatrixLinearOperator)
+        assert actions.in_structure().dtype == expected.dtype
+        assert jnp.allclose(actions.as_matrix(), expected)
 
     def test_actions_consistency(self, inputs, kernel):
         """Test to_actions consistency and return type."""
