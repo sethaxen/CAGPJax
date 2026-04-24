@@ -234,7 +234,7 @@ class TestBlockSparsePolicy:
         )
         actions1 = policy.to_actions(psd_linear_operator)
         actions2 = policy.to_actions(psd_linear_operator)
-        assert jnp.allclose(actions1.to_dense(), actions2.to_dense())
+        assert jnp.allclose(actions1.as_matrix(), actions2.as_matrix())
 
     @pytest.mark.parametrize("distribution", ["normal", "rademacher", "constant"])
     def test_from_random_with_distribution_sampler(
@@ -490,5 +490,6 @@ class TestOrthogonalizationPolicy:
         ortho_actions = policy.to_actions(psd_linear_operator)
 
         assert isinstance(ortho_actions, BlockDiagonalSparse)
-        assert ortho_actions.shape == base_actions.shape
+        assert ortho_actions.out_size() == base_actions.out_size()
+        assert ortho_actions.in_size() == base_actions.in_size()
         assert jnp.array_equal(ortho_actions.nz_values, base_actions.nz_values)

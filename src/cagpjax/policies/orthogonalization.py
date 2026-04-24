@@ -1,11 +1,12 @@
 import cola
 import equinox as eqx
+import lineax as lx
 from cola.ops import LinearOperator
 from jaxtyping import PRNGKeyArray
 from typing_extensions import override
 
 from ..linalg import OrthogonalizationMethod, orthogonalize
-from ..policies.base import AbstractBatchLinearSolverPolicy
+from ..policies.base import AbstractBatchLinearSolverPolicy, ActionOperator
 
 
 class OrthogonalizationPolicy(AbstractBatchLinearSolverPolicy):
@@ -38,8 +39,9 @@ class OrthogonalizationPolicy(AbstractBatchLinearSolverPolicy):
     @override
     def to_actions(
         self, A: LinearOperator, *, key: PRNGKeyArray | None = None
-    ) -> LinearOperator:
+    ) -> ActionOperator:
         op = self.base_policy.to_actions(A, key=key)
-        return cola.lazify(
-            orthogonalize(op, method=self.method, n_reortho=self.n_reortho)
-        )
+        ortho_actions = orthogonalize(op, method=self.method, n_reortho=self.n_reortho)
+        if isinstance(ortho_actions, lx.AbstractLinearOperator):
+            return ortho_actions
+        return cola.lazify(ortho_actions)

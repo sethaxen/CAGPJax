@@ -1,7 +1,7 @@
 """Block-sparse policy."""
 
 from collections.abc import Callable
-from typing import Any, cast
+from typing import Any
 
 import equinox as eqx
 import jax
@@ -95,7 +95,7 @@ class BlockSparsePolicy(AbstractBatchLinearSolverPolicy):
     @override
     def to_actions(
         self, A: LinearOperator, *, key: PRNGKeyArray | None = None
-    ) -> LinearOperator:
+    ) -> BlockDiagonalSparse:
         """Convert to block diagonal sparse action operators.
 
         Args:
@@ -105,7 +105,4 @@ class BlockSparsePolicy(AbstractBatchLinearSolverPolicy):
         Returns:
             BlockDiagonalSparse: Sparse action structure representing the blocks.
         """
-        return cast(
-            LinearOperator,
-            BlockDiagonalSparse(paramax.unwrap(self.nz_values), self.n_actions),
-        )
+        return BlockDiagonalSparse(paramax.unwrap(self.nz_values), self.n_actions)

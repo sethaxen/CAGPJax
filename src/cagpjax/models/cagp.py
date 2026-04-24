@@ -1,7 +1,7 @@
 """Computation-aware Gaussian Process models."""
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, cast
 
 import cola
 import equinox as eqx
@@ -116,7 +116,7 @@ class ComputationAwareGP(eqx.Module, Generic[_LinearSolverState]):
 
         return ComputationAwareGPState(
             train_data=train_data,
-            actions=actions,
+            actions=cast(LinearOperator, actions),
             obs_cov_proj=obs_cov_proj,
             cov_prior_proj_state=cov_prior_proj_state,
             residual_proj=residual_proj,

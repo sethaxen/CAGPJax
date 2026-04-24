@@ -1,7 +1,6 @@
 """Pseodo-input linear solver policy."""
 
 import cola
-import equinox as eqx
 import gpjax
 import jax.numpy as jnp
 import paramax
