@@ -21,7 +21,6 @@ from cagpjax.linalg import (
 from cagpjax.linalg.eigh import EighResult
 from cagpjax.linalg.utils import _add_jitter
 from cagpjax.operators import BlockDiagonalSparse, diag_like
-from cagpjax.operators.annotations import ScaledOrthogonal
 
 jax.config.update("jax_enable_x64", True)
 
@@ -631,8 +630,3 @@ class TestOrthogonalize:
                     Q.to_dense(),
                     jnp.asarray(orthogonalize(op.to_dense(), method=method)),
                 )
-                match method:
-                    case OrthogonalizationMethod.QR:
-                        assert Q.isa(cola.Stiefel)
-                    case _:
-                        assert Q.isa(ScaledOrthogonal)

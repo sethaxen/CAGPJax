@@ -2,12 +2,11 @@
 
 from enum import Enum
 
-import cola
+import cola.ops
 import jax
 import jax.numpy as jnp
 from jaxtyping import Array, Float
 
-from ..operators.annotations import ScaledOrthogonal
 from ..operators.block_diagonal_sparse import BlockDiagonalSparse
 
 
@@ -52,24 +51,13 @@ def orthogonalize(
         # Already scaled-orthogonal by construction.
         return A
     if isinstance(A, cola.ops.Identity | cola.ops.Diagonal | cola.ops.ScalarMul):
-        return cola.Unitary(cola.ops.I_like(A))
+        return cola.ops.I_like(A)
     if isinstance(A, cola.ops.LinearOperator):
-        if A.isa(cola.Stiefel) or A.isa(ScaledOrthogonal):
+        A_dense = A.to_dense()
+        if _has_orthonormal_columns(A_dense):
             return A
-        Q = cola.lazify(_orthogonalize_array(cola.densify(A), method, n_reortho))
-        annotation = _get_return_operator_annotation(method)
-        return annotation(Q)
+        return cola.ops.Dense(_orthogonalize_array(A_dense, method, n_reortho))
     return _orthogonalize_array(A, method, n_reortho)
-
-
-def _get_return_operator_annotation(method: OrthogonalizationMethod):
-    match method:
-        case OrthogonalizationMethod.QR:
-            return cola.Stiefel
-        case OrthogonalizationMethod.CGS:
-            return ScaledOrthogonal
-        case OrthogonalizationMethod.MGS:
-            return ScaledOrthogonal
 
 
 def _orthogonalize_array(
@@ -172,3 +160,17 @@ def _l2_normalize(x: Float[Array, "n"], /, *, rtol: float = 0.0) -> Float[Array,
     r_cutoff = rtol * x.size
     r = jnp.linalg.norm(x)
     return jnp.asarray(jnp.where(r <= r_cutoff, jax.lax.stop_gradient(x), x / r))
+
+
+def _has_orthonormal_columns(A: Float[Array, "m n"]) -> bool:
+    """Whether columns satisfy ``A.T @ A ≈ I`` for concrete arrays."""
+    qtq = A.T @ A
+    eye = jnp.eye(A.shape[1], dtype=A.dtype)
+    is_float32 = A.dtype == jnp.float32
+    rtol = 1e-3 if is_float32 else 1e-6
+    atol = 1e-5 if is_float32 else 1e-8
+    # Under tracing the bool may be non-concrete; fall back to re-orthogonalizing.
+    try:
+        return bool(jnp.allclose(qtq, eye, rtol=rtol, atol=atol))
+    except TypeError:
+        return False
