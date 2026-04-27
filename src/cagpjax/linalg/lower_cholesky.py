@@ -1,17 +1,16 @@
 """Lower Cholesky decomposition of positive semidefinite operators."""
 
-from typing import cast
+from typing import Any, cast
 
 import jax.numpy as jnp
-from cola.ops import Diagonal, Identity, LinearOperator, ScalarMul, Triangular
+import lineax as lx
 
+from ..interop import lazify, to_lineax
 from ..typing import ScalarFloat
 from .utils import _add_jitter
 
 
-def lower_cholesky(
-    A: LinearOperator, jitter: ScalarFloat | None = None
-) -> LinearOperator:
+def lower_cholesky(A: Any, jitter: ScalarFloat | None = None) -> Any:
     """Lower Cholesky decomposition of a positive semidefinite operator.
 
     Args:
@@ -26,16 +25,17 @@ def lower_cholesky(
     return _lower_cholesky_jittered(A, jitter)
 
 
-def _lower_cholesky_jittered(A: LinearOperator, jitter: ScalarFloat) -> LinearOperator:
+def _lower_cholesky_jittered(A: Any, jitter: ScalarFloat) -> Any:
     A_jittered = _add_jitter(A, jitter)
-    return _lower_cholesky(cast(LinearOperator, A_jittered))
+    return _lower_cholesky(cast(Any, A_jittered))
 
 
-def _lower_cholesky(A: LinearOperator) -> LinearOperator:
-    if isinstance(A, Diagonal):
-        return Diagonal(jnp.sqrt(A.diag))
-    if isinstance(A, ScalarMul):
-        return ScalarMul(jnp.sqrt(A.c), A.shape, A.dtype, A.device)
-    if isinstance(A, Identity):
-        return A
-    return Triangular(jnp.linalg.cholesky(A.to_dense()), lower=True)
+def _lower_cholesky(A: Any) -> Any:
+    A_lx = to_lineax(A)
+    if lx.is_diagonal(A_lx):
+        L = lx.DiagonalLinearOperator(jnp.sqrt(lx.diagonal(A_lx)))
+    else:
+        L = lx.MatrixLinearOperator(jnp.linalg.cholesky(A_lx.as_matrix()))
+    if isinstance(A, lx.AbstractLinearOperator):
+        return L
+    return lazify(L)
