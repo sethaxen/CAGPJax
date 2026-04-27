@@ -1,8 +1,8 @@
 """Tests for the linear solvers."""
 
-import cola
 import jax
 import jax.numpy as jnp
+import lineax as lx
 import pytest
 from jaxtyping import Array, Float
 
@@ -12,6 +12,12 @@ from cagpjax.solvers import Cholesky, PseudoInverse
 from cagpjax.solvers.pseudoinverse import PseudoInverseState
 
 jax.config.update("jax_enable_x64", True)
+
+
+def _matrix(op_or_arr):
+    if isinstance(op_or_arr, lx.AbstractLinearOperator):
+        return op_or_arr.as_matrix()
+    return jnp.asarray(op_or_arr)
 
 
 class TestSolvers:
@@ -41,7 +47,7 @@ class TestSolvers:
         return Q
 
     @pytest.fixture(params=[23, 98, 30])
-    def op(self, request, n, dtype, op_type) -> cola.ops.LinearOperator:
+    def op(self, request, n, dtype, op_type):
         """Generate a random linear operator operator of the specified type."""
         key = jax.random.key(request.param)
         key, subkey = jax.random.split(key)
@@ -57,11 +63,7 @@ class TestSolvers:
             eigmin = jnp.zeros(n_small, dtype=dtype)
         eigenvalues = jnp.concatenate([eigenvalues, eigmin])
         A = eigenvectors.T @ jnp.diag(eigenvalues) @ eigenvectors
-        A = cola.lazify(A)
-        if op_type == "singular":
-            return cola.SelfAdjoint(A)
-        else:
-            return cola.PSD(A)
+        return lx.MatrixLinearOperator(A)
 
     @pytest.fixture(params=[PseudoInverse, Cholesky])
     def solver(self, request, op_type, dtype):
@@ -79,18 +81,15 @@ class TestSolvers:
         """Return a solver for the linear system of equations op @ x = b."""
         return solver.init(op)
 
-    @pytest.fixture(params=[cola.ops.Dense, cola.ops.Diagonal])
-    def other_op(
-        self, request, n, dtype, key=jax.random.key(78)
-    ) -> cola.ops.LinearOperator:
+    @pytest.fixture(params=["dense", "diagonal"])
+    def other_op(self, request, n, dtype, key=jax.random.key(78)):
         """Generate another PSD linear operator for the trace solve test."""
-        if request.param == cola.ops.Dense:
+        if request.param == "dense":
             A = jax.random.normal(key, (n, n), dtype=dtype)
-            A = cola.lazify(A @ A.T)
-            return cola.PSD(A)
-        elif request.param == cola.ops.Diagonal:
-            return cola.PSD(
-                cola.ops.Diagonal(jax.random.normal(key, (n,), dtype=dtype) ** 2)
+            return lx.MatrixLinearOperator(A @ A.T)
+        elif request.param == "diagonal":
+            return lx.DiagonalLinearOperator(
+                jax.random.normal(key, (n,), dtype=dtype) ** 2
             )
 
     @pytest.fixture
@@ -107,7 +106,7 @@ class TestSolvers:
         if isinstance(solver, Cholesky):
             jitter = solver.jitter
             op_actual = op if jitter is None else _add_jitter(op, jitter)
-            assert jnp.allclose((state @ state.T).to_dense(), op_actual.to_dense())
+            assert jnp.allclose(_matrix(state @ state.T), _matrix(op_actual))
         elif isinstance(solver, PseudoInverse):
             assert isinstance(state, PseudoInverseState)
             assert state.A is op
@@ -128,33 +127,36 @@ class TestSolvers:
         else:
             op_actual = op
 
-        x_lstsq = jnp.linalg.lstsq(op_actual.to_dense(), b)[0]
+        x_lstsq = jnp.linalg.lstsq(_matrix(op_actual), b)[0]
         # increased rtol for float32 because lstsq and eigh use different algorithms,
         # and this makes more of a difference for float32
         rtol = (1e-3 if dtype == jnp.float32 else 1e-8) * n
         assert jnp.allclose(x, x_lstsq, rtol=rtol)
 
     @pytest.mark.parametrize("m", [2, 5])
-    @pytest.mark.parametrize("B_type", [jnp.ndarray, cola.ops.LinearOperator])
+    @pytest.mark.parametrize("B_type", [jnp.ndarray, lx.AbstractLinearOperator])
     def test_inv_congruence_transform_consistency(
         self, solver, state, n, m, dtype, B_type, key=jax.random.key(23)
     ):
         """Test inv_congruence_transform is consistent with solve and congruence_transform."""
         B = jax.random.normal(key, (n, m), dtype=dtype)
-        if B_type == cola.ops.LinearOperator:
-            B = cola.lazify(B)
+        if B_type == lx.AbstractLinearOperator:
+            B = lx.MatrixLinearOperator(B)
 
         with jax.default_matmul_precision("highest"):
             cong_transform = solver.inv_congruence_transform(state, B)
             op_mat_inv = solver.solve(state, jnp.eye(n, dtype=dtype))
             cong_transform_ref = congruence_transform(B, op_mat_inv)
-            cong_trans_mat = cola.densify(cong_transform)
-            cong_trans_ref_mat = cola.densify(cong_transform_ref)
+            cong_trans_mat = _matrix(cong_transform)
+            cong_trans_ref_mat = _matrix(cong_transform_ref)
 
-        assert cong_transform.shape == (m, m)
-        assert cong_transform.dtype == dtype
+        assert cong_trans_mat.shape == (m, m)
+        assert cong_trans_mat.dtype == dtype
         rtol = 1e-4 if dtype == jnp.float32 else 1e-12
-        assert isinstance(cong_transform, B_type)
+        if B_type == lx.AbstractLinearOperator:
+            assert isinstance(cong_transform, lx.AbstractLinearOperator)
+        else:
+            assert isinstance(cong_transform, jnp.ndarray)
         assert jnp.allclose(cong_trans_mat, cong_trans_ref_mat, rtol=rtol)
 
     @pytest.mark.parametrize("m", [None, 2])
@@ -164,7 +166,7 @@ class TestSolvers:
         """Test unwhiten is consistent with inv_congruence_transform."""
         B_shape = (n, m) if m is not None else (n,)
         # for this to succeed, the whitened B must be in a subspace of the same rank as the operator
-        rank = jnp.linalg.matrix_rank(op.to_dense())
+        rank = jnp.linalg.matrix_rank(_matrix(op))
         B = jax.random.normal(key, B_shape, dtype=dtype)
         B = B.at[:rank, ...].set(0)
         X = solver.unwhiten(state, B)
@@ -189,25 +191,25 @@ class TestSolvers:
         trace_solve = solver.trace_solve(state, other_state)
         assert jnp.isscalar(trace_solve)
         assert trace_solve.dtype == dtype
-        trace_solve_solve = jnp.trace(solver.solve(state, other_op.to_dense()))
+        trace_solve_solve = jnp.trace(solver.solve(state, _matrix(other_op)))
         rtol = (1e-4 if dtype == jnp.float32 else 1e-12) * n
         assert jnp.isclose(trace_solve, trace_solve_solve, rtol=rtol)
 
     @pytest.mark.parametrize("grad_rtol", [None, 0.0])
     def test_pseudoinverse_gradient_degenerate(self, n, dtype, grad_rtol):
         """Test gradient computation with degenerate operators."""
-        A = cola.ops.Dense(jnp.eye(n, dtype=dtype))
+        A = lx.MatrixLinearOperator(jnp.eye(n, dtype=dtype))
         solver = PseudoInverse(grad_rtol=grad_rtol)
 
         def loss_fn(A_matrix):
-            A_op = cola.ops.Dense(A_matrix)
+            A_op = lx.MatrixLinearOperator(A_matrix)
             state = solver.init(A_op)
             b = jnp.ones(n, dtype=dtype)
             x = solver.solve(state, b)
             return jnp.sum(x**2)
 
         grad_fn = jax.grad(loss_fn)
-        grad = grad_fn(A.to_dense())
+        grad = grad_fn(_matrix(A))
 
         if grad_rtol is None or grad_rtol < 0.0:
             assert not jnp.isfinite(grad).all()
@@ -227,7 +229,7 @@ class TestSolvers:
         pseudo_state = pseudo_solver.init(op)
         pseudo_logdet = pseudo_solver.logdet(pseudo_state)
         if op_type == "nonsingular":
-            expected_pseudo = jnp.linalg.slogdet(op.to_dense())[1]
+            expected_pseudo = jnp.linalg.slogdet(_matrix(op))[1]
             assert jnp.isclose(pseudo_logdet, expected_pseudo)
         else:
             assert jnp.isfinite(pseudo_logdet)
@@ -238,7 +240,7 @@ class TestSolvers:
         cholesky_solver = Cholesky(jitter=jitter)
         cholesky_state = cholesky_solver.init(op)
         cholesky_logdet = cholesky_solver.logdet(cholesky_state)
-        expected_cholesky = jnp.linalg.slogdet(_add_jitter(op, jitter).to_dense())[1]
+        expected_cholesky = jnp.linalg.slogdet(_matrix(_add_jitter(op, jitter)))[1]
         assert jnp.isclose(cholesky_logdet, expected_cholesky)
 
     def test_cholesky_errors_on_negative_jitter(self):

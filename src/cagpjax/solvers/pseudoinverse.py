@@ -2,11 +2,12 @@ from typing import Any, NamedTuple
 
 import equinox as eqx
 import jax
+import lineax as lx
 from jax import numpy as jnp
 from jaxtyping import Array, Bool, Float
 from typing_extensions import override
 
-from ..interop import lazify
+from ..interop import lazify, to_lineax
 from ..linalg.eigh import Eigh, EighResult, eigh
 from ..typing import ScalarFloat
 from .base import AbstractLinearSolver, LinearOperatorLike, SupportsDenseOperator
@@ -59,12 +60,24 @@ class PseudoInverse(AbstractLinearSolver[PseudoInverseState]):
         if self.grad_rtol is not None and self.grad_rtol < 0:
             raise ValueError("grad_rtol must be non-negative")
 
+    @staticmethod
+    def _to_dense_matrix(A: Any) -> Float[Array, "N M"]:
+        if isinstance(A, lx.AbstractLinearOperator):
+            return A.as_matrix()
+        if hasattr(A, "to_dense"):
+            return jnp.asarray(A.to_dense())
+        if hasattr(A, "as_matrix"):
+            return jnp.asarray(A.as_matrix())
+        return jnp.asarray(A)
+
     @override
     def init(self, A: LinearOperatorLike) -> PseudoInverseState:
-        n = A.shape[0]
+        A_lx = to_lineax(A)
+        n = A_lx.in_size()
+        dtype = A_lx.in_structure().dtype
         # select rtol using same heuristic as jax.numpy.linalg.lstsq
         rtol_val = (
-            self.rtol if self.rtol is not None else float(jnp.finfo(A.dtype).eps) * n
+            self.rtol if self.rtol is not None else float(jnp.finfo(dtype).eps) * n
         )
         eigh_result = eigh(A, alg=self.alg, grad_rtol=self.grad_rtol)
         svdmax = jnp.max(jnp.abs(eigh_result.eigenvalues))
@@ -82,8 +95,9 @@ class PseudoInverse(AbstractLinearSolver[PseudoInverseState]):
     ) -> Float[Array, "N #K"]:
         eigvals_sqrt = jnp.where(state.eigvals_mask, jnp.sqrt(state.eigvals_safe), 0)
         x = (eigvals_sqrt * z.T).T
+        eigenvectors = self._to_dense_matrix(state.eigh_result.eigenvectors)
         with jax.default_matmul_precision("highest"):
-            return state.eigh_result.eigenvectors @ x
+            return eigenvectors @ x
 
     @override
     def solve(
@@ -91,11 +105,12 @@ class PseudoInverse(AbstractLinearSolver[PseudoInverseState]):
     ) -> Float[Array, "N #K"]:
         b_ndim = b.ndim
         b = b if b_ndim == 2 else b[:, None]
+        eigenvectors = self._to_dense_matrix(state.eigh_result.eigenvectors)
         with jax.default_matmul_precision("highest"):
-            x = state.eigh_result.eigenvectors.T @ b
+            x = eigenvectors.T @ b
         x = x * state.eigvals_inv[:, None]
         with jax.default_matmul_precision("highest"):
-            x = state.eigh_result.eigenvectors @ x
+            x = eigenvectors @ x
         x = x if b_ndim == 2 else x.squeeze(axis=1)
         return x
 
@@ -107,25 +122,31 @@ class PseudoInverse(AbstractLinearSolver[PseudoInverseState]):
     def inv_quad(
         self, state: PseudoInverseState, b: Float[Array, "N #1"]
     ) -> ScalarFloat:
-        z = state.eigh_result.eigenvectors.T @ b
+        eigenvectors = self._to_dense_matrix(state.eigh_result.eigenvectors)
+        z = eigenvectors.T @ b
         return jnp.dot(jnp.square(z), state.eigvals_inv).squeeze()
 
     @override
     def inv_congruence_transform(
         self, state: PseudoInverseState, B: LinearOperatorLike | Float[Array, "K N"]
     ) -> LinearOperatorLike | Float[Array, "K K"]:
-        eigenvectors = state.eigh_result.eigenvectors
-        B_mat = B.to_dense() if isinstance(B, SupportsDenseOperator) else B
+        eigenvectors = self._to_dense_matrix(state.eigh_result.eigenvectors)
+        B_is_operator = (
+            isinstance(B, lx.AbstractLinearOperator)
+            or isinstance(B, SupportsDenseOperator)
+            or hasattr(B, "as_matrix")
+        )
+        B_mat = self._to_dense_matrix(B) if B_is_operator else jnp.asarray(B)
         z = eigenvectors.T @ B_mat
         z_weighted = (
             state.eigvals_inv * z if z.ndim == 1 else state.eigvals_inv[:, None] * z
         )
         result = z.T @ z_weighted
-        return lazify(result) if isinstance(B, SupportsDenseOperator) else result
+        return lazify(result) if B_is_operator else result
 
     @override
     def trace_solve(
         self, state: PseudoInverseState, state_other: PseudoInverseState
     ) -> ScalarFloat:
-        solved = self.solve(state, state_other.A.to_dense())
+        solved = self.solve(state, self._to_dense_matrix(state_other.A))
         return jnp.trace(solved)

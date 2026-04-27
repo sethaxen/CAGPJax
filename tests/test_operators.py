@@ -1,13 +1,11 @@
 """Tests for custom linear operators."""
 
-import cola
 import jax
 import jax.numpy as jnp
 import jax.test_util
 import lineax as lx
 import numpy as np
 import pytest
-from cola.ops import Dense, Diagonal, LinearOperator, ScalarMul
 from gpjax.kernels import RBF
 from gpjax.kernels.computations import DenseKernelComputation
 from gpjax.parameters import Real
@@ -23,40 +21,52 @@ jax.config.update("jax_enable_x64", True)
 def _matrix(op):
     if isinstance(op, lx.AbstractLinearOperator):
         return op.as_matrix()
-    return op.to_dense()
+    if hasattr(op, "to_dense"):
+        return op.to_dense()
+    return jnp.asarray(op)
 
 
 def _dtype(op):
     if isinstance(op, lx.AbstractLinearOperator):
         return op.in_structure().dtype
+    if hasattr(op, "dtype"):
+        return op.dtype
     return op.dtype
 
 
 def _in_size(op):
     if isinstance(op, lx.AbstractLinearOperator):
         return op.in_size()
+    if hasattr(op, "shape"):
+        return op.shape[1]
     return op.shape[1]
 
 
 def _out_size(op):
     if isinstance(op, lx.AbstractLinearOperator):
         return op.out_size()
+    if hasattr(op, "shape"):
+        return op.shape[0]
     return op.shape[0]
 
 
 def _mv(op, x):
     if isinstance(op, lx.AbstractLinearOperator):
         return op.mv(x)
+    if hasattr(op, "__matmul__"):
+        return op @ x
     return op @ x
 
 
 def _transpose(op):
     if isinstance(op, lx.AbstractLinearOperator):
         return op.transpose()
+    if hasattr(op, "T"):
+        return op.T
     return op.T
 
 
-def _test_mul_consistency(op: LinearOperator | lx.AbstractLinearOperator, **kwargs):
+def _test_mul_consistency(op, **kwargs):
     """Test that the linear operator is consistent with multiplication by identity."""
     mat = _matrix(op)
     eye_in = jnp.eye(_in_size(op), dtype=_dtype(op))
@@ -64,15 +74,13 @@ def _test_mul_consistency(op: LinearOperator | lx.AbstractLinearOperator, **kwar
     np.testing.assert_allclose(right, mat, **kwargs)
 
 
-def _test_transpose_consistency(
-    op: LinearOperator | lx.AbstractLinearOperator, **kwargs
-):
+def _test_transpose_consistency(op, **kwargs):
     """Test that the transpose is consistent."""
     op_transpose = _transpose(op)
     np.testing.assert_allclose(_matrix(op_transpose), _matrix(op).T, **kwargs)
 
 
-def _test_dtype_consistency(op: LinearOperator | lx.AbstractLinearOperator, **kwargs):
+def _test_dtype_consistency(op, **kwargs):
     """Test that the linear operator has the correct dtype."""
     dtype = _dtype(op)
     assert dtype == _matrix(op).dtype
@@ -82,9 +90,7 @@ def _test_dtype_consistency(op: LinearOperator | lx.AbstractLinearOperator, **kw
     assert _mv(_transpose(op), y).dtype == dtype
 
 
-def _test_linear_operator_consistency(
-    op: LinearOperator | lx.AbstractLinearOperator, **kwargs
-):
+def _test_linear_operator_consistency(op, **kwargs):
     """Test that the linear operator is self-consistent."""
     _test_mul_consistency(op, **kwargs)
     _test_transpose_consistency(op, **kwargs)
@@ -92,9 +98,7 @@ def _test_linear_operator_consistency(
 
 
 class TestUtils:
-    # lazify needs to be tested for a cola.ops.Dense, cola.ops.Diagonal, and jnp.ndarray
-    # if gpjax.linalg is available, it should also be tested for gpjax.linalg.Dense, gpjax.linalg.Diagonal, gpjax.linalg.Identity, and gpjax.linalg.Triangular
-    # lazify should return a cola.ops.LinearOperator, and have the same shape and dtype as the input
+    """Tests for interop ``lazify`` helper."""
 
     @pytest.fixture(params=[5, 6])
     def nrows(self, request) -> int:
@@ -111,47 +115,32 @@ class TestUtils:
     def test_lazify_ndarray(self, nrows, ncols, dtype, key=jax.random.key(42)):
         arr = jax.random.normal(key, (nrows, ncols), dtype=dtype)
         lazy_op = lazify(arr)
-        assert isinstance(lazy_op, cola.ops.Dense)
-        assert lazy_op.shape == (nrows, ncols)
-        assert lazy_op.dtype == dtype
-        np.testing.assert_allclose(lazy_op.to_dense(), arr)
-
-    def test_lazify_dense(self, nrows, ncols, dtype, key=jax.random.key(42)):
-        op = cola.ops.Dense(jax.random.normal(key, (nrows, ncols), dtype=dtype))
-        lazy_op = lazify(op)
-        assert lazy_op is op
-
-    def test_lazify_diagonal(self, nrows, dtype, key=jax.random.key(42)):
-        diag = jax.random.normal(key, (nrows,), dtype=dtype)
-        op = cola.ops.Diagonal(diag)
-        lazy_op = lazify(op)
-        assert lazy_op is op
+        assert isinstance(lazy_op, lx.AbstractLinearOperator)
+        assert lazy_op.out_size() == nrows
+        assert lazy_op.in_size() == ncols
+        assert lazy_op.in_structure().dtype == dtype
+        np.testing.assert_allclose(lazy_op.as_matrix(), arr)
 
     def test_lazify_lineax_matrix(self, nrows, ncols, dtype, key=jax.random.key(42)):
         matrix = jax.random.normal(key, (nrows, ncols), dtype=dtype)
         op = lx.MatrixLinearOperator(matrix)
         lazy_op = lazify(op)
-        assert isinstance(lazy_op, cola.ops.Dense)
-        assert lazy_op.shape == (nrows, ncols)
-        assert lazy_op.dtype == dtype
-        np.testing.assert_allclose(lazy_op.to_dense(), matrix)
+        assert isinstance(lazy_op, lx.AbstractLinearOperator)
+        np.testing.assert_allclose(lazy_op.as_matrix(), matrix)
 
     def test_lazify_lineax_diagonal(self, nrows, dtype, key=jax.random.key(42)):
         diag = jax.random.normal(key, (nrows,), dtype=dtype)
         op = lx.DiagonalLinearOperator(diag)
         lazy_op = lazify(op)
-        assert isinstance(lazy_op, cola.ops.Diagonal)
-        assert lazy_op.shape == (nrows, nrows)
-        assert lazy_op.dtype == dtype
-        np.testing.assert_allclose(lazy_op.to_dense(), jnp.diag(diag))
+        assert isinstance(lazy_op, lx.AbstractLinearOperator)
+        np.testing.assert_allclose(lazy_op.as_matrix(), jnp.diag(diag))
 
     def test_lazify_lineax_identity(self, nrows, dtype):
         metadata = jax.ShapeDtypeStruct((nrows,), dtype)
         op = lx.IdentityLinearOperator(metadata)
         lazy_op = lazify(op)
-        assert isinstance(lazy_op, cola.ops.Identity)
-        assert lazy_op.shape == (nrows, nrows)
-        assert lazy_op.dtype == dtype
+        assert isinstance(lazy_op, lx.AbstractLinearOperator)
+        np.testing.assert_allclose(lazy_op.as_matrix(), jnp.eye(nrows, dtype=dtype))
 
 
 class TestBlockDiagonalSparse:
@@ -198,23 +187,16 @@ class TestBlockDiagonalSparse:
 class TestDiagLike:
     """Test cases for ``diag_like``."""
 
-    @pytest.fixture(params=["cola", "lineax"])
-    def backend(self, request):
-        return request.param
-
     @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
     @pytest.mark.parametrize(
         "vals_n", [(2.5, 5), (jnp.array(3.3), 6), (jnp.arange(1.0, 6.0) ** 2, None)]
     )
-    def test_scalar_values(self, vals_n, dtype, backend):
+    def test_scalar_values(self, vals_n, dtype):
         """Test ``diag_like``."""
         vals, n = vals_n
         if n is None:
             n = len(vals)
-        if backend == "cola":
-            ref_op = Dense(jnp.ones((n, n), dtype=dtype))
-        else:
-            ref_op = lx.MatrixLinearOperator(jnp.ones((n, n), dtype=dtype))
+        ref_op = lx.MatrixLinearOperator(jnp.ones((n, n), dtype=dtype))
         diag_op = diag_like(ref_op, vals)
         _test_linear_operator_consistency(diag_op)
         expected_vals = vals

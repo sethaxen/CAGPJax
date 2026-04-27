@@ -14,7 +14,7 @@ def diag_like(
     """Create a diagonal Lineax operator with matching structure and dtype.
 
     Args:
-        operator: Reference operator (Lineax, cola ``LinearOperator``, or array via ``to_lineax``).
+        operator: Reference operator (Lineax operator or array via ``to_lineax``).
         values: Scalar for a scalar matrix or array of diagonal values for a diagonal matrix.
 
     Returns:
