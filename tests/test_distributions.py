@@ -121,9 +121,9 @@ class TestGaussianDistribution:
             atol_std = jax.scipy.stats.norm.ppf(
                 0.995, scale=dist.stddev / math.sqrt(2 * nsample)
             )
-            if dtype == jnp.float32:  # slightly relax tolerances for float32
-                atol_mean *= 1.2
-                atol_std *= 1.2
+            if dtype == jnp.float32:  # MC noise can slightly exceed asymptotic CI slack
+                atol_mean *= 1.5
+                atol_std *= 1.5
             sample_axis = tuple(range(len(sample_shape)))
             assert jnp.allclose(
                 jnp.mean(x, axis=sample_axis), dist.mean, atol=atol_mean

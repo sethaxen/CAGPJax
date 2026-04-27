@@ -2,10 +2,9 @@
 
 from typing import Any
 
-import cola
 import jax.numpy as jnp
 import lineax as lx
-from cola.ops import Diagonal, LinearOperator, ScalarMul
+from cola.ops import Diagonal, ScalarMul
 from jaxtyping import Array, Float
 
 from ..interop import to_lineax
@@ -49,7 +48,7 @@ def congruence_transform(A: Any, B: Any) -> Any:
         B: Square linear operator or array to be transformed.
     """
     if isinstance(A, Diagonal) and isinstance(B, Diagonal):
-        return Diagonal(cola.linalg.diag(A) ** 2 * cola.linalg.diag(B))
+        return Diagonal(A.diag**2 * B.diag)
     if isinstance(A, BlockDiagonalSparse) and isinstance(B, (Diagonal, ScalarMul)):
         return _congruence_block_diagonal_sparse(A, B)
     if isinstance(A, BlockDiagonalSparse) and isinstance(B, lx.AbstractLinearOperator):

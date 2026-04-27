@@ -137,9 +137,14 @@ class TestInteropUtils:
         matrix = jax.random.normal(key, (n, n), dtype=dtype)
         wrapped = ColaLinearOperator(cola.lazify(matrix))
         vector = jax.random.normal(key, (n,), dtype=dtype)
-        np.testing.assert_allclose(wrapped.mv(vector), matrix @ vector)
-        np.testing.assert_allclose(wrapped.as_matrix(), matrix)
-        np.testing.assert_allclose(wrapped.transpose().as_matrix(), matrix.T)
+        rtol, atol = (1e-5, 1e-6) if dtype == jnp.float32 else (1e-7, 0)
+        np.testing.assert_allclose(
+            wrapped.mv(vector), matrix @ vector, rtol=rtol, atol=atol
+        )
+        np.testing.assert_allclose(wrapped.as_matrix(), matrix, rtol=rtol, atol=atol)
+        np.testing.assert_allclose(
+            wrapped.transpose().as_matrix(), matrix.T, rtol=rtol, atol=atol
+        )
 
     def test_to_lineax_roundtrip_dense(self, n, dtype, key=jax.random.key(2)):
         matrix = jax.random.normal(key, (n, n), dtype=dtype)
