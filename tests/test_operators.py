@@ -14,7 +14,6 @@ from gpjax.parameters import Real
 
 from cagpjax.interop import lazify
 from cagpjax.operators import BlockDiagonalSparse
-from cagpjax.operators.annotations import ScaledOrthogonal
 from cagpjax.operators.diag_like import diag_like
 from cagpjax.operators.lazy_kernel import LazyKernel
 
@@ -178,7 +177,6 @@ class TestBlockDiagonalSparse:
         assert op.in_size() == n_blocks
         assert op.in_structure().dtype == dtype
         assert op.out_structure().dtype == dtype
-        assert op.isa(ScaledOrthogonal)
         _test_linear_operator_consistency(op)
 
     def test_grad(self, shape, dtype=jnp.float64, key=jax.random.key(42)):

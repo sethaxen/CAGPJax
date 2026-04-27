@@ -6,8 +6,6 @@ import jax.numpy as jnp
 import lineax as lx
 from jaxtyping import Array, Float
 
-from .annotations import ScaledOrthogonal
-
 
 class _BlockDiagonalSparseTranspose(lx.AbstractLinearOperator):
     """Transpose operator for :class:`BlockDiagonalSparse`."""
@@ -72,15 +70,10 @@ class BlockDiagonalSparse(lx.AbstractLinearOperator):
 
     nz_values: Float[Array, "N"]
     n_blocks: int = eqx.field(static=True)
-    annotations: frozenset[type] = eqx.field(static=True)
 
     def __init__(self, nz_values: Float[Array, "N"], n_blocks: int):
         self.nz_values = nz_values
         self.n_blocks = n_blocks
-        self.annotations = frozenset({ScaledOrthogonal})
-
-    def isa(self, annotation: type) -> bool:
-        return annotation in self.annotations
 
     def _matmat(self, X: Float[Array, "K M"]) -> Float[Array, "N M"]:
         n = self.nz_values.shape[0]
