@@ -45,6 +45,13 @@ def _(operator: ColaLinearOperator) -> bool:
     return operator.operator.isa(cola.PSD)
 
 
+@lx.is_diagonal.register(ColaLinearOperator)
+def _(operator: ColaLinearOperator) -> bool:
+    return isinstance(
+        operator.operator, cola.ops.Diagonal | cola.ops.Identity | cola.ops.ScalarMul
+    )
+
+
 @lx.diagonal.register(ColaLinearOperator)
 def _(operator: ColaLinearOperator) -> Float[Array, " N"]:
     return jnp.asarray(cola.linalg.diag(operator.operator))

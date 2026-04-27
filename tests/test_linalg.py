@@ -53,7 +53,7 @@ class TestCongruenceTransform:
         assert C_dense.shape == (m, m)
         assert C_dense.dtype == dtype
         if isinstance(A, LinearOperator) and isinstance(B, LinearOperator):
-            assert isinstance(C, LinearOperator)
+            assert isinstance(C, (LinearOperator, lx.AbstractLinearOperator))
         else:
             assert isinstance(C, jnp.ndarray)
 
@@ -70,9 +70,9 @@ class TestCongruenceTransform:
         A = Diagonal(A_diag)
         B = Diagonal(B_diag)
         C = congruence_transform(A, B)
-        assert isinstance(C, Diagonal)
+        assert isinstance(C, lx.DiagonalLinearOperator)
         C_diag = jnp.diagonal(congruence_transform(jnp.diag(A_diag), jnp.diag(B_diag)))
-        assert jnp.allclose(cola.linalg.diag(C), C_diag)
+        assert jnp.allclose(lx.diagonal(C), C_diag)
 
     @pytest.mark.parametrize("n, n_blocks", [(7, 3), (10, 2)])
     def test_congruence_block_diagonal_sparse_diagonal(
@@ -85,11 +85,12 @@ class TestCongruenceTransform:
         )
         B = Diagonal(jax.random.normal(subkey, (n,), dtype=dtype))
         C = congruence_transform(A, B)
-        assert isinstance(C, Diagonal)
-        assert C.shape == (A.in_size(), A.in_size())
-        assert C.dtype == dtype
+        assert isinstance(C, lx.DiagonalLinearOperator)
+        assert C.out_size() == A.in_size()
+        assert C.in_size() == A.in_size()
+        assert C.out_structure().dtype == dtype
         assert jnp.allclose(
-            C.to_dense(), congruence_transform(A.as_matrix(), B.to_dense())
+            C.as_matrix(), congruence_transform(A.as_matrix(), B.to_dense())
         )
 
     @pytest.mark.parametrize("n, n_blocks", [(7, 3), (10, 2)])
