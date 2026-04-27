@@ -2,6 +2,9 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.metadata]
+allow-direct-references = true
+
 [project]
 name = "cagpjax"
 version = "0.1.0"
@@ -28,9 +31,8 @@ urls = {repository = "https://github.com/sethaxen/CAGPJax" }
 
 dependencies = [
     "jax>=0.5,<0.10.0",
-    "gpjax>=0.14.0rc1",
+    "gpjax @ git+https://github.com/thomaspinder/GPJax.git@main",
     "jaxtyping",
-    "cola-ml>=0.0.7",
     "equinox>=0.11.0",
     "lineax>=0.0.6",
     "paramax>=0.0.5",

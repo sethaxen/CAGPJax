@@ -1,15 +1,28 @@
 """Base classes for linear solvers and methods."""
 
 from abc import abstractmethod
+from typing import Any
 
 import equinox as eqx
-from cola.ops import LinearOperator
 from jaxtyping import Array, Float
-from typing_extensions import Generic, TypeVar
+from typing_extensions import Generic, Protocol, TypeAlias, TypeVar, runtime_checkable
 
 from ..typing import ScalarFloat
 
 _LinearSolverState = TypeVar("_LinearSolverState")
+
+
+@runtime_checkable
+class SupportsDenseOperator(Protocol):
+    """Protocol for operator objects with dense materialization."""
+
+    shape: tuple[int, int]
+    dtype: Any
+
+    def to_dense(self) -> Any: ...
+
+
+LinearOperatorLike: TypeAlias = Any
 
 
 class AbstractLinearSolver(eqx.Module, Generic[_LinearSolverState]):
@@ -22,7 +35,7 @@ class AbstractLinearSolver(eqx.Module, Generic[_LinearSolverState]):
     """
 
     @abstractmethod
-    def init(self, A: LinearOperator) -> _LinearSolverState:
+    def init(self, A: LinearOperatorLike) -> _LinearSolverState:
         """Construct a solver state.
 
         Arguments:
@@ -68,8 +81,8 @@ class AbstractLinearSolver(eqx.Module, Generic[_LinearSolverState]):
 
     @abstractmethod
     def inv_congruence_transform(
-        self, state: _LinearSolverState, B: LinearOperator | Float[Array, "N K"]
-    ) -> LinearOperator | Float[Array, "K K"]:
+        self, state: _LinearSolverState, B: LinearOperatorLike | Float[Array, "N K"]
+    ) -> LinearOperatorLike | Float[Array, "K K"]:
         """Compute the inverse congruence transform $B^T x$ for $x$ in $Ax = B$.
 
         Arguments:

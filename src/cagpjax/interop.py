@@ -1,81 +1,100 @@
-"""Interop utilities between cola and lineax operators."""
+"""Interop utilities for normalizing operator-like inputs to Lineax."""
 
 from typing import Any
 
-import cola
-import cola.ops
 import jax
+import jax.numpy as jnp
 import lineax as lx
-from cola.ops import LinearOperator
-from jaxtyping import Array, Float, PyTree
 
 
-class ColaLinearOperator(lx.AbstractLinearOperator):
-    """Wrap a cola operator with a Lineax-compatible interface."""
+class CompatLinearOperator(lx.AbstractLinearOperator):
+    """Lineax wrapper with legacy operator conveniences."""
 
-    operator: LinearOperator
+    operator: lx.AbstractLinearOperator
 
-    def __init__(self, operator: LinearOperator):
+    def __init__(self, operator: lx.AbstractLinearOperator):
         self.operator = operator
 
-    def mv(self, vector: Float[Array, " N"]) -> Float[Array, " M"]:
-        return self.operator @ vector
+    @property
+    def shape(self) -> tuple[int, int]:
+        return (self.out_size(), self.in_size())
 
-    def as_matrix(self) -> Float[Array, "M N"]:
-        return cola.densify(self.operator)
+    @property
+    def dtype(self):
+        return self.in_structure().dtype
 
-    def transpose(self) -> "ColaLinearOperator":
-        return ColaLinearOperator(self.operator.T)
+    @property
+    def T(self) -> "CompatLinearOperator":
+        return self.transpose()
 
-    def in_structure(self) -> PyTree[jax.ShapeDtypeStruct]:
-        return jax.ShapeDtypeStruct((self.operator.shape[1],), self.operator.dtype)
+    def mv(self, vector):
+        return self.operator.mv(vector)
 
-    def out_structure(self) -> PyTree[jax.ShapeDtypeStruct]:
-        return jax.ShapeDtypeStruct((self.operator.shape[0],), self.operator.dtype)
+    def as_matrix(self):
+        return self.operator.as_matrix()
+
+    def to_dense(self):
+        return self.as_matrix()
+
+    def transpose(self) -> "CompatLinearOperator":
+        return CompatLinearOperator(self.operator.transpose())
+
+    def in_structure(self):
+        return self.operator.in_structure()
+
+    def out_structure(self):
+        return self.operator.out_structure()
+
+    def __matmul__(self, other):
+        if isinstance(other, (CompatLinearOperator, lx.AbstractLinearOperator)):
+            return CompatLinearOperator(to_lineax(self) @ to_lineax(other))
+        return self.as_matrix() @ other
+
+    def __rmatmul__(self, other):
+        return other @ self.as_matrix()
 
 
-@lx.is_symmetric.register(ColaLinearOperator)
-def _(operator: ColaLinearOperator) -> bool:
-    return operator.operator.isa(cola.PSD)
+@lx.is_symmetric.register(CompatLinearOperator)
+def _(operator: CompatLinearOperator) -> bool:
+    return lx.is_symmetric(operator.operator)
 
 
-@lx.is_positive_semidefinite.register(ColaLinearOperator)
-def _(operator: ColaLinearOperator) -> bool:
-    return operator.operator.isa(cola.PSD)
+@lx.is_positive_semidefinite.register(CompatLinearOperator)
+def _(operator: CompatLinearOperator) -> bool:
+    return lx.is_positive_semidefinite(operator.operator)
 
 
-def lazify(A: Any) -> LinearOperator:
-    """Convert GPJax/Lineax/array inputs into cola operators."""
-    if isinstance(A, LinearOperator):
+@lx.is_diagonal.register(CompatLinearOperator)
+def _(operator: CompatLinearOperator) -> bool:
+    return lx.is_diagonal(operator.operator)
+
+
+@lx.diagonal.register(CompatLinearOperator)
+def _(operator: CompatLinearOperator):
+    return lx.diagonal(operator.operator)
+
+
+def lazify(A: Any) -> CompatLinearOperator:
+    """Convert operator-like values into a Lineax operator."""
+    if isinstance(A, CompatLinearOperator):
         return A
-    if isinstance(A, ColaLinearOperator):
-        return A.operator
-    if isinstance(A, lx.TaggedLinearOperator):
-        op = lazify(A.operator)
-        if lx.positive_semidefinite_tag in A.tags:
-            return cola.PSD(op)
-        return op
-    if isinstance(A, lx.MatrixLinearOperator):
-        return cola.ops.Dense(A.matrix)
-    if isinstance(A, lx.DiagonalLinearOperator):
-        return cola.ops.Diagonal(A.diagonal)
-    if isinstance(A, lx.IdentityLinearOperator):
-        metadata = jax.eval_shape(A.as_matrix)
-        return cola.ops.Identity(metadata.shape, metadata.dtype)
     if isinstance(A, lx.AbstractLinearOperator):
-        return cola.lazify(A.as_matrix())
-    return cola.lazify(A)
+        return CompatLinearOperator(A)
+    if hasattr(A, "as_matrix"):
+        return CompatLinearOperator(lx.MatrixLinearOperator(jnp.asarray(A.as_matrix())))
+    if hasattr(A, "to_dense"):
+        return CompatLinearOperator(lx.MatrixLinearOperator(jnp.asarray(A.to_dense())))
+    return CompatLinearOperator(lx.MatrixLinearOperator(jnp.asarray(A)))
 
 
 def to_lineax(A: Any) -> lx.AbstractLinearOperator:
-    """Convert existing operators into Lineax only where GPJax requires it."""
+    """Convert arrays/operator-like inputs into Lineax operators."""
+    if isinstance(A, CompatLinearOperator):
+        return A.operator
     if isinstance(A, lx.AbstractLinearOperator):
         return A
-    if isinstance(A, cola.ops.Diagonal):
-        return lx.DiagonalLinearOperator(A.diag)
-    if isinstance(A, cola.ops.Identity):
-        metadata = jax.ShapeDtypeStruct((A.shape[1],), A.dtype)
-        return lx.IdentityLinearOperator(metadata)
-    if isinstance(A, cola.ops.LinearOperator):
-        return ColaLinearOperator(A)
-    return lx.MatrixLinearOperator(A)
+    if hasattr(A, "as_matrix"):
+        return lx.MatrixLinearOperator(jnp.asarray(A.as_matrix()))
+    if hasattr(A, "to_dense"):
+        return lx.MatrixLinearOperator(jnp.asarray(A.to_dense()))
+    return lx.MatrixLinearOperator(jnp.asarray(A))

@@ -1,17 +1,17 @@
 """Linear solvers based on Cholesky decomposition."""
 
-import cola
 import equinox as eqx
 import jax.numpy as jnp
-from cola.ops import LinearOperator
+import lineax as lx
 from jaxtyping import Array, Float
 from typing_extensions import TypeAlias, override
 
+from ..interop import lazify
 from ..linalg import lower_cholesky
 from ..typing import ScalarFloat
-from .base import AbstractLinearSolver
+from .base import AbstractLinearSolver, LinearOperatorLike, SupportsDenseOperator
 
-CholeskyState: TypeAlias = LinearOperator
+CholeskyState: TypeAlias = LinearOperatorLike
 
 
 class Cholesky(AbstractLinearSolver[CholeskyState]):
@@ -33,38 +33,58 @@ class Cholesky(AbstractLinearSolver[CholeskyState]):
         if self.jitter is not None and self.jitter < 0:
             raise ValueError("jitter must be non-negative")
 
+    @staticmethod
+    def _to_dense_matrix(A):
+        if isinstance(A, lx.AbstractLinearOperator):
+            return A.as_matrix()
+        if hasattr(A, "to_dense"):
+            return jnp.asarray(A.to_dense())
+        if hasattr(A, "as_matrix"):
+            return jnp.asarray(A.as_matrix())
+        return jnp.asarray(A)
+
     @override
-    def init(self, A: LinearOperator) -> CholeskyState:
+    def init(self, A: LinearOperatorLike) -> CholeskyState:
         return lower_cholesky(A, jitter=self.jitter)
 
     @override
     def unwhiten(
         self, state: CholeskyState, z: Float[Array, "N #K"]
     ) -> Float[Array, "N #K"]:
-        return state @ z
+        return self._to_dense_matrix(state) @ z
 
     @override
     def solve(
         self, state: CholeskyState, b: Float[Array, "N #K"]
     ) -> Float[Array, "N #K"]:
-        Linv = cola.linalg.inv(state)
-        return Linv.T @ (Linv @ b)
+        L = self._to_dense_matrix(state)
+        y = jnp.linalg.solve(L, b)
+        return jnp.linalg.solve(L.T, y)
 
     @override
     def logdet(self, state: CholeskyState) -> ScalarFloat:
-        return 2 * jnp.sum(jnp.log(cola.linalg.diag(state)))
+        L = self._to_dense_matrix(state)
+        return 2 * jnp.sum(jnp.log(jnp.diag(L)))
 
     @override
     def inv_congruence_transform(
-        self, state: CholeskyState, B: LinearOperator | Float[Array, "K N"]
-    ) -> LinearOperator | Float[Array, "K K"]:
-        Linv = cola.linalg.inv(state)
-        right_term = Linv @ B
-        return right_term.T @ right_term
+        self, state: CholeskyState, B: LinearOperatorLike | Float[Array, "K N"]
+    ) -> LinearOperatorLike | Float[Array, "K K"]:
+        L = self._to_dense_matrix(state)
+        B_is_operator = (
+            isinstance(B, lx.AbstractLinearOperator)
+            or isinstance(B, SupportsDenseOperator)
+            or hasattr(B, "as_matrix")
+        )
+        B_mat = self._to_dense_matrix(B) if B_is_operator else B
+        Y = jnp.linalg.solve(L, B_mat)
+        result = Y.T @ Y
+        return lazify(result) if B_is_operator else result
 
     @override
     def trace_solve(
         self, state: CholeskyState, state_other: CholeskyState
     ) -> ScalarFloat:
-        L = cola.linalg.inv(state) @ state_other.to_dense()
-        return jnp.sum(jnp.square(L))
+        L = self._to_dense_matrix(state)
+        X = jnp.linalg.solve(L, self._to_dense_matrix(state_other))
+        return jnp.sum(jnp.square(X))

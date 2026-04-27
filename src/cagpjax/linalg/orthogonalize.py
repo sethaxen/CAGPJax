@@ -3,13 +3,11 @@
 from enum import Enum
 from typing import Any
 
-import cola
 import jax
 import jax.numpy as jnp
+import lineax as lx
 from jaxtyping import Array, Float
-from typing_extensions import overload
 
-from ..operators.annotations import ScaledOrthogonal
 from ..operators.block_diagonal_sparse import BlockDiagonalSparse
 
 
@@ -25,11 +23,11 @@ class OrthogonalizationMethod(Enum):
 
 
 def orthogonalize(
-    A: Float[Array, "m n"] | cola.ops.LinearOperator,
+    A: Float[Array, "m n"] | lx.AbstractLinearOperator | Any | BlockDiagonalSparse,
     /,
     method: OrthogonalizationMethod = OrthogonalizationMethod.QR,
     n_reortho: int = 0,
-) -> Float[Array, "m n"] | cola.ops.LinearOperator:
+) -> Float[Array, "m n"] | lx.AbstractLinearOperator | Any | BlockDiagonalSparse:
     """
     Orthogonalize the operator using the specified method.
 
@@ -48,27 +46,27 @@ def orthogonalize(
     Returns:
         The orthogonalized operator. If the input is a LinearOperator, then so is the output.
     """
-    return _orthogonalize(A, method, n_reortho)
-
-
-def _get_return_operator_annotation(method: OrthogonalizationMethod):
-    match method:
-        case OrthogonalizationMethod.QR:
-            return cola.Stiefel
-        case OrthogonalizationMethod.CGS:
-            return ScaledOrthogonal
-        case OrthogonalizationMethod.MGS:
-            return ScaledOrthogonal
-
-
-@overload
-def _orthogonalize(
-    A: Float[Array, "m n"],
-    method: OrthogonalizationMethod,
-    n_reortho: int,
-) -> Float[Array, "m n"]:
     if n_reortho < 0:
         raise ValueError("n_reortho must be non-negative")
+    if isinstance(A, BlockDiagonalSparse):
+        # Already scaled-orthogonal by construction.
+        return A
+    if isinstance(A, lx.AbstractLinearOperator):
+        A_dense = A.as_matrix()
+        if _has_orthonormal_columns(A_dense):
+            return A
+        return lx.MatrixLinearOperator(_orthogonalize_array(A_dense, method, n_reortho))
+    if hasattr(A, "to_dense"):
+        A_dense = jnp.asarray(A.to_dense())
+        if _has_orthonormal_columns(A_dense):
+            return A
+        return lx.MatrixLinearOperator(_orthogonalize_array(A_dense, method, n_reortho))
+    return _orthogonalize_array(A, method, n_reortho)
+
+
+def _orthogonalize_array(
+    A: Float[Array, "m n"], method: OrthogonalizationMethod, n_reortho: int
+) -> Float[Array, "m n"]:
     A = jnp.asarray(A)
     match method:
         case OrthogonalizationMethod.QR:
@@ -77,34 +75,6 @@ def _orthogonalize(
             return _classical_gram_schmidt(A, n_reortho)
         case OrthogonalizationMethod.MGS:
             return _modified_gram_schmidt(A, n_reortho)
-
-
-@overload
-def _orthogonalize(
-    A: cola.ops.LinearOperator,
-    method: OrthogonalizationMethod,
-    n_reortho: int,
-) -> cola.ops.LinearOperator:
-    if A.isa(cola.Stiefel) or A.isa(ScaledOrthogonal):
-        return A
-
-    Q = cola.lazify(orthogonalize(cola.densify(A), method=method, n_reortho=n_reortho))
-    annotation = _get_return_operator_annotation(method)
-    return annotation(Q)
-
-
-@overload
-def _orthogonalize(  # pyright: ignore[reportOverlappingOverload]
-    A: cola.ops.Identity | cola.ops.Diagonal | cola.ops.ScalarMul,
-    method: OrthogonalizationMethod,
-    n_reortho: int,
-) -> cola.ops.Identity:
-    return cola.Unitary(cola.ops.I_like(A))
-
-
-@cola.dispatch
-def _orthogonalize(A: Any, method: OrthogonalizationMethod, n_reortho: int) -> Any:
-    pass
 
 
 def _qr_q(A: Float[Array, "m n"], n_reortho: int) -> Float[Array, "m n"]:
@@ -194,3 +164,17 @@ def _l2_normalize(x: Float[Array, "n"], /, *, rtol: float = 0.0) -> Float[Array,
     r_cutoff = rtol * x.size
     r = jnp.linalg.norm(x)
     return jnp.asarray(jnp.where(r <= r_cutoff, jax.lax.stop_gradient(x), x / r))
+
+
+def _has_orthonormal_columns(A: Float[Array, "m n"]) -> bool:
+    """Whether columns satisfy ``A.T @ A ≈ I`` for concrete arrays."""
+    qtq = A.T @ A
+    eye = jnp.eye(A.shape[1], dtype=A.dtype)
+    is_float32 = A.dtype == jnp.float32
+    rtol = 1e-3 if is_float32 else 1e-6
+    atol = 1e-5 if is_float32 else 1e-8
+    # Under tracing the bool may be non-concrete; fall back to re-orthogonalizing.
+    try:
+        return bool(jnp.allclose(qtq, eye, rtol=rtol, atol=atol))
+    except TypeError:
+        return False

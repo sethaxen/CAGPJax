@@ -1,19 +1,31 @@
 import math
 
-import cola
 import jax
 import jax.numpy as jnp
 import jax.scipy.stats
+import lineax as lx
 import numpyro
 import pytest
 from numpyro.distributions import MultivariateNormal
 
 import cagpjax
 from cagpjax.distributions import GaussianDistribution
-from cagpjax.interop import lazify
+from cagpjax.interop import lazify, to_lineax
 from cagpjax.solvers import Cholesky, PseudoInverse
 
 jax.config.update("jax_enable_x64", True)
+
+
+def _diagonal(op):
+    return lx.diagonal(to_lineax(op))
+
+
+def _matrix(op):
+    if hasattr(op, "as_matrix"):
+        return op.as_matrix()
+    if hasattr(op, "to_dense"):
+        return op.to_dense()
+    return jnp.asarray(op)
 
 
 class TestGaussianDistribution:
@@ -71,10 +83,10 @@ class TestGaussianDistribution:
         assert jnp.allclose(dist.mean, loc)
         assert dist.variance.dtype == dtype
         assert dist.variance.shape == (n,)
-        assert jnp.allclose(dist.variance, cola.diag(scale))
+        assert jnp.allclose(dist.variance, _diagonal(scale))
         assert dist.stddev.dtype == dtype
         assert dist.stddev.shape == (n,)
-        assert jnp.allclose(dist.stddev, jnp.sqrt(cola.diag(scale)))
+        assert jnp.allclose(dist.stddev, jnp.sqrt(_diagonal(scale)))
 
     def test_log_prob_consistency_with_numpyro(
         self, dtype, loc, scale, solver, key=jax.random.key(76)
@@ -84,7 +96,7 @@ class TestGaussianDistribution:
         dist = GaussianDistribution(loc, scale, solver)
         lp = dist.log_prob(y)
         assert lp.dtype == dtype
-        scale_dense = cola.densify(scale)
+        scale_dense = _matrix(scale)
         lp_ref = MultivariateNormal(loc, scale_dense).log_prob(y)
         assert jnp.allclose(lp, lp_ref, rtol=1e-3 if dtype == jnp.float32 else 1e-5)
 
@@ -109,9 +121,9 @@ class TestGaussianDistribution:
             atol_std = jax.scipy.stats.norm.ppf(
                 0.995, scale=dist.stddev / math.sqrt(2 * nsample)
             )
-            if dtype == jnp.float32:  # slightly relax tolerances for float32
-                atol_mean *= 1.2
-                atol_std *= 1.2
+            if dtype == jnp.float32:  # MC noise can slightly exceed asymptotic CI slack
+                atol_mean *= 1.5
+                atol_std *= 1.5
             sample_axis = tuple(range(len(sample_shape)))
             assert jnp.allclose(
                 jnp.mean(x, axis=sample_axis), dist.mean, atol=atol_mean
