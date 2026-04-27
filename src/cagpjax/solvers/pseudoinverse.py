@@ -1,8 +1,7 @@
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 import equinox as eqx
 import jax
-from cola.linalg import Algorithm
 from jax import numpy as jnp
 from jaxtyping import Array, Bool, Float
 from typing_extensions import override
@@ -52,7 +51,7 @@ class PseudoInverse(AbstractLinearSolver[PseudoInverseState]):
 
     rtol: ScalarFloat | None = eqx.field(static=True, default=None)
     grad_rtol: float | None = eqx.field(static=True, default=None)
-    alg: Algorithm = eqx.field(static=True, default_factory=Eigh)
+    alg: Any = eqx.field(static=True, default_factory=Eigh)
 
     def __check_init__(self):
         if self.rtol is not None and self.rtol < 0:
