@@ -1,10 +1,11 @@
 """Orthogonalization methods."""
 
 from enum import Enum
+from typing import Any
 
-import cola.ops
 import jax
 import jax.numpy as jnp
+import lineax as lx
 from jaxtyping import Array, Float
 
 from ..operators.block_diagonal_sparse import BlockDiagonalSparse
@@ -22,11 +23,11 @@ class OrthogonalizationMethod(Enum):
 
 
 def orthogonalize(
-    A: Float[Array, "m n"] | cola.ops.LinearOperator | BlockDiagonalSparse,
+    A: Float[Array, "m n"] | lx.AbstractLinearOperator | Any | BlockDiagonalSparse,
     /,
     method: OrthogonalizationMethod = OrthogonalizationMethod.QR,
     n_reortho: int = 0,
-) -> Float[Array, "m n"] | cola.ops.LinearOperator | BlockDiagonalSparse:
+) -> Float[Array, "m n"] | lx.AbstractLinearOperator | Any | BlockDiagonalSparse:
     """
     Orthogonalize the operator using the specified method.
 
@@ -50,13 +51,16 @@ def orthogonalize(
     if isinstance(A, BlockDiagonalSparse):
         # Already scaled-orthogonal by construction.
         return A
-    if isinstance(A, cola.ops.Identity | cola.ops.Diagonal | cola.ops.ScalarMul):
-        return cola.ops.I_like(A)
-    if isinstance(A, cola.ops.LinearOperator):
-        A_dense = A.to_dense()
+    if isinstance(A, lx.AbstractLinearOperator):
+        A_dense = A.as_matrix()
         if _has_orthonormal_columns(A_dense):
             return A
-        return cola.ops.Dense(_orthogonalize_array(A_dense, method, n_reortho))
+        return lx.MatrixLinearOperator(_orthogonalize_array(A_dense, method, n_reortho))
+    if hasattr(A, "to_dense"):
+        A_dense = jnp.asarray(A.to_dense())
+        if _has_orthonormal_columns(A_dense):
+            return A
+        return lx.MatrixLinearOperator(_orthogonalize_array(A_dense, method, n_reortho))
     return _orthogonalize_array(A, method, n_reortho)
 
 

@@ -619,14 +619,18 @@ class TestOrthogonalize:
             assert Q.in_size() == op.in_size()
             assert jnp.array_equal(Q.nz_values, op.nz_values)
         else:
-            assert isinstance(Q, cola.ops.LinearOperator)
-            assert Q.shape == op.shape
-        if isinstance(op, (Identity, Diagonal, ScalarMul)):
-            assert isinstance(Q, Identity)
-        else:  # Dense
-            if op_type is Dense:
-                assert isinstance(Q, cola.ops.LinearOperator)
-                assert jnp.allclose(
-                    Q.to_dense(),
-                    jnp.asarray(orthogonalize(op.to_dense(), method=method)),
-                )
+            Q_dense = (
+                Q.as_matrix()
+                if isinstance(Q, lx.AbstractLinearOperator)
+                else Q.to_dense()
+            )
+            op_dense = (
+                op.as_matrix()
+                if isinstance(op, lx.AbstractLinearOperator)
+                else op.to_dense()
+            )
+            assert Q_dense.shape == op.shape
+            assert jnp.allclose(
+                Q_dense,
+                jnp.asarray(orthogonalize(op_dense, method=method)),
+            )
