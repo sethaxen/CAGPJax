@@ -91,10 +91,12 @@ class CustomOperatorPolicy(AbstractBatchLinearSolverPolicy):
     @override
     def to_actions(self, A, *, key=None):
         del key
-        n_data = A.shape[0]
-        row_indices = jnp.arange(n_data)[:, None]
-        col_indices = jnp.arange(self.n_actions)[None, :]
-        matrix = jnp.where(row_indices >= col_indices, 1.0, 0.0).astype(A.dtype)
+        A_structure = A.in_structure()
+        n_data = A_structure.shape[0]
+        dtype = A_structure.dtype
+        row_indices = jnp.arange(n_data, dtype=dtype)[:, None]
+        col_indices = jnp.arange(self.n_actions, dtype=dtype)[None, :]
+        matrix = jnp.where(row_indices >= col_indices, 1.0, 0.0)
         return CustomPolicyOperator(matrix)
 
 
@@ -398,7 +400,7 @@ class TestComputationAwareGP:
         row_indices = jnp.arange(n_train)[:, None]
         col_indices = jnp.arange(n_actions)[None, :]
         expected_actions = jnp.where(row_indices >= col_indices, 1.0, 0.0).astype(dtype)
-        assert jnp.allclose(state.actions.to_dense(), expected_actions)
+        assert jnp.allclose(state.actions.as_matrix(), expected_actions)
 
         assert test_data.X is not None
         pred = cagp.predict(state, test_data.X)
