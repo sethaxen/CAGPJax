@@ -1,6 +1,7 @@
 """Lower Cholesky decomposition of positive semidefinite operators."""
 
-import cola
+from typing import cast
+
 import jax.numpy as jnp
 from cola.ops import Diagonal, Identity, LinearOperator, ScalarMul, Triangular
 
@@ -21,13 +22,13 @@ def lower_cholesky(
         Lower Cholesky factor of A.
     """
     if jitter is None:
-        return _lower_cholesky(cola.PSD(A))
+        return _lower_cholesky(A)
     return _lower_cholesky_jittered(A, jitter)
 
 
 def _lower_cholesky_jittered(A: LinearOperator, jitter: ScalarFloat) -> LinearOperator:
     A_jittered = _add_jitter(A, jitter)
-    return _lower_cholesky(cola.PSD(A_jittered))
+    return _lower_cholesky(cast(LinearOperator, A_jittered))
 
 
 def _lower_cholesky(A: LinearOperator) -> LinearOperator:

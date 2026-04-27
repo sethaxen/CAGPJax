@@ -1,16 +1,16 @@
 from typing import NamedTuple
 
-import cola
 import equinox as eqx
 import jax
-from cola.ops import LinearOperator
+from cola.linalg import Algorithm
 from jax import numpy as jnp
 from jaxtyping import Array, Bool, Float
 from typing_extensions import override
 
+from ..interop import lazify
 from ..linalg.eigh import Eigh, EighResult, eigh
 from ..typing import ScalarFloat
-from .base import AbstractLinearSolver, LinearOperatorLike
+from .base import AbstractLinearSolver, LinearOperatorLike, SupportsDenseOperator
 
 
 class PseudoInverseState(NamedTuple):
@@ -52,7 +52,7 @@ class PseudoInverse(AbstractLinearSolver[PseudoInverseState]):
 
     rtol: ScalarFloat | None = eqx.field(static=True, default=None)
     grad_rtol: float | None = eqx.field(static=True, default=None)
-    alg: cola.linalg.Algorithm = eqx.field(static=True, default_factory=Eigh)
+    alg: Algorithm = eqx.field(static=True, default_factory=Eigh)
 
     def __check_init__(self):
         if self.rtol is not None and self.rtol < 0:
@@ -116,13 +116,13 @@ class PseudoInverse(AbstractLinearSolver[PseudoInverseState]):
         self, state: PseudoInverseState, B: LinearOperatorLike | Float[Array, "K N"]
     ) -> LinearOperatorLike | Float[Array, "K K"]:
         eigenvectors = state.eigh_result.eigenvectors
-        B_mat = B.to_dense() if isinstance(B, LinearOperator) else B
+        B_mat = B.to_dense() if isinstance(B, SupportsDenseOperator) else B
         z = eigenvectors.T @ B_mat
         z_weighted = (
             state.eigvals_inv * z if z.ndim == 1 else state.eigvals_inv[:, None] * z
         )
         result = z.T @ z_weighted
-        return cola.lazify(result) if isinstance(B, LinearOperator) else result
+        return lazify(result) if isinstance(B, SupportsDenseOperator) else result
 
     @override
     def trace_solve(

@@ -1,16 +1,28 @@
 """Base classes for linear solvers and methods."""
 
 from abc import abstractmethod
+from typing import Any
 
 import equinox as eqx
-from cola.ops import LinearOperator
 from jaxtyping import Array, Float
-from typing_extensions import Generic, TypeVar
+from typing_extensions import Generic, Protocol, TypeAlias, TypeVar, runtime_checkable
 
 from ..typing import ScalarFloat
 
 _LinearSolverState = TypeVar("_LinearSolverState")
-LinearOperatorLike = LinearOperator
+
+
+@runtime_checkable
+class SupportsDenseOperator(Protocol):
+    """Protocol for operator objects with dense materialization."""
+
+    shape: tuple[int, int]
+    dtype: Any
+
+    def to_dense(self) -> Any: ...
+
+
+LinearOperatorLike: TypeAlias = Any
 
 
 class AbstractLinearSolver(eqx.Module, Generic[_LinearSolverState]):

@@ -1,15 +1,14 @@
 """Linear solvers based on Cholesky decomposition."""
 
-import cola
 import equinox as eqx
 import jax.numpy as jnp
-from cola.ops import LinearOperator
 from jaxtyping import Array, Float
 from typing_extensions import TypeAlias, override
 
+from ..interop import lazify
 from ..linalg import lower_cholesky
 from ..typing import ScalarFloat
-from .base import AbstractLinearSolver, LinearOperatorLike
+from .base import AbstractLinearSolver, LinearOperatorLike, SupportsDenseOperator
 
 CholeskyState: TypeAlias = LinearOperatorLike
 
@@ -61,10 +60,10 @@ class Cholesky(AbstractLinearSolver[CholeskyState]):
         self, state: CholeskyState, B: LinearOperatorLike | Float[Array, "K N"]
     ) -> LinearOperatorLike | Float[Array, "K K"]:
         L = state.to_dense()
-        B_mat = B.to_dense() if isinstance(B, LinearOperator) else B
+        B_mat = B.to_dense() if isinstance(B, SupportsDenseOperator) else B
         Y = jnp.linalg.solve(L, B_mat)
         result = Y.T @ Y
-        return cola.lazify(result) if isinstance(B, LinearOperator) else result
+        return lazify(result) if isinstance(B, SupportsDenseOperator) else result
 
     @override
     def trace_solve(
