@@ -6,6 +6,7 @@ import jax.numpy as jnp
 import lineax as lx
 from jaxtyping import Array, Float
 
+from ..interop import to_lineax
 from ..operators import BlockDiagonalSparse
 from .operator_matrix import apply_operator_right
 
@@ -50,7 +51,7 @@ def congruence_transform(A: Any, B: Any) -> Any:
         and lx.is_diagonal(B)
     ):
         return lx.DiagonalLinearOperator(lx.diagonal(A) ** 2 * lx.diagonal(B))
-    B_lx = B if isinstance(B, lx.AbstractLinearOperator) else lx.MatrixLinearOperator(B)
+    B_lx = to_lineax(B)
     if isinstance(A, BlockDiagonalSparse):
         if lx.is_diagonal(B_lx):
             diagonal_values = lx.diagonal(B_lx)

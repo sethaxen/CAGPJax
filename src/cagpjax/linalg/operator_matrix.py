@@ -24,6 +24,8 @@ import jax.numpy as jnp
 import lineax as lx
 from jaxtyping import Array, Float
 
+from ..interop import to_lineax
+
 
 def apply_operator_right(A: Any, B: Float[Array, "n k"]) -> Float[Array, "m k"]:
     """Compute ``A @ B`` without materializing ``A`` when it is a large operator.
@@ -33,14 +35,13 @@ def apply_operator_right(A: Any, B: Float[Array, "n k"]) -> Float[Array, "m k"]:
         B: Dense array, the (thin) right operand.
     """
     B = jnp.asarray(B)
-    if isinstance(A, lx.AbstractLinearOperator):
-        if lx.is_diagonal(A):
-            diag = lx.diagonal(A)
-            return diag[:, None] * B if B.ndim == 2 else diag * B
-        if B.ndim == 1:
-            return A.mv(B)
-        return jax.vmap(A.mv, in_axes=1, out_axes=1)(B)
-    return jnp.asarray(A) @ B
+    A = to_lineax(A)
+    if lx.is_diagonal(A):
+        diag = lx.diagonal(A)
+        return diag[:, None] * B if B.ndim == 2 else diag * B
+    if B.ndim == 1:
+        return A.mv(B)
+    return jax.vmap(A.mv, in_axes=1, out_axes=1)(B)
 
 
 def apply_operator_left(B: Float[Array, "k n"], A: Any) -> Float[Array, "k m"]:
@@ -50,5 +51,4 @@ def apply_operator_left(B: Float[Array, "k n"], A: Any) -> Float[Array, "k m"]:
         B: Dense array, the (thin) left operand.
         A: Linear operator or array, the (potentially large) right operand.
     """
-    A_T = A.T if isinstance(A, lx.AbstractLinearOperator) else jnp.asarray(A).T
-    return apply_operator_right(A_T, jnp.asarray(B).T).T
+    return apply_operator_right(to_lineax(A).T, jnp.asarray(B).T).T
