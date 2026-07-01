@@ -165,7 +165,9 @@ def _eigh_lanczos(
 
     # Diagonalize the tridiagonal matrix
     vals, vecs = _eigh_safe(H, grad_rtol=grad_rtol)
-    vecs = Q @ vecs
+    # matfree stacks Lanczos vectors along axis 0, so Q has shape
+    # (num_matvecs, n); transpose to get the (n, num_matvecs) eigenvector matrix.
+    vecs = Q.T @ vecs
     return vals, _restore_operator_backend(A_original, lx.MatrixLinearOperator(vecs))
 
 
