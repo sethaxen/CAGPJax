@@ -48,10 +48,17 @@ class CompatLinearOperator(lx.AbstractLinearOperator):
     def __matmul__(self, other):
         if isinstance(other, (CompatLinearOperator, lx.AbstractLinearOperator)):
             return CompatLinearOperator(to_lineax(self) @ to_lineax(other))
-        return self.as_matrix() @ other
+        other = jnp.asarray(other)
+        if other.ndim == 1:
+            return self.operator.mv(other)
+        return jax.vmap(self.operator.mv, in_axes=1, out_axes=1)(other)
 
     def __rmatmul__(self, other):
-        return other @ self.as_matrix()
+        other = jnp.asarray(other)
+        transposed = self.operator.transpose()
+        if other.ndim == 1:
+            return transposed.mv(other)
+        return jax.vmap(transposed.mv, in_axes=0, out_axes=0)(other)
 
 
 @lx.is_symmetric.register(CompatLinearOperator)
