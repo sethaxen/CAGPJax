@@ -237,6 +237,15 @@ class TestLazyKernel:
         assert lx.is_diagonal(op)
         assert lx.is_tridiagonal(op)
 
+    def test_structural_predicates_require_identical_inputs(self, kernel, dtype):
+        """x1 and x2 must be the same object, not merely value-equal, for
+        is_symmetric/is_diagonal/is_positive_semidefinite to hold: checking
+        value-equality isn't traceable under jit."""
+        x = jnp.zeros((3, 2), dtype=dtype)
+        op = LazyKernel(kernel, x, x.copy())
+        assert not lx.is_symmetric(op)
+        assert not lx.is_positive_semidefinite(op)
+
     @pytest.mark.parametrize("grad,checkpoint", [(False, False), (True, True)])
     @pytest.mark.parametrize("n,dtype", [(20_000, jnp.float64), (40_000, jnp.float32)])
     def test_large_kernel_matrix_with_grad(

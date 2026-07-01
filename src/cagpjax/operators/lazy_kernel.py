@@ -139,47 +139,43 @@ class LazyKernel(lx.AbstractLinearOperator):
 
 
 @lx.diagonal.register(LazyKernel)
-def _lazy_kernel_diagonal(operator: LazyKernel) -> Float[Array, "N"]:
+def _(operator):
     kernel_diag = jax.vmap(operator.kernel, in_axes=(0, 0))
     n = min(operator.x1.shape[0], operator.x2.shape[0])
     return jnp.asarray(kernel_diag(operator.x1[:n, ...], operator.x2[:n, ...]))
 
 
 @lx.is_symmetric.register(LazyKernel)
-def _lazy_kernel_is_symmetric(operator: LazyKernel) -> bool:
+def _(operator):
     return _lazy_kernel_inputs_match(operator)
 
 
 @lx.is_diagonal.register(LazyKernel)
-def _lazy_kernel_is_diagonal(operator: LazyKernel) -> bool:
+def _(operator):
     if operator.x1.shape[0] == 1 and operator.x2.shape[0] == 1:
         return True
     return _lazy_kernel_inputs_match(operator) and type(operator.kernel) is White
 
 
 @lx.is_tridiagonal.register(LazyKernel)
-def _lazy_kernel_is_tridiagonal(operator: LazyKernel) -> bool:
-    return _lazy_kernel_is_diagonal(operator)
+def _(operator):
+    return lx.is_diagonal(operator)
 
 
 @lx.is_lower_triangular.register(LazyKernel)
-def _lazy_kernel_is_lower_triangular(_operator: LazyKernel) -> bool:
+def _(_operator):
     return False
 
 
 @lx.is_upper_triangular.register(LazyKernel)
-def _lazy_kernel_is_upper_triangular(_operator: LazyKernel) -> bool:
+def _(_operator):
     return False
 
 
 @lx.is_positive_semidefinite.register(LazyKernel)
-def _lazy_kernel_is_psd(operator: LazyKernel) -> bool:
+def _(operator):
     return _lazy_kernel_inputs_match(operator)
 
 
 def _lazy_kernel_inputs_match(operator: LazyKernel) -> bool:
-    try:
-        return bool(jnp.array_equal(operator.x1, operator.x2))
-    except Exception:
-        # Under JAX tracing, bool conversion may not be available.
-        return operator.x1 is operator.x2
+    return operator.x1 is operator.x2
