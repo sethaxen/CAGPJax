@@ -11,6 +11,8 @@ from cagpjax.linalg import (
     Eigh,
     Lanczos,
     OrthogonalizationMethod,
+    apply_operator_left,
+    apply_operator_right,
     congruence_transform,
     eigh,
     lower_cholesky,
@@ -21,6 +23,77 @@ from cagpjax.linalg.utils import _add_jitter
 from cagpjax.operators import BlockDiagonalSparse, diag_like
 
 jax.config.update("jax_enable_x64", True)
+
+
+class TestApplyOperatorMatrix:
+    """Tests for ``apply_operator_right``/``apply_operator_left``."""
+
+    @pytest.mark.parametrize("A_wrap", [jnp.asarray, lx.MatrixLinearOperator])
+    @pytest.mark.parametrize("B_ndim", [1, 2])
+    def test_apply_operator_right(
+        self, A_wrap, B_ndim, m=4, n=6, dtype=jnp.float64, key=jax.random.key(42)
+    ):
+        key, subkey = jax.random.split(key)
+        A_dense = jax.random.normal(key, (n, m), dtype=dtype)
+        B_shape = (m,) if B_ndim == 1 else (m, 3)
+        B = jax.random.normal(subkey, B_shape, dtype=dtype)
+        A = A_wrap(A_dense)
+        result = apply_operator_right(A, B)
+        assert jnp.allclose(result, A_dense @ B)
+
+    @pytest.mark.parametrize("A_wrap", [jnp.asarray, lx.MatrixLinearOperator])
+    @pytest.mark.parametrize("B_ndim", [1, 2])
+    def test_apply_operator_left(
+        self, A_wrap, B_ndim, m=4, n=6, dtype=jnp.float64, key=jax.random.key(43)
+    ):
+        key, subkey = jax.random.split(key)
+        A_dense = jax.random.normal(key, (n, m), dtype=dtype)
+        B_shape = (n,) if B_ndim == 1 else (3, n)
+        B = jax.random.normal(subkey, B_shape, dtype=dtype)
+        A = A_wrap(A_dense)
+        result = apply_operator_left(B, A)
+        assert jnp.allclose(result, B @ A_dense)
+
+    def test_apply_operator_right_diagonal(
+        self, n=5, dtype=jnp.float64, key=jax.random.key(44)
+    ):
+        key, subkey = jax.random.split(key)
+        diag = jax.random.normal(key, (n,), dtype=dtype)
+        A = lx.DiagonalLinearOperator(diag)
+        B = jax.random.normal(subkey, (n, 3), dtype=dtype)
+        result = apply_operator_right(A, B)
+        assert jnp.allclose(result, jnp.diag(diag) @ B)
+
+    def test_apply_operator_right_never_materializes_large_operator(
+        self, n=50_000, dtype=jnp.float64, key=jax.random.key(45)
+    ):
+        """A non-diagonal operator that would fail if densified must still be
+        usable via ``apply_operator_right``, as long as its own ``mv`` avoids
+        materialization (guards the contract that motivates this module)."""
+
+        class _RaisingIdentity(lx.AbstractLinearOperator):
+            def mv(self, vector):
+                return vector
+
+            def as_matrix(self):
+                raise AssertionError("as_matrix was called")
+
+            def transpose(self):
+                return self
+
+            def in_structure(self):
+                return jax.ShapeDtypeStruct((n,), dtype)
+
+            def out_structure(self):
+                return jax.ShapeDtypeStruct((n,), dtype)
+
+        lx.is_symmetric.register(_RaisingIdentity, lambda _: True)
+        lx.is_diagonal.register(_RaisingIdentity, lambda _: False)
+
+        A = _RaisingIdentity()
+        B = jax.random.normal(key, (n, 2), dtype=dtype)
+        result = apply_operator_right(A, B)
+        assert jnp.allclose(result, B)
 
 
 class TestCongruenceTransform:
