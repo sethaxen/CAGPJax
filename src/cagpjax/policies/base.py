@@ -1,8 +1,11 @@
 import abc
+from typing import Any, TypeAlias
 
 import equinox as eqx
-from cola.ops import LinearOperator
+import lineax as lx
 from jaxtyping import PRNGKeyArray
+
+ActionOperator: TypeAlias = lx.AbstractLinearOperator | Any
 
 
 class AbstractLinearSolverPolicy(eqx.Module):
@@ -26,8 +29,8 @@ class AbstractBatchLinearSolverPolicy(AbstractLinearSolverPolicy):
 
     @abc.abstractmethod
     def to_actions(
-        self, A: LinearOperator, *, key: PRNGKeyArray | None = None
-    ) -> LinearOperator:
+        self, A: ActionOperator, *, key: PRNGKeyArray | None = None
+    ) -> ActionOperator:
         r"""Compute all actions used to solve the linear system $Ax=b$.
 
         For a matrix $A$ with shape ``(n, n)``, the action matrix has shape

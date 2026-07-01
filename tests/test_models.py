@@ -13,15 +13,92 @@ from gpjax.kernels.computations import DenseKernelComputation
 from gpjax.likelihoods import Gaussian
 from gpjax.mean_functions import Constant
 from gpjax.parameters import Real
+from typing_extensions import override
 
 import cagpjax
 from cagpjax.computations import LazyKernelComputation
 from cagpjax.distributions import GaussianDistribution
 from cagpjax.models import ComputationAwareGP
-from cagpjax.policies import BlockSparsePolicy, LanczosPolicy
+from cagpjax.operators import LazyKernel
+from cagpjax.policies import (
+    AbstractBatchLinearSolverPolicy,
+    BlockSparsePolicy,
+    LanczosPolicy,
+)
 from cagpjax.solvers import Cholesky, PseudoInverse
 
 jax.config.update("jax_enable_x64", True)
+
+
+class CustomPolicyOperator(lineax.AbstractLinearOperator):
+    matrix: jax.Array
+
+    def __init__(self, matrix: jax.Array):
+        self.matrix = matrix
+
+    def mv(self, vector):
+        return self.matrix @ vector
+
+    def as_matrix(self):
+        return self.matrix
+
+    def transpose(self):
+        return CustomPolicyOperator(self.matrix.T)
+
+    def in_structure(self):
+        return jax.ShapeDtypeStruct((self.matrix.shape[1],), self.matrix.dtype)
+
+    def out_structure(self):
+        return jax.ShapeDtypeStruct((self.matrix.shape[0],), self.matrix.dtype)
+
+
+@lineax.is_symmetric.register(CustomPolicyOperator)
+def _is_symmetric_custom_policy_operator(_operator: CustomPolicyOperator) -> bool:
+    return False
+
+
+@lineax.is_diagonal.register(CustomPolicyOperator)
+def _is_diagonal_custom_policy_operator(_operator: CustomPolicyOperator) -> bool:
+    return False
+
+
+@lineax.is_tridiagonal.register(CustomPolicyOperator)
+def _is_tridiagonal_custom_policy_operator(_operator: CustomPolicyOperator) -> bool:
+    return False
+
+
+@lineax.is_lower_triangular.register(CustomPolicyOperator)
+def _is_lower_triangular_custom_policy_operator(
+    _operator: CustomPolicyOperator,
+) -> bool:
+    return False
+
+
+@lineax.is_upper_triangular.register(CustomPolicyOperator)
+def _is_upper_triangular_custom_policy_operator(
+    _operator: CustomPolicyOperator,
+) -> bool:
+    return False
+
+
+@lineax.is_positive_semidefinite.register(CustomPolicyOperator)
+def _is_psd_custom_policy_operator(_operator: CustomPolicyOperator) -> bool:
+    return False
+
+
+class CustomOperatorPolicy(AbstractBatchLinearSolverPolicy):
+    n_actions: int = eqx.field(static=True)
+
+    @override
+    def to_actions(self, A, *, key=None):
+        del key
+        A_structure = A.in_structure()
+        n_data = A_structure.shape[0]
+        dtype = A_structure.dtype
+        row_indices = jnp.arange(n_data, dtype=dtype)[:, None]
+        col_indices = jnp.arange(self.n_actions, dtype=dtype)[None, :]
+        matrix = jnp.where(row_indices >= col_indices, 1.0, 0.0)
+        return CustomPolicyOperator(matrix)
 
 
 class TestComputationAwareGP:
@@ -187,8 +264,8 @@ class TestComputationAwareGP:
         assert isinstance(pred, GaussianDistribution)
         assert pred.mean.shape == (n_test,)
         assert pred.mean.dtype == expected_dtype
-        assert pred.scale.shape == (n_test, n_test)
-        assert pred.scale.dtype == expected_dtype
+        assert (pred.scale.out_size(), pred.scale.in_size()) == (n_test, n_test)
+        assert pred.scale.in_structure().dtype == expected_dtype
 
     def test_predict_no_inputs(self, cagp, cagp_state, train_data, dtype):
         """Test that CAGP predict method with no inputs evaluates at training inputs."""
@@ -201,7 +278,41 @@ class TestComputationAwareGP:
 
         # Use tight tolerance for float64 where numerical precision is sufficient
         assert jnp.allclose(pred.mean, pred2.mean)
-        assert jnp.allclose(pred.scale.to_dense(), pred2.scale.to_dense(), atol=1e-7)
+        assert jnp.allclose(pred.scale.as_matrix(), pred2.scale.as_matrix(), atol=1e-7)
+
+    @pytest.mark.parametrize("policy_class", [LanczosPolicy, BlockSparsePolicy])
+    @pytest.mark.parametrize("solver_class", [Cholesky, PseudoInverse])
+    def test_init_and_predict_never_materialize_lazy_kernel(
+        self, policy_class, solver_class, monkeypatch, key=jax.random.key(7)
+    ):
+        """init/predict must never call LazyKernel.as_matrix, since doing so
+        would densify the full N x N kernel Gram matrix that
+        LazyKernelComputation exists to avoid ever forming."""
+        n_train, n_actions, dtype = 12, 4, jnp.float64
+        train_data = self.generate_dataset(n_train, (-2.0, 2.0), dtype, key)
+        test_data = self.generate_dataset(5, (-2.5, 2.5), dtype, key)
+        posterior = self.make_posterior(
+            n_train, dtype, LazyKernelComputation(batch_size=3), jnp.array
+        )
+        if policy_class is LanczosPolicy:
+            policy = policy_class(n_actions=n_actions)
+        else:
+            policy = policy_class.from_random(
+                key=key, num_datapoints=n_train, n_actions=n_actions, dtype=dtype
+            )
+        solver = solver_class(1e-6) if solver_class is Cholesky else solver_class()
+        cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
+
+        def _raise(self):
+            raise AssertionError("LazyKernel.as_matrix was called")
+
+        monkeypatch.setattr(LazyKernel, "as_matrix", _raise)
+
+        assert test_data.X is not None
+        test_x = jnp.asarray(test_data.X)
+        state = cagp.init(train_data, key=key)
+        cagp.predict(state, test_x)
+        cagp.predict(state)
 
     def test_predict_exact_when_n_actions_equals_n(
         self,
@@ -227,11 +338,11 @@ class TestComputationAwareGP:
         pred_exact = posterior_eager.predict(x_test, train_data)
 
         assert pred.mean.shape == pred_exact.mean.shape
-        assert pred.scale.shape[0] == pred_exact.scale.out_size()
-        assert pred.scale.shape[1] == pred_exact.scale.in_size()
+        assert pred.scale.out_size() == pred_exact.scale.out_size()
+        assert pred.scale.in_size() == pred_exact.scale.in_size()
         assert jnp.allclose(pred.mean, pred_exact.mean, atol=1e-4)
         assert jnp.allclose(
-            pred.scale.to_dense(), pred_exact.scale.as_matrix(), atol=1e-5
+            pred.scale.as_matrix(), pred_exact.scale.as_matrix(), atol=1e-5
         )
 
     def test_prior_kl_consistency(self, cagp, cagp_state, train_data, dtype):
@@ -252,7 +363,7 @@ class TestComputationAwareGP:
         kl_explicit = gpjax.distributions.GaussianDistribution(
             q.mean,
             lineax.MatrixLinearOperator(
-                q.scale.to_dense() + jnp.eye(q.scale.shape[0]) * jitter
+                q.scale.as_matrix() + jnp.eye(q.scale.out_size()) * jitter
             ),
         ).kl_divergence(p)
 
@@ -306,3 +417,29 @@ class TestComputationAwareGP:
         elbo_value_explicit = var_exp.sum() - kl
 
         assert jnp.allclose(elbo_value, elbo_value_explicit)
+
+    def test_custom_policy_custom_operator_core_flow(
+        self, posterior, train_data, test_data, solver, dtype
+    ):
+        """Test custom policy/custom lineax operator through init/predict/KL flow."""
+        if dtype == jnp.float32:
+            pytest.skip("Skipping float32 test due to numerical precision limitations")
+
+        assert train_data.X is not None
+        n_train = train_data.X.shape[0]
+        n_actions = min(4, n_train)
+        policy = CustomOperatorPolicy(n_actions=n_actions)
+        cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
+
+        state = cagp.init(train_data, key=jax.random.key(0))
+        row_indices = jnp.arange(n_train)[:, None]
+        col_indices = jnp.arange(n_actions)[None, :]
+        expected_actions = jnp.where(row_indices >= col_indices, 1.0, 0.0).astype(dtype)
+        assert jnp.allclose(state.actions.as_matrix(), expected_actions)
+
+        assert test_data.X is not None
+        pred = cagp.predict(state, test_data.X)
+        kl = cagp.prior_kl(state)
+        assert jnp.all(jnp.isfinite(pred.mean))
+        assert jnp.all(jnp.isfinite(pred.variance))
+        assert jnp.isfinite(kl)

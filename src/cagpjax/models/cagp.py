@@ -3,21 +3,19 @@
 from dataclasses import dataclass
 from typing import Optional
 
-import cola
 import equinox as eqx
 import jax.numpy as jnp
 import paramax
-from cola.ops import LinearOperator
 from gpjax.gps import ConjugatePosterior, Dataset
 from gpjax.mean_functions import Constant
 from jaxtyping import Array, Float, PRNGKeyArray
 from typing_extensions import Generic, TypeVar
 
 from ..distributions import GaussianDistribution
-from ..interop import lazify
-from ..linalg import congruence_transform
+from ..interop import to_lineax
+from ..linalg import apply_operator_right, congruence_transform
 from ..operators import diag_like
-from ..policies import AbstractBatchLinearSolverPolicy
+from ..policies import AbstractBatchLinearSolverPolicy, ActionOperator
 from ..solvers import AbstractLinearSolver, Cholesky
 from ..typing import ScalarFloat
 
@@ -39,8 +37,8 @@ class ComputationAwareGPState(Generic[_LinearSolverState]):
     """
 
     train_data: Dataset
-    actions: LinearOperator
-    obs_cov_proj: LinearOperator
+    actions: ActionOperator
+    obs_cov_proj: ActionOperator
     cov_prior_proj_state: _LinearSolverState
     residual_proj: Float[Array, "M"]
     repr_weights_proj: Float[Array, "M"]
@@ -101,17 +99,17 @@ class ComputationAwareGP(eqx.Module, Generic[_LinearSolverState]):
         if isinstance(prior.mean_function, Constant):
             constant = paramax.unwrap(prior.mean_function.constant)
             mean_prior = mean_prior.astype(constant.dtype)
-        cov_xx = lazify(prior.kernel.gram(x))
+        cov_xx = to_lineax(prior.kernel.gram(x))
         obs_cov = diag_like(cov_xx, paramax.unwrap(likelihood.obs_stddev) ** 2)
         cov_prior = cov_xx + obs_cov
 
         # Project quantities to subspace
-        actions = self.policy.to_actions(cov_prior, key=key)
+        actions = to_lineax(self.policy.to_actions(cov_prior, key=key))
         obs_cov_proj = congruence_transform(actions, obs_cov)
         cov_prior_proj = congruence_transform(actions, cov_prior)
         cov_prior_proj_state = self.solver.init(cov_prior_proj)
 
-        residual_proj = actions.T @ (y - mean_prior)
+        residual_proj = actions.T.mv(y - mean_prior)
         repr_weights_proj = self.solver.solve(cov_prior_proj_state, residual_proj)
 
         return ComputationAwareGPState(
@@ -151,20 +149,21 @@ class ComputationAwareGP(eqx.Module, Generic[_LinearSolverState]):
         if isinstance(prior.mean_function, Constant):
             constant = paramax.unwrap(prior.mean_function.constant)
             mean_z = mean_z.astype(constant.dtype)
-        cov_zz = lazify(prior.kernel.gram(z))
+        cov_zz = to_lineax(prior.kernel.gram(z))
         cov_zx = (
             cov_zz
             if test_inputs is None
-            else lazify(prior.kernel.cross_covariance(z, x))
+            else to_lineax(prior.kernel.cross_covariance(z, x))
         )
-        cov_zx_proj = cov_zx @ state.actions
+        cov_zx_proj = apply_operator_right(cov_zx, state.actions.as_matrix())
 
         # Posterior predictive distribution
         mean_pred = jnp.atleast_1d(mean_z + cov_zx_proj @ state.repr_weights_proj)
-        cov_pred = cov_zz - self.solver.inv_congruence_transform(
-            state.cov_prior_proj_state, cov_zx_proj.T
+        cov_pred = cov_zz - to_lineax(
+            self.solver.inv_congruence_transform(
+                state.cov_prior_proj_state, cov_zx_proj.T
+            )
         )
-        cov_pred = cola.PSD(cov_pred)
 
         return GaussianDistribution(mean_pred, cov_pred, solver=self.solver)
 

@@ -1,12 +1,11 @@
 """Lanczos-based policies."""
 
 import equinox as eqx
-from cola.ops import LinearOperator
 from jaxtyping import PRNGKeyArray
 from typing_extensions import override
 
 from ..linalg.eigh import Lanczos, eigh
-from .base import AbstractBatchLinearSolverPolicy
+from .base import AbstractBatchLinearSolverPolicy, ActionOperator
 
 
 class LanczosPolicy(AbstractBatchLinearSolverPolicy):
@@ -29,8 +28,8 @@ class LanczosPolicy(AbstractBatchLinearSolverPolicy):
 
     @override
     def to_actions(
-        self, A: LinearOperator, *, key: PRNGKeyArray | None = None
-    ) -> LinearOperator:
+        self, A: ActionOperator, *, key: PRNGKeyArray | None = None
+    ) -> ActionOperator:
         """Compute action matrix.
 
         Args:

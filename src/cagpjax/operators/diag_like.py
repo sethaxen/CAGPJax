@@ -1,26 +1,30 @@
+from typing import Any
+
 import jax.numpy as jnp
-from cola.ops import Diagonal, LinearOperator, ScalarMul
+import lineax as lx
 from jaxtyping import Array, Float
 
+from ..interop import to_lineax
 from ..typing import ScalarFloat
 
 
 def diag_like(
-    operator: LinearOperator, values: ScalarFloat | Float[Array, "N"]
-) -> Diagonal | ScalarMul:
-    """Create a diagonal operator with the same shape, dtype, and device as the operator.
+    operator: Any, values: ScalarFloat | Float[Array, "N"]
+) -> lx.DiagonalLinearOperator:
+    """Create a diagonal Lineax operator with matching structure and dtype.
 
     Args:
-        operator: Linear operator.
+        operator: Reference operator (Lineax operator or array via ``to_lineax``).
         values: Scalar for a scalar matrix or array of diagonal values for a diagonal matrix.
 
     Returns:
-            Diagonal or scalar operator.
+        ``DiagonalLinearOperator`` with shape and dtype consistent with ``operator``.
     """
-    device = operator.device
-    dtype = operator.dtype
+    op = to_lineax(operator)
+    n = op.in_size()
+    dtype = op.in_structure().dtype
     if jnp.isscalar(values):
-        return ScalarMul(values, operator.shape, dtype=dtype, device=device)
+        diagonal = jnp.full((n,), values, dtype=dtype)
     else:
-        values = values.astype(dtype).to_device(device)
-        return Diagonal(values)
+        diagonal = jnp.asarray(values, dtype=dtype)
+    return lx.DiagonalLinearOperator(diagonal)

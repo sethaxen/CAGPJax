@@ -1,12 +1,11 @@
 """Hermitian eigenvalue decomposition."""
 
-import warnings
 from functools import partial
+from typing import Any
 
-import cola
 import jax
+import lineax as lx
 import matfree.decomp
-from cola.ops import Diagonal, I_like, Identity, LinearOperator, ScalarMul
 from jax import numpy as jnp
 from jaxtyping import Array, Float, PRNGKeyArray
 from typing_extensions import NamedTuple
@@ -21,16 +20,16 @@ class EighResult(NamedTuple):
     """
 
     eigenvalues: Float[Array, "N"]
-    eigenvectors: LinearOperator
+    eigenvectors: Any
 
 
-class Eigh(cola.linalg.Algorithm):
+class Eigh:
     """
     Eigh algorithm for eigenvalue decomposition.
     """
 
 
-class Lanczos(cola.linalg.Algorithm):
+class Lanczos:
     """Lanczos algorithm for approximate partial eigenvalue decomposition.
 
     Args:
@@ -59,8 +58,8 @@ class Lanczos(cola.linalg.Algorithm):
 
 
 def eigh(
-    A: LinearOperator,
-    alg: cola.linalg.Algorithm = Eigh(),
+    A: Any,
+    alg: Any = Eigh(),
     grad_rtol: float | None = None,
 ) -> EighResult:
     """Compute the Hermitian eigenvalue decomposition of a linear operator.
@@ -90,59 +89,73 @@ def eigh(
         grad_rtol = -1.0
     elif grad_rtol < 0.0:
         raise ValueError("grad_rtol must be None or non-negative.")
-    vals, vecs = _eigh(A, alg, grad_rtol)  # pyright: ignore[reportArgumentType]
-    if vecs.shape[-1] == A.shape[-1]:
-        vecs = cola.Unitary(vecs)
-    else:
-        vecs = cola.Stiefel(vecs)
+    vals, vecs = _eigh(A, alg, grad_rtol)
     return EighResult(vals, vecs)
 
 
-@cola.dispatch(precedence=-2)
-def _eigh(A: LinearOperator, alg: cola.linalg.Algorithm, grad_rtol: float):  # pyright: ignore[reportRedeclaration]
-    warnings.warn("grad_rtol not supported for cola's eigh algorithms.")
-    return cola.linalg.eig(cola.SelfAdjoint(A), A.shape[0], which="SM", alg=alg)
+def _lineax_operator_dense_matrix_dtype(A_lx: lx.AbstractLinearOperator):
+    """Dtype that Lineax uses for a dense view of the operator (``as_matrix``).
+
+    ``lx.diagonal`` can disagree (e.g. ``IdentityLinearOperator`` uses
+    ``jnp.ones(n)`` in ``diagonal`` but ``result_type`` of ``in_structure`` in
+    ``as_matrix``). This matches ``IdentityLinearOperator.as_matrix`` in Lineax.
+    https://github.com/patrick-kidger/lineax/blob/eb8cb0d5b44d5cf14532bd26913fe726f0216eb1/lineax/_operator.py#L788-L796
+    """
+    leaves = jax.tree_util.tree_leaves(A_lx.in_structure())
+    with jax.numpy_dtype_promotion("standard"):
+        if len(leaves) == 0:
+            return jnp.float64 if jax.config.jax_enable_x64 else jnp.float32
+        return jnp.result_type(*leaves)
 
 
-@cola.dispatch(precedence=-1)
-def _eigh(A: LinearOperator, alg: Eigh, grad_rtol: float):  # pyright: ignore[reportRedeclaration]
-    vals, vecs = _eigh_safe(A.to_dense(), grad_rtol=grad_rtol)
-    return vals, cola.lazify(vecs)
+def _eigh(A: Any, alg: Any, grad_rtol: float):
+    A_lx = A if isinstance(A, lx.AbstractLinearOperator) else lx.MatrixLinearOperator(A)
+
+    if lx.is_diagonal(A_lx):
+        dtype = _lineax_operator_dense_matrix_dtype(A_lx)
+        vals = lx.diagonal(A_lx).astype(dtype)
+        vecs = lx.IdentityLinearOperator(A_lx.in_structure())
+        return vals, vecs
+
+    if isinstance(alg, Eigh):
+        vals, vecs = _eigh_safe(A_lx.as_matrix(), grad_rtol=grad_rtol)
+        return vals, lx.MatrixLinearOperator(vecs)
+
+    if isinstance(alg, Lanczos):
+        return _eigh_lanczos(A_lx, alg, grad_rtol, A)
+
+    raise ValueError(f"Unsupported algorithm: {alg}")
 
 
-@cola.dispatch(precedence=-1)
-def _eigh(A: LinearOperator, alg: Lanczos, grad_rtol: float):  # pyright: ignore[reportRedeclaration]
+def _eigh_lanczos(
+    A: lx.AbstractLinearOperator, alg: Lanczos, grad_rtol: float, A_original: Any
+):
     if alg.v0 is None:
         key = jax.random.key(0) if alg.key is None else alg.key
-        v0 = jax.random.normal(key, (A.shape[0],), dtype=A.dtype)
+        v0 = jax.random.normal(key, (A.in_size(),), dtype=A.in_structure().dtype)
     else:
         v0 = alg.v0
 
-    num_matvecs = alg.max_iters if alg.max_iters is not None else A.shape[0]
+    n = A.in_size()
+    num_matvecs = n if alg.max_iters is None else min(alg.max_iters, n)
 
     # Set up Lanczos algorithm
     tridiag_sym = matfree.decomp.tridiag_sym(
         num_matvecs, materialize=True, reortho="full"
     )
 
-    # Define matrix-vector product
     def matvec(v):
-        return (A @ v).astype(A.dtype)
+        return A.mv(v)
 
     # Tridiagonalize the matrix using the Lanczos algorithm
     Q, H, *_ = tridiag_sym(matvec, v0)
 
     # Diagonalize the tridiagonal matrix
     vals, vecs = _eigh_safe(H, grad_rtol=grad_rtol)
-    vecs = Q @ vecs
-    return vals, cola.lazify(vecs)
-
-
-@cola.dispatch
-def _eigh(
-    A: ScalarMul | Diagonal | Identity, alg: cola.linalg.Algorithm, grad_rtol: float
-):
-    return cola.linalg.diag(A), I_like(A)
+    # matfree stacks Lanczos vectors along axis 0, so Q has shape
+    # (num_matvecs, n); transpose to get the (n, num_matvecs) eigenvector matrix.
+    vecs = Q.T @ vecs
+    return vals, lx.MatrixLinearOperator(vecs)
 
 
 # Eigh with custom vjp to expand its support to (almost-)degenerate matrices.
