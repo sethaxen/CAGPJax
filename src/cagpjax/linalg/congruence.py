@@ -7,6 +7,7 @@ import lineax as lx
 from jaxtyping import Array, Float
 
 from ..operators import BlockDiagonalSparse
+from .operator_matrix import apply_operator_right
 
 
 def _block_diagonal_sparse_congruence_diagonal(
@@ -41,8 +42,7 @@ def congruence_transform(A: Any, B: Any) -> Any:
     if isinstance(B, lx.AbstractLinearOperator) and not isinstance(
         A, lx.AbstractLinearOperator
     ):
-        # TODO: batch multiple vectors instead of materializing
-        return A.T @ (B.as_matrix() @ A)
+        return A.T @ apply_operator_right(B, A)
     if (
         isinstance(A, lx.AbstractLinearOperator)
         and isinstance(B, lx.AbstractLinearOperator)
@@ -59,5 +59,6 @@ def congruence_transform(A: Any, B: Any) -> Any:
             )
             return lx.DiagonalLinearOperator(diag)
     if isinstance(A, lx.AbstractLinearOperator):
-        return A.transpose() @ (B_lx @ A)
+        A_dense = A.as_matrix()
+        return lx.MatrixLinearOperator(A_dense.T @ apply_operator_right(B_lx, A_dense))
     return A.T @ (B @ A)

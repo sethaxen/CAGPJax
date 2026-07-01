@@ -13,7 +13,7 @@ from typing_extensions import Generic, TypeVar
 
 from ..distributions import GaussianDistribution
 from ..interop import lazify
-from ..linalg import congruence_transform
+from ..linalg import apply_operator_right, congruence_transform
 from ..operators import diag_like
 from ..policies import AbstractBatchLinearSolverPolicy, ActionOperator
 from ..solvers import AbstractLinearSolver, Cholesky
@@ -155,12 +155,14 @@ class ComputationAwareGP(eqx.Module, Generic[_LinearSolverState]):
             if test_inputs is None
             else lazify(prior.kernel.cross_covariance(z, x))
         )
-        cov_zx_proj = cov_zx @ state.actions
+        cov_zx_proj = apply_operator_right(cov_zx, state.actions.as_matrix())
 
         # Posterior predictive distribution
         mean_pred = jnp.atleast_1d(mean_z + cov_zx_proj @ state.repr_weights_proj)
-        cov_pred = cov_zz - self.solver.inv_congruence_transform(
-            state.cov_prior_proj_state, cov_zx_proj.T
+        cov_pred = cov_zz - lazify(
+            self.solver.inv_congruence_transform(
+                state.cov_prior_proj_state, cov_zx_proj.T
+            )
         )
         cov_pred = lazify(cov_pred)
 

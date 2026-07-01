@@ -19,6 +19,7 @@ import cagpjax
 from cagpjax.computations import LazyKernelComputation
 from cagpjax.distributions import GaussianDistribution
 from cagpjax.models import ComputationAwareGP
+from cagpjax.operators import LazyKernel
 from cagpjax.policies import (
     AbstractBatchLinearSolverPolicy,
     BlockSparsePolicy,
@@ -278,6 +279,40 @@ class TestComputationAwareGP:
         # Use tight tolerance for float64 where numerical precision is sufficient
         assert jnp.allclose(pred.mean, pred2.mean)
         assert jnp.allclose(pred.scale.to_dense(), pred2.scale.to_dense(), atol=1e-7)
+
+    @pytest.mark.parametrize("policy_class", [LanczosPolicy, BlockSparsePolicy])
+    @pytest.mark.parametrize("solver_class", [Cholesky, PseudoInverse])
+    def test_init_and_predict_never_materialize_lazy_kernel(
+        self, policy_class, solver_class, monkeypatch, key=jax.random.key(7)
+    ):
+        """init/predict must never call LazyKernel.as_matrix, since doing so
+        would densify the full N x N kernel Gram matrix that
+        LazyKernelComputation exists to avoid ever forming."""
+        n_train, n_actions, dtype = 12, 4, jnp.float64
+        train_data = self.generate_dataset(n_train, (-2.0, 2.0), dtype, key)
+        test_data = self.generate_dataset(5, (-2.5, 2.5), dtype, key)
+        posterior = self.make_posterior(
+            n_train, dtype, LazyKernelComputation(batch_size=3), jnp.array
+        )
+        if policy_class is LanczosPolicy:
+            policy = policy_class(n_actions=n_actions)
+        else:
+            policy = policy_class.from_random(
+                key=key, num_datapoints=n_train, n_actions=n_actions, dtype=dtype
+            )
+        solver = solver_class(1e-6) if solver_class is Cholesky else solver_class()
+        cagp = ComputationAwareGP(posterior=posterior, policy=policy, solver=solver)
+
+        def _raise(self):
+            raise AssertionError("LazyKernel.as_matrix was called")
+
+        monkeypatch.setattr(LazyKernel, "as_matrix", _raise)
+
+        assert test_data.X is not None
+        test_x = jnp.asarray(test_data.X)
+        state = cagp.init(train_data, key=key)
+        cagp.predict(state, test_x)
+        cagp.predict(state)
 
     def test_predict_exact_when_n_actions_equals_n(
         self,
