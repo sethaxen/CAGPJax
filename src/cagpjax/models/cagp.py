@@ -109,7 +109,7 @@ class ComputationAwareGP(eqx.Module, Generic[_LinearSolverState]):
         cov_prior_proj = congruence_transform(actions, cov_prior)
         cov_prior_proj_state = self.solver.init(cov_prior_proj)
 
-        residual_proj = actions.transpose().mv(y - mean_prior)
+        residual_proj = actions.T.mv(y - mean_prior)
         repr_weights_proj = self.solver.solve(cov_prior_proj_state, residual_proj)
 
         return ComputationAwareGPState(

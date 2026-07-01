@@ -50,7 +50,5 @@ def apply_operator_left(B: Float[Array, "k n"], A: Any) -> Float[Array, "k m"]:
         B: Dense array, the (thin) left operand.
         A: Linear operator or array, the (potentially large) right operand.
     """
-    A_T = (
-        A.transpose() if isinstance(A, lx.AbstractLinearOperator) else jnp.asarray(A).T
-    )
+    A_T = A.T if isinstance(A, lx.AbstractLinearOperator) else jnp.asarray(A).T
     return apply_operator_right(A_T, jnp.asarray(B).T).T
