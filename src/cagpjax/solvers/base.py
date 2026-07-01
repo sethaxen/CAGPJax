@@ -5,21 +5,11 @@ from typing import Any
 
 import equinox as eqx
 from jaxtyping import Array, Float
-from typing_extensions import Generic, Protocol, TypeAlias, TypeVar, runtime_checkable
+from typing_extensions import Generic, TypeAlias, TypeVar
 
 from ..typing import ScalarFloat
 
 _LinearSolverState = TypeVar("_LinearSolverState")
-
-
-@runtime_checkable
-class SupportsDenseOperator(Protocol):
-    """Protocol for operator objects with dense materialization."""
-
-    shape: tuple[int, int]
-    dtype: Any
-
-    def to_dense(self) -> Any: ...
 
 
 LinearOperatorLike: TypeAlias = Any

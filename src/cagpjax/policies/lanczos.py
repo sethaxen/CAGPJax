@@ -4,7 +4,6 @@ import equinox as eqx
 from jaxtyping import PRNGKeyArray
 from typing_extensions import override
 
-from ..interop import lazify
 from ..linalg.eigh import Lanczos, eigh
 from .base import AbstractBatchLinearSolverPolicy, ActionOperator
 
@@ -41,6 +40,6 @@ class LanczosPolicy(AbstractBatchLinearSolverPolicy):
             Linear operator containing the Lanczos vectors as columns.
         """
         vecs = eigh(
-            lazify(A), alg=Lanczos(self.n_actions, key=key), grad_rtol=self.grad_rtol
+            A, alg=Lanczos(self.n_actions, key=key), grad_rtol=self.grad_rtol
         ).eigenvectors
         return vecs

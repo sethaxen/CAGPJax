@@ -7,10 +7,10 @@ from jax import numpy as jnp
 from jaxtyping import Array, Bool, Float
 from typing_extensions import override
 
-from ..interop import lazify, to_lineax
+from ..interop import to_lineax
 from ..linalg.eigh import Eigh, EighResult, eigh
 from ..typing import ScalarFloat
-from .base import AbstractLinearSolver, LinearOperatorLike, SupportsDenseOperator
+from .base import AbstractLinearSolver, LinearOperatorLike
 
 
 class PseudoInverseState(NamedTuple):
@@ -64,10 +64,6 @@ class PseudoInverse(AbstractLinearSolver[PseudoInverseState]):
     def _to_dense_matrix(A: Any) -> Float[Array, "N M"]:
         if isinstance(A, lx.AbstractLinearOperator):
             return A.as_matrix()
-        if hasattr(A, "to_dense"):
-            return jnp.asarray(A.to_dense())
-        if hasattr(A, "as_matrix"):
-            return jnp.asarray(A.as_matrix())
         return jnp.asarray(A)
 
     @override
@@ -131,18 +127,14 @@ class PseudoInverse(AbstractLinearSolver[PseudoInverseState]):
         self, state: PseudoInverseState, B: LinearOperatorLike | Float[Array, "K N"]
     ) -> LinearOperatorLike | Float[Array, "K K"]:
         eigenvectors = self._to_dense_matrix(state.eigh_result.eigenvectors)
-        B_is_operator = (
-            isinstance(B, lx.AbstractLinearOperator)
-            or isinstance(B, SupportsDenseOperator)
-            or hasattr(B, "as_matrix")
-        )
+        B_is_operator = isinstance(B, lx.AbstractLinearOperator)
         B_mat = self._to_dense_matrix(B) if B_is_operator else jnp.asarray(B)
         z = eigenvectors.T @ B_mat
         z_weighted = (
             state.eigvals_inv * z if z.ndim == 1 else state.eigvals_inv[:, None] * z
         )
         result = z.T @ z_weighted
-        return lazify(result) if B_is_operator else result
+        return lx.MatrixLinearOperator(result) if B_is_operator else result
 
     @override
     def trace_solve(

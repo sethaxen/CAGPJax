@@ -6,10 +6,9 @@ import lineax as lx
 from jaxtyping import Array, Float
 from typing_extensions import TypeAlias, override
 
-from ..interop import lazify
 from ..linalg import lower_cholesky
 from ..typing import ScalarFloat
-from .base import AbstractLinearSolver, LinearOperatorLike, SupportsDenseOperator
+from .base import AbstractLinearSolver, LinearOperatorLike
 
 CholeskyState: TypeAlias = LinearOperatorLike
 
@@ -37,10 +36,6 @@ class Cholesky(AbstractLinearSolver[CholeskyState]):
     def _to_dense_matrix(A):
         if isinstance(A, lx.AbstractLinearOperator):
             return A.as_matrix()
-        if hasattr(A, "to_dense"):
-            return jnp.asarray(A.to_dense())
-        if hasattr(A, "as_matrix"):
-            return jnp.asarray(A.as_matrix())
         return jnp.asarray(A)
 
     @override
@@ -71,15 +66,11 @@ class Cholesky(AbstractLinearSolver[CholeskyState]):
         self, state: CholeskyState, B: LinearOperatorLike | Float[Array, "K N"]
     ) -> LinearOperatorLike | Float[Array, "K K"]:
         L = self._to_dense_matrix(state)
-        B_is_operator = (
-            isinstance(B, lx.AbstractLinearOperator)
-            or isinstance(B, SupportsDenseOperator)
-            or hasattr(B, "as_matrix")
-        )
+        B_is_operator = isinstance(B, lx.AbstractLinearOperator)
         B_mat = self._to_dense_matrix(B) if B_is_operator else B
         Y = jnp.linalg.solve(L, B_mat)
         result = Y.T @ Y
-        return lazify(result) if B_is_operator else result
+        return lx.MatrixLinearOperator(result) if B_is_operator else result
 
     @override
     def trace_solve(

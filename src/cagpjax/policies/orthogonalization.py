@@ -4,7 +4,6 @@ import lineax as lx
 from jaxtyping import PRNGKeyArray
 from typing_extensions import override
 
-from ..interop import lazify
 from ..linalg import OrthogonalizationMethod, orthogonalize
 from ..operators import BlockDiagonalSparse
 from ..policies.base import AbstractBatchLinearSolverPolicy, ActionOperator
@@ -54,4 +53,4 @@ class OrthogonalizationPolicy(AbstractBatchLinearSolverPolicy):
         ortho_actions = orthogonalize(op, method=self.method, n_reortho=self.n_reortho)
         if isinstance(ortho_actions, lx.AbstractLinearOperator):
             return ortho_actions
-        return lazify(ortho_actions)
+        return lx.MatrixLinearOperator(jnp.asarray(ortho_actions))
