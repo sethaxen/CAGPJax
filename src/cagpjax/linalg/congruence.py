@@ -6,7 +6,6 @@ import jax.numpy as jnp
 import lineax as lx
 from jaxtyping import Array, Float
 
-from ..interop import to_lineax
 from ..operators import BlockDiagonalSparse
 
 
@@ -39,25 +38,20 @@ def congruence_transform(A: Any, B: Any) -> Any:
         A: Linear operator or array to be applied.
         B: Square linear operator or array to be transformed.
     """
-    A_lx = (
-        to_lineax(A)
-        if (isinstance(A, lx.AbstractLinearOperator) or hasattr(A, "to_dense"))
-        else None
-    )
-    B_lx = (
-        to_lineax(B)
-        if (isinstance(B, lx.AbstractLinearOperator) or hasattr(B, "to_dense"))
-        else None
-    )
-    if (
-        A_lx is not None
-        and B_lx is not None
-        and lx.is_diagonal(A_lx)
-        and lx.is_diagonal(B_lx)
+    if isinstance(B, lx.AbstractLinearOperator) and not isinstance(
+        A, lx.AbstractLinearOperator
     ):
-        return lx.DiagonalLinearOperator(lx.diagonal(A_lx) ** 2 * lx.diagonal(B_lx))
+        # TODO: batch multiple vectors instead of materializing
+        return A.T @ (B.as_matrix() @ A)
+    if (
+        isinstance(A, lx.AbstractLinearOperator)
+        and isinstance(B, lx.AbstractLinearOperator)
+        and lx.is_diagonal(A)
+        and lx.is_diagonal(B)
+    ):
+        return lx.DiagonalLinearOperator(lx.diagonal(A) ** 2 * lx.diagonal(B))
+    B_lx = B if isinstance(B, lx.AbstractLinearOperator) else lx.MatrixLinearOperator(B)
     if isinstance(A, BlockDiagonalSparse):
-        B_lx = to_lineax(B)
         if lx.is_diagonal(B_lx):
             diagonal_values = lx.diagonal(B_lx)
             diag = _block_diagonal_sparse_congruence_diagonal(
@@ -65,9 +59,5 @@ def congruence_transform(A: Any, B: Any) -> Any:
             )
             return lx.DiagonalLinearOperator(diag)
     if isinstance(A, lx.AbstractLinearOperator):
-        B_lx = to_lineax(B)
         return A.transpose() @ (B_lx @ A)
-    if isinstance(B, lx.AbstractLinearOperator):
-        A_arr = jnp.asarray(A)
-        return A_arr.T @ (B.as_matrix() @ A_arr)
     return A.T @ (B @ A)
