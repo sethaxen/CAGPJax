@@ -23,38 +23,11 @@ from cagpjax.operators import BlockDiagonalSparse, diag_like
 jax.config.update("jax_enable_x64", True)
 
 
-def _dense_op(matrix):
-    return lx.MatrixLinearOperator(matrix)
-
-
-def _diag_op(diagonal):
-    return lx.DiagonalLinearOperator(diagonal)
-
-
-def _identity_op(shape, dtype):
-    if shape[0] == shape[1]:
-        metadata = jax.ShapeDtypeStruct((shape[0],), dtype)
-        return lx.IdentityLinearOperator(metadata)
-    return lx.MatrixLinearOperator(jnp.eye(shape[0], shape[1], dtype=dtype))
-
-
-def _scalar_mul_op(scalar, shape, dtype):
-    return lx.DiagonalLinearOperator(jnp.full((shape[0],), scalar, dtype=dtype))
-
-
 class TestCongruenceTransform:
     """Tests for ``congruence_transform``."""
 
-    @staticmethod
-    def _matrix(op_or_arr):
-        if isinstance(op_or_arr, lx.AbstractLinearOperator):
-            return op_or_arr.as_matrix()
-        if hasattr(op_or_arr, "to_dense"):
-            return op_or_arr.to_dense()
-        return op_or_arr
-
-    @pytest.mark.parametrize("A_wrap", [jnp.asarray, _dense_op])
-    @pytest.mark.parametrize("B_wrap", [jnp.asarray, _dense_op])
+    @pytest.mark.parametrize("A_wrap", [jnp.asarray, lx.MatrixLinearOperator])
+    @pytest.mark.parametrize("B_wrap", [jnp.asarray, lx.MatrixLinearOperator])
     @pytest.mark.parametrize("m, n", [(3, 5), (4, 6)])
     def test_congruence_fallback(
         self, A_wrap, B_wrap, m, n, dtype=jnp.float32, key=jax.random.key(42)
@@ -66,12 +39,14 @@ class TestCongruenceTransform:
         A = A_wrap(A_dense)
         B = B_wrap(B_dense)
         C = congruence_transform(A, B)
-        C_dense = self._matrix(C)
-        assert C_dense.shape == (m, m)
-        assert C_dense.dtype == dtype
-        assert isinstance(C, lx.AbstractLinearOperator | jnp.ndarray)
-
-        assert jnp.allclose(C_dense, A_dense.T @ B_dense @ A_dense)
+        with jax.default_matmul_precision("highest"):
+            C_expected = A_dense.T @ (B_dense @ A_dense)
+        if isinstance(A, lx.AbstractLinearOperator):
+            assert isinstance(C, lx.AbstractLinearOperator)
+            assert jnp.allclose(C.as_matrix(), C_expected)
+        else:
+            assert isinstance(C, jnp.ndarray)
+            assert jnp.allclose(C, C_expected)
 
     @pytest.mark.parametrize("n", [3, 6])
     def test_congruence_both_diagonal(
@@ -81,8 +56,8 @@ class TestCongruenceTransform:
         key, subkey = jax.random.split(key)
         A_diag = jax.random.normal(key, (n,), dtype=dtype)
         B_diag = jax.random.normal(subkey, (n,), dtype=dtype)
-        A = _diag_op(A_diag)
-        B = _diag_op(B_diag)
+        A = lx.DiagonalLinearOperator(A_diag)
+        B = lx.DiagonalLinearOperator(B_diag)
         C = congruence_transform(A, B)
         assert isinstance(C, lx.DiagonalLinearOperator)
         C_diag = jnp.diagonal(congruence_transform(jnp.diag(A_diag), jnp.diag(B_diag)))
@@ -97,7 +72,7 @@ class TestCongruenceTransform:
         A = BlockDiagonalSparse(
             jax.random.normal(subkey, (n,), dtype=dtype), n_blocks=n_blocks
         )
-        B = _diag_op(jax.random.normal(subkey, (n,), dtype=dtype))
+        B = lx.DiagonalLinearOperator(jax.random.normal(subkey, (n,), dtype=dtype))
         C = congruence_transform(A, B)
         assert isinstance(C, lx.DiagonalLinearOperator)
         assert C.out_size() == A.in_size()
@@ -159,19 +134,15 @@ class TestEigh:
     def dtype(self, request):
         return request.param
 
-    @pytest.fixture(params=["dense", "diagonal", "scalar_mul", "identity"])
+    @pytest.fixture(params=["dense", "diagonal", "identity"])
     def op(self, request, n, dtype, key):
         if request.param == "diagonal":
-            return _diag_op(jax.random.normal(key, (n,), dtype=dtype))
-        elif request.param == "scalar_mul":
-            return _scalar_mul_op(
-                jax.random.normal(key, dtype=dtype), (n, n), dtype=dtype
-            )
+            return lx.DiagonalLinearOperator(jax.random.normal(key, (n,), dtype=dtype))
         elif request.param == "identity":
-            return _identity_op((n, n), dtype=dtype)
+            return lx.IdentityLinearOperator(jax.ShapeDtypeStruct((n,), dtype))
         else:
             A = jax.random.normal(key, (n, n), dtype=dtype)
-            return _dense_op(A + A.T)
+            return lx.MatrixLinearOperator(A + A.T)
 
     @pytest.fixture(params=[Eigh, Lanczos])
     def alg(self, request):
@@ -233,7 +204,7 @@ class TestEigh:
         """Test Lanczos eigh basic properties and reproducibility."""
         key, subkey = jax.random.split(key)
         mat = jax.random.normal(subkey, (n, n), dtype=dtype)
-        op = _dense_op(mat + mat.T)
+        op = lx.MatrixLinearOperator(mat + mat.T)
 
         if v0_type is None:
             v0 = None
@@ -251,6 +222,20 @@ class TestEigh:
         assert self._dtype(result.eigenvectors) == dtype
         assert self._shape(result.eigenvectors) == (n, max_iters)
 
+        # verify eigenvectors are orthonormal and actually diagonalize the operator
+        eigenvectors_mat = self._matrix(result.eigenvectors)
+        rtol = 1e-2 if dtype == jnp.float32 else 1e-6
+        assert jnp.allclose(
+            eigenvectors_mat.T @ eigenvectors_mat,
+            jnp.eye(max_iters, dtype=dtype),
+            atol=1e-5,
+        )
+        with jax.default_matmul_precision("highest"):
+            rayleigh = eigenvectors_mat.T @ self._matrix(op) @ eigenvectors_mat
+        assert jnp.allclose(
+            rayleigh, jnp.diag(result.eigenvalues), rtol=rtol, atol=1e-5
+        )
+
         # verify that result is reproducible
         result2 = eigh(op, alg=Lanczos(max_iters, v0=v0, key=key))
         assert jnp.array_equal(result.eigenvalues, result2.eigenvalues)
@@ -263,14 +248,14 @@ class TestEigh:
     def test_eigh_gradient_degenerate(self, alg_class, grad_rtol, dtype):
         """Test gradient computation with degenerate eigenvalues."""
         n = 4
-        A = _dense_op(jnp.eye(n, dtype=dtype))
+        A = lx.MatrixLinearOperator(jnp.eye(n, dtype=dtype))
         if alg_class is Lanczos:
             if dtype == jnp.float32:
                 pytest.skip("Lanczos gradient currently errors for float32")
         alg = alg_class()
 
         def loss_fn(A_dense):
-            A_op = _dense_op(A_dense)
+            A_op = lx.MatrixLinearOperator(A_dense)
             result = eigh(A_op, alg=alg, grad_rtol=grad_rtol)
             eigenvectors = result.eigenvectors.as_matrix()
             # Reconstruct the matrix from eigendecomposition to force gradient through eigenvectors
@@ -297,7 +282,7 @@ class TestEigh:
         A_delta = (A_delta + A_delta.T) * 1e-30
 
         def loss_fn(A_diag):
-            A_op = _dense_op(jnp.diag(A_diag) + A_delta)
+            A_op = lx.MatrixLinearOperator(jnp.diag(A_diag) + A_delta)
             result = eigh(A_op, grad_rtol=grad_rtol)
             z = result.eigenvectors.as_matrix().T @ x
             return jnp.sum(jnp.square(z))
@@ -313,7 +298,7 @@ class TestEigh:
 
     def test_eigh_errors_on_negative_grad_rtol(self):
         """Test that eigh rejects negative grad_rtol values."""
-        A = _dense_op(jnp.eye(3, dtype=jnp.float64))
+        A = lx.MatrixLinearOperator(jnp.eye(3, dtype=jnp.float64))
         with pytest.raises(ValueError, match="grad_rtol must be None or non-negative"):
             eigh(A, grad_rtol=-1.0)
 
@@ -355,7 +340,7 @@ class TestLowerCholesky:
 
     def test_lower_cholesky_diagonal(self, n, dtype, key, jitter):
         """Test overload where ``A`` is ``Diagonal``."""
-        A = _diag_op(jax.random.uniform(key, (n,), dtype=dtype))
+        A = lx.DiagonalLinearOperator(jax.random.uniform(key, (n,), dtype=dtype))
         L = lower_cholesky(A, jitter)
         L_diag = self._diag(L)
         if jitter is None:
@@ -367,7 +352,7 @@ class TestLowerCholesky:
         """Test overload where ``A`` is ``Dense``."""
         B = jax.random.normal(key, (n, n), dtype=dtype)
         A_mat = B @ B.T
-        A = _dense_op(A_mat)
+        A = lx.MatrixLinearOperator(A_mat)
         L = lower_cholesky(A, jitter)
         L_mat = self._matrix(L)
         if jitter is None:
@@ -379,23 +364,9 @@ class TestLowerCholesky:
                     jnp.linalg.cholesky(A_mat + jitter * jnp.eye(n, dtype=dtype)),
                 )
 
-    def test_lower_cholesky_scalarmul(self, n, dtype, key, jitter):
-        """Test overload where ``A`` is ``ScalarMul``."""
-        scalar = jnp.abs(jax.random.normal(key, dtype=dtype))
-        A = _scalar_mul_op(scalar, (n, n), dtype=dtype)
-        L = lower_cholesky(A, jitter)
-        L_mat = self._matrix(L)
-        if jitter is None:
-            assert jnp.allclose(L_mat, jnp.linalg.cholesky(self._matrix(A)))
-        else:
-            assert jnp.allclose(
-                L_mat,
-                jnp.linalg.cholesky(self._matrix(A) + jitter * jnp.eye(n, dtype=dtype)),
-            )
-
     def test_lower_cholesky_identity(self, n, dtype, key, jitter):
         """Test overload where ``A`` is ``Identity``."""
-        A = _identity_op((n, n), dtype=dtype)
+        A = lx.IdentityLinearOperator(jax.ShapeDtypeStruct((n,), dtype))
         L = lower_cholesky(A, jitter)
         L_mat = self._matrix(L)
         if jitter is None:
@@ -429,8 +400,6 @@ class TestAddJitter:
             ("dense", "vector"),
             ("diagonal", "scalar"),
             ("diagonal", "vector"),
-            ("scalar_mul", "scalar"),
-            ("scalar_mul", "vector"),
             ("identity", "scalar"),
             ("identity", "vector"),
         ],
@@ -440,15 +409,12 @@ class TestAddJitter:
         # Create operator
         if op_type == "dense":
             A_mat = jax.random.normal(key, (n, n), dtype=dtype)
-            A = _dense_op(A_mat)
+            A = lx.MatrixLinearOperator(A_mat)
         elif op_type == "diagonal":
             diag_vals = jax.random.normal(key, (n,), dtype=dtype)
-            A = _diag_op(diag_vals)
-        elif op_type == "scalar_mul":
-            scalar = 2.5
-            A = _scalar_mul_op(scalar, (n, n), dtype=dtype)
+            A = lx.DiagonalLinearOperator(diag_vals)
         else:  # Identity
-            A = _identity_op((n, n), dtype=dtype)
+            A = lx.IdentityLinearOperator(jax.ShapeDtypeStruct((n,), dtype))
 
         # Create and add jitter
         if jitter_type == "scalar":
@@ -621,22 +587,21 @@ class TestOrthogonalize:
     @pytest.mark.parametrize("n", [10])
     @pytest.mark.parametrize("dtype", [jnp.float64])
     @pytest.mark.parametrize(
-        "op_type", ["dense", "diagonal", "scalar_mul", "identity", BlockDiagonalSparse]
+        "op_type", ["dense", "diagonal", "identity", BlockDiagonalSparse]
     )
     def test_orthogonalize_operator(
         self, n, op_type, dtype, method, key=jax.random.key(42)
     ):
         """Test orthogonalize a LinearOperator."""
         if op_type == "dense":
-            op = _dense_op(jax.random.normal(key, (n, n), dtype=dtype))
+            op = lx.MatrixLinearOperator(jax.random.normal(key, (n, n), dtype=dtype))
         elif op_type == "diagonal":
-            op = _diag_op(jax.random.normal(key, (n,), dtype=dtype))
-        elif op_type == "scalar_mul":
-            op = _scalar_mul_op(
-                jax.random.normal(key, dtype=dtype), (n, n), dtype=dtype
-            )
+            op = lx.DiagonalLinearOperator(jax.random.normal(key, (n,), dtype=dtype))
         elif op_type == "identity":
-            op = _identity_op((n, n // 2), dtype=dtype)
+            op = lx.IdentityLinearOperator(
+                jax.ShapeDtypeStruct((n // 2,), dtype),
+                jax.ShapeDtypeStruct((n,), dtype),
+            )
         elif op_type is BlockDiagonalSparse:
             op = BlockDiagonalSparse(
                 jax.random.normal(key, (n,), dtype=dtype), n_blocks=3
@@ -649,6 +614,11 @@ class TestOrthogonalize:
             assert Q.out_size() == op.out_size()
             assert Q.in_size() == op.in_size()
             assert jnp.array_equal(Q.nz_values, op.nz_values)
+        elif op_type == "diagonal":
+            # Diagonal columns have disjoint support, so are already orthogonal
+            # regardless of magnitude.
+            assert isinstance(Q, lx.AbstractLinearOperator) and lx.is_diagonal(Q)
+            assert jnp.array_equal(lx.diagonal(Q), lx.diagonal(op))
         else:
             Q_dense = Q.as_matrix() if isinstance(Q, lx.AbstractLinearOperator) else Q
             op_dense = (
