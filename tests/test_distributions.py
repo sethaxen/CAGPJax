@@ -10,7 +10,7 @@ from numpyro.distributions import MultivariateNormal
 
 import cagpjax
 from cagpjax.distributions import GaussianDistribution
-from cagpjax.interop import lazify, to_lineax
+from cagpjax.interop import to_lineax
 from cagpjax.solvers import Cholesky, PseudoInverse
 
 jax.config.update("jax_enable_x64", True)
@@ -23,8 +23,6 @@ def _diagonal(op):
 def _matrix(op):
     if hasattr(op, "as_matrix"):
         return op.as_matrix()
-    if hasattr(op, "to_dense"):
-        return op.to_dense()
     return jnp.asarray(op)
 
 
@@ -46,7 +44,7 @@ class TestGaussianDistribution:
     @pytest.fixture
     def scale(self, n, dtype, key=jax.random.key(98)):
         A = jax.random.normal(key, (n, n), dtype=dtype)
-        return lazify(A @ A.T)
+        return to_lineax(A @ A.T)
 
     @pytest.fixture(params=[Cholesky, PseudoInverse])
     def solver(self, request):

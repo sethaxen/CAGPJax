@@ -6,7 +6,7 @@ import jax.test_util
 import lineax as lx
 import pytest
 
-from cagpjax.interop import lazify, to_lineax
+from cagpjax.interop import to_lineax
 from cagpjax.linalg import (
     Eigh,
     Lanczos,
@@ -179,8 +179,6 @@ class TestEigh:
     def _matrix(op_or_arr):
         if isinstance(op_or_arr, lx.AbstractLinearOperator):
             return op_or_arr.as_matrix()
-        if hasattr(op_or_arr, "to_dense"):
-            return op_or_arr.to_dense()
         return op_or_arr
 
     @staticmethod
@@ -383,8 +381,6 @@ class TestLowerCholesky:
     def _matrix(op_or_arr):
         if isinstance(op_or_arr, lx.AbstractLinearOperator):
             return op_or_arr.as_matrix()
-        if hasattr(op_or_arr, "to_dense"):
-            return op_or_arr.to_dense()
         return op_or_arr
 
     @staticmethod
@@ -503,7 +499,7 @@ class TestAddJitter:
             assert A_jittered.in_structure().dtype == A.in_structure().dtype
 
         # Check correctness: compare dense representations
-        expected = lazify(to_lineax(A) + diag_like(A, jitter)).as_matrix()
+        expected = (to_lineax(A) + diag_like(A, jitter)).as_matrix()
         actual = A_jittered.as_matrix()
         assert jnp.allclose(actual, expected)
 

@@ -264,8 +264,8 @@ class TestComputationAwareGP:
         assert isinstance(pred, GaussianDistribution)
         assert pred.mean.shape == (n_test,)
         assert pred.mean.dtype == expected_dtype
-        assert pred.scale.shape == (n_test, n_test)
-        assert pred.scale.dtype == expected_dtype
+        assert (pred.scale.out_size(), pred.scale.in_size()) == (n_test, n_test)
+        assert pred.scale.in_structure().dtype == expected_dtype
 
     def test_predict_no_inputs(self, cagp, cagp_state, train_data, dtype):
         """Test that CAGP predict method with no inputs evaluates at training inputs."""
@@ -278,7 +278,7 @@ class TestComputationAwareGP:
 
         # Use tight tolerance for float64 where numerical precision is sufficient
         assert jnp.allclose(pred.mean, pred2.mean)
-        assert jnp.allclose(pred.scale.to_dense(), pred2.scale.to_dense(), atol=1e-7)
+        assert jnp.allclose(pred.scale.as_matrix(), pred2.scale.as_matrix(), atol=1e-7)
 
     @pytest.mark.parametrize("policy_class", [LanczosPolicy, BlockSparsePolicy])
     @pytest.mark.parametrize("solver_class", [Cholesky, PseudoInverse])
@@ -338,11 +338,11 @@ class TestComputationAwareGP:
         pred_exact = posterior_eager.predict(x_test, train_data)
 
         assert pred.mean.shape == pred_exact.mean.shape
-        assert pred.scale.shape[0] == pred_exact.scale.out_size()
-        assert pred.scale.shape[1] == pred_exact.scale.in_size()
+        assert pred.scale.out_size() == pred_exact.scale.out_size()
+        assert pred.scale.in_size() == pred_exact.scale.in_size()
         assert jnp.allclose(pred.mean, pred_exact.mean, atol=1e-4)
         assert jnp.allclose(
-            pred.scale.to_dense(), pred_exact.scale.as_matrix(), atol=1e-5
+            pred.scale.as_matrix(), pred_exact.scale.as_matrix(), atol=1e-5
         )
 
     def test_prior_kl_consistency(self, cagp, cagp_state, train_data, dtype):
@@ -363,7 +363,7 @@ class TestComputationAwareGP:
         kl_explicit = gpjax.distributions.GaussianDistribution(
             q.mean,
             lineax.MatrixLinearOperator(
-                q.scale.to_dense() + jnp.eye(q.scale.shape[0]) * jitter
+                q.scale.as_matrix() + jnp.eye(q.scale.out_size()) * jitter
             ),
         ).kl_divergence(p)
 

@@ -72,33 +72,16 @@ class TestInteropUtils:
     def n(self, request):
         return request.param
 
-    def test_lazify_lineax_matrix_operator(self, n, dtype, key=jax.random.key(13)):
-        matrix = jax.random.normal(key, (n, n), dtype=dtype)
-        op = lx.MatrixLinearOperator(matrix)
-        recovered = interop.lazify(op)
-        assert isinstance(recovered, lx.AbstractLinearOperator)
-        np.testing.assert_allclose(recovered.as_matrix(), matrix)
-
-    def test_lazify_generic_lineax_operator(self, n, dtype, key=jax.random.key(14)):
+    def test_to_lineax_passthrough_generic_lineax_operator(
+        self, n, dtype, key=jax.random.key(14)
+    ):
         matrix = jax.random.normal(key, (n, n), dtype=dtype)
         op = lx.AddLinearOperator(
             lx.MatrixLinearOperator(matrix),
             lx.DiagonalLinearOperator(jnp.ones(n, dtype=dtype)),
         )
-        recovered = interop.lazify(op)
-        assert isinstance(recovered, lx.AbstractLinearOperator)
-        np.testing.assert_allclose(recovered.as_matrix(), op.as_matrix())
-
-    def test_lazify_custom_lineax_operator(self, n, dtype, key=jax.random.key(20)):
-        matrix = jax.random.normal(key, (n, n), dtype=dtype)
-        op = CustomMatrixOperator(matrix)
-        recovered = interop.lazify(op)
-        np.testing.assert_allclose(recovered.as_matrix(), matrix)
-
-    def test_lazify_raw_array_fallback(self, n, dtype, key=jax.random.key(15)):
-        matrix = jax.random.normal(key, (n, n), dtype=dtype)
-        recovered = interop.lazify(matrix)
-        np.testing.assert_allclose(recovered.as_matrix(), matrix)
+        converted = interop.to_lineax(op)
+        assert converted is op
 
     def test_to_lineax_passthrough_existing_lineax_operator(
         self, n, dtype, key=jax.random.key(16)

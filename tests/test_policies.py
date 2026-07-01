@@ -10,7 +10,7 @@ from gpjax.dataset import Dataset
 from gpjax.kernels.computations import DenseKernelComputation
 from gpjax.parameters import Real
 
-from cagpjax.interop import lazify
+from cagpjax.interop import to_lineax
 from cagpjax.linalg import OrthogonalizationMethod
 from cagpjax.operators import BlockDiagonalSparse
 from cagpjax.policies import (
@@ -352,7 +352,7 @@ class TestPseudoInputPolicy:
         """Test actions are the cross-covariance between the training inputs and pseudo-inputs."""
         train_inputs, pseudo_inputs = inputs
         policy = PseudoInputPolicy(pseudo_inputs, train_inputs, kernel)
-        op = lazify(kernel.gram(train_inputs))
+        op = to_lineax(kernel.gram(train_inputs))
         expected = kernel.cross_covariance(train_inputs, pseudo_inputs)
         actions = policy.to_actions(op)
         assert isinstance(actions, lx.MatrixLinearOperator)
@@ -363,7 +363,7 @@ class TestPseudoInputPolicy:
         """Test to_actions consistency and return type."""
         train_inputs, pseudo_inputs = inputs
         policy = PseudoInputPolicy(pseudo_inputs, train_inputs, kernel)
-        op = lazify(kernel.gram(train_inputs))
+        op = to_lineax(kernel.gram(train_inputs))
         _test_batch_policy_actions_consistency(policy, op)
 
     def test_errors_when_dataset_has_no_inputs(self):
@@ -460,7 +460,7 @@ class TestOrthogonalizationPolicy:
             base_policy=base_policy, method=method, n_reortho=n_reortho
         )
 
-        op = lazify(kernel.gram(train_inputs))
+        op = to_lineax(kernel.gram(train_inputs))
         _test_batch_policy_actions_consistency(policy, op)
 
         # Verify orthogonality is maintained despite rank deficiency
