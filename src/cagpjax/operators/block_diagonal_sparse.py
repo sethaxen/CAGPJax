@@ -167,15 +167,23 @@ def _(_operator) -> bool:
 
 
 @lx.is_lower_triangular.register(BlockDiagonalSparse)
+def _(_operator) -> bool:
+    return True
+
+
 @lx.is_lower_triangular.register(_BlockDiagonalSparseTranspose)
 def _(_operator) -> bool:
     return False
 
 
 @lx.is_upper_triangular.register(BlockDiagonalSparse)
-@lx.is_upper_triangular.register(_BlockDiagonalSparseTranspose)
 def _(_operator) -> bool:
     return False
+
+
+@lx.is_upper_triangular.register(_BlockDiagonalSparseTranspose)
+def _(_operator) -> bool:
+    return True
 
 
 @lx.is_positive_semidefinite.register(BlockDiagonalSparse)

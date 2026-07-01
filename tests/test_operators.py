@@ -88,6 +88,23 @@ class TestBlockDiagonalSparse:
         x2 = jax.random.normal(key, (n_nz_values,), dtype=dtype)
         jax.test_util.check_grads(f2, (x2,), order=1)
 
+    def test_triangular_predicates(
+        self, shape, dtype=jnp.float64, key=jax.random.key(42)
+    ):
+        """A block's column index never exceeds any of its rows' indices, so the
+        operator is lower-trapezoidal and its transpose upper-trapezoidal."""
+        n_nz_values, n_blocks = shape
+        nz_values = jax.random.normal(key, (n_nz_values,), dtype=dtype)
+        op = BlockDiagonalSparse(nz_values, n_blocks)
+
+        assert lx.is_lower_triangular(op)
+        assert not lx.is_upper_triangular(op)
+        assert not lx.is_lower_triangular(op.transpose())
+        assert lx.is_upper_triangular(op.transpose())
+
+        rows, cols = jnp.nonzero(op.as_matrix())
+        assert jnp.all(cols <= rows)
+
 
 class TestDiagLike:
     """Test cases for ``diag_like``."""
