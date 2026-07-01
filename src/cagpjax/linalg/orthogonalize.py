@@ -23,7 +23,7 @@ class OrthogonalizationMethod(Enum):
 
 
 def orthogonalize(
-    A: Float[Array, "m n"] | lx.AbstractLinearOperator | Any | BlockDiagonalSparse,
+    A: Float[Array, "m n"] | lx.AbstractLinearOperator,
     /,
     method: OrthogonalizationMethod = OrthogonalizationMethod.QR,
     n_reortho: int = 0,
@@ -49,18 +49,13 @@ def orthogonalize(
     if n_reortho < 0:
         raise ValueError("n_reortho must be non-negative")
     if isinstance(A, BlockDiagonalSparse):
-        # Already scaled-orthogonal by construction.
         return A
     if isinstance(A, lx.AbstractLinearOperator):
-        A_dense = A.as_matrix()
-        if _has_orthonormal_columns(A_dense):
+        if lx.is_diagonal(A):
             return A
-        return lx.MatrixLinearOperator(_orthogonalize_array(A_dense, method, n_reortho))
-    if hasattr(A, "to_dense"):
-        A_dense = jnp.asarray(A.to_dense())
-        if _has_orthonormal_columns(A_dense):
-            return A
-        return lx.MatrixLinearOperator(_orthogonalize_array(A_dense, method, n_reortho))
+        return lx.MatrixLinearOperator(
+            _orthogonalize_array(A.as_matrix(), method, n_reortho)
+        )
     return _orthogonalize_array(A, method, n_reortho)
 
 
@@ -164,17 +159,3 @@ def _l2_normalize(x: Float[Array, "n"], /, *, rtol: float = 0.0) -> Float[Array,
     r_cutoff = rtol * x.size
     r = jnp.linalg.norm(x)
     return jnp.asarray(jnp.where(r <= r_cutoff, jax.lax.stop_gradient(x), x / r))
-
-
-def _has_orthonormal_columns(A: Float[Array, "m n"]) -> bool:
-    """Whether columns satisfy ``A.T @ A ≈ I`` for concrete arrays."""
-    qtq = A.T @ A
-    eye = jnp.eye(A.shape[1], dtype=A.dtype)
-    is_float32 = A.dtype == jnp.float32
-    rtol = 1e-3 if is_float32 else 1e-6
-    atol = 1e-5 if is_float32 else 1e-8
-    # Under tracing the bool may be non-concrete; fall back to re-orthogonalizing.
-    try:
-        return bool(jnp.allclose(qtq, eye, rtol=rtol, atol=atol))
-    except TypeError:
-        return False
