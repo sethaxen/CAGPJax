@@ -1,6 +1,5 @@
 """Hermitian eigenvalue decomposition."""
 
-import warnings
 from functools import partial
 from typing import Any
 
@@ -10,8 +9,6 @@ import matfree.decomp
 from jax import numpy as jnp
 from jaxtyping import Array, Float, PRNGKeyArray
 from typing_extensions import NamedTuple
-
-from ..interop import lazify, to_lineax
 
 
 class EighResult(NamedTuple):
@@ -96,47 +93,38 @@ def eigh(
     return EighResult(vals, vecs)
 
 
-def _restore_operator_backend(A: Any, operator: lx.AbstractLinearOperator) -> Any:
-    if isinstance(A, lx.AbstractLinearOperator):
-        return operator
-    return lazify(operator)
+def _lineax_operator_dense_matrix_dtype(A_lx: lx.AbstractLinearOperator):
+    """Dtype that Lineax uses for a dense view of the operator (``as_matrix``).
 
-
-def _is_diagonal(operator: lx.AbstractLinearOperator) -> bool:
-    try:
-        return bool(lx.is_diagonal(operator))
-    except NotImplementedError:
-        return False
+    ``lx.diagonal`` can disagree (e.g. ``IdentityLinearOperator`` uses
+    ``jnp.ones(n)`` in ``diagonal`` but ``result_type`` of ``in_structure`` in
+    ``as_matrix``). This matches ``IdentityLinearOperator.as_matrix`` in Lineax.
+    https://github.com/patrick-kidger/lineax/blob/eb8cb0d5b44d5cf14532bd26913fe726f0216eb1/lineax/_operator.py#L788-L796
+    """
+    leaves = jax.tree_util.tree_leaves(A_lx.in_structure())
+    with jax.numpy_dtype_promotion("standard"):
+        if len(leaves) == 0:
+            return jnp.float64 if jax.config.jax_enable_x64 else jnp.float32
+        return jnp.result_type(*leaves)
 
 
 def _eigh(A: Any, alg: Any, grad_rtol: float):
-    A_lx = to_lineax(A)
+    A_lx = A if isinstance(A, lx.AbstractLinearOperator) else lx.MatrixLinearOperator(A)
 
-    if _is_diagonal(A_lx):
-        vals = lx.diagonal(A_lx).astype(A_lx.in_structure().dtype)
-        metadata = jax.ShapeDtypeStruct((A_lx.in_size(),), A_lx.in_structure().dtype)
-        vecs = lx.IdentityLinearOperator(metadata)
-        return vals, _restore_operator_backend(A, vecs)
+    if lx.is_diagonal(A_lx):
+        dtype = _lineax_operator_dense_matrix_dtype(A_lx)
+        vals = lx.diagonal(A_lx).astype(dtype)
+        vecs = lx.IdentityLinearOperator(A_lx.in_structure())
+        return vals, vecs
 
-    if isinstance(alg, Eigh) or alg.__class__.__name__ == "Eigh":
+    if isinstance(alg, Eigh):
         vals, vecs = _eigh_safe(A_lx.as_matrix(), grad_rtol=grad_rtol)
-        return vals, _restore_operator_backend(A, lx.MatrixLinearOperator(vecs))
+        return vals, lx.MatrixLinearOperator(vecs)
 
-    if isinstance(alg, Lanczos) or alg.__class__.__name__ == "Lanczos":
-        lanczos_alg = (
-            alg
-            if isinstance(alg, Lanczos)
-            else Lanczos(
-                getattr(alg, "max_iters", None),
-                v0=getattr(alg, "v0", None),
-                key=getattr(alg, "key", None),
-            )
-        )
-        return _eigh_lanczos(A_lx, lanczos_alg, grad_rtol, A)
+    if isinstance(alg, Lanczos):
+        return _eigh_lanczos(A_lx, alg, grad_rtol, A)
 
-    warnings.warn("grad_rtol not supported for non-native eigh algorithms.")
-    vals, vecs = _eigh_safe(A_lx.as_matrix(), grad_rtol=grad_rtol)
-    return vals, _restore_operator_backend(A, lx.MatrixLinearOperator(vecs))
+    raise ValueError(f"Unsupported algorithm: {alg}")
 
 
 def _eigh_lanczos(
@@ -156,9 +144,8 @@ def _eigh_lanczos(
         num_matvecs, materialize=True, reortho="full"
     )
 
-    # Define matrix-vector product
     def matvec(v):
-        return A.mv(v).astype(A.in_structure().dtype)
+        return A.mv(v)
 
     # Tridiagonalize the matrix using the Lanczos algorithm
     Q, H, *_ = tridiag_sym(matvec, v0)
@@ -168,7 +155,7 @@ def _eigh_lanczos(
     # matfree stacks Lanczos vectors along axis 0, so Q has shape
     # (num_matvecs, n); transpose to get the (n, num_matvecs) eigenvector matrix.
     vecs = Q.T @ vecs
-    return vals, _restore_operator_backend(A_original, lx.MatrixLinearOperator(vecs))
+    return vals, lx.MatrixLinearOperator(vecs)
 
 
 # Eigh with custom vjp to expand its support to (almost-)degenerate matrices.
